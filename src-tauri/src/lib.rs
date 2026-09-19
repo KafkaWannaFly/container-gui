@@ -16,9 +16,38 @@ pub struct AppState {
     pub streams: Arc<StreamRegistry>,
 }
 
+/// Configure application logging. Dev builds write to `<project>/logs` (easy
+/// to tail); release builds keep the plugin defaults (stdout + OS log dir).
+fn log_plugin() -> tauri::plugin::TauriPlugin<tauri::Wry> {
+    let builder = tauri_plugin_log::Builder::new()
+        .level(log::LevelFilter::Info)
+        .level_for("bollard", log::LevelFilter::Warn)
+        .level_for("hyper", log::LevelFilter::Warn)
+        .level_for("hyper_util", log::LevelFilter::Warn)
+        .max_file_size(5_000_000)
+        .rotation_strategy(tauri_plugin_log::RotationStrategy::KeepAll);
+
+    #[cfg(debug_assertions)]
+    let builder = {
+        use tauri_plugin_log::{Target, TargetKind};
+        builder
+            .clear_targets()
+            .target(Target::new(TargetKind::Webview))
+            .target(Target::new(TargetKind::Stdout))
+            .target(Target::new(TargetKind::Folder {
+                path: std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../logs"),
+                file_name: Some("container-gui".into()),
+            }))
+    };
+
+    builder.build()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let builder = tauri::Builder::default().plugin(tauri_plugin_opener::init());
+    let builder = tauri::Builder::default()
+        .plugin(tauri_plugin_opener::init())
+        .plugin(log_plugin());
 
     // Debug-only UI automation bridge for agents (`tauri-pilot`). The plugin
     // opens a named pipe; it is never compiled into release builds.

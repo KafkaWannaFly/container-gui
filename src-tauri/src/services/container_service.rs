@@ -242,6 +242,8 @@ pub fn spawn_log_stream(
             .build();
         let mut stream = client.logs(&id, Some(options)).boxed();
 
+        log::info!("[logs] streaming container {id} (tail {tail})");
+
         loop {
             tokio::select! {
                 _ = &mut cancel_rx => break,
@@ -264,12 +266,17 @@ pub fn spawn_log_stream(
                                 }
                             }
                         }
-                        Some(Err(_)) | None => break,
+                        Some(Err(err)) => {
+                            log::error!("[logs] stream for container {id} failed: {err}");
+                            break;
+                        }
+                        None => break,
                     }
                 }
             }
         }
 
+        log::debug!("[logs] stream for container {id} ended");
         registry.finish_logs(&id);
     });
 }

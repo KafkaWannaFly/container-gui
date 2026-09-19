@@ -42,6 +42,17 @@ impl ConnectionTarget {
     }
 }
 
+/// Strip `user:pass@` credentials so an endpoint is safe to log.
+fn redact_endpoint(endpoint: &str) -> String {
+    match endpoint.split_once("://") {
+        Some((scheme, rest)) => match rest.split_once('@') {
+            Some((_, host)) => format!("{scheme}://***@{host}"),
+            None => endpoint.to_string(),
+        },
+        None => endpoint.to_string(),
+    }
+}
+
 /// Build a target from the `ConnectionConfig` sent by the settings view.
 pub fn target_from_config(config: &ConnectionConfig) -> AppResult<ConnectionTarget> {
     let raw = config.value.trim();
@@ -117,7 +128,9 @@ pub fn connect(target: &ConnectionTarget) -> AppResult<Docker> {
         }
     }?;
 
-    Ok(docker.tap(|_| eprintln!("[docker] connection established: {endpoint}")))
+    Ok(docker.tap(|_| {
+        log::info!("[docker] connection established: {}", redact_endpoint(&endpoint))
+    }))
 }
 
 #[cfg(unix)]
@@ -285,6 +298,16 @@ mod tests {
         assert_eq!(normalize_tcp("127.0.0.1:2375"), "tcp://127.0.0.1:2375");
         assert_eq!(normalize_tcp("http://host:2375"), "tcp://host:2375");
         assert_eq!(normalize_npipe("//./pipe/docker_engine"), "npipe:////./pipe/docker_engine");
+    }
+
+    #[test]
+    fn redacts_endpoint_credentials() {
+        assert_eq!(
+            redact_endpoint("tcp://user:secret@host:2375"),
+            "tcp://***@host:2375"
+        );
+        assert_eq!(redact_endpoint("unix:///var/run/docker.sock"), "unix:///var/run/docker.sock");
+        assert_eq!(redact_endpoint("npipe:////./pipe/docker_engine"), "npipe:////./pipe/docker_engine");
     }
 
     /// Live smoke test: resolves the real endpoint, and when a daemon is

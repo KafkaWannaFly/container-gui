@@ -6,6 +6,7 @@
   "permissions": [
     "core:default",
     "opener:default",
-    "pilot:default"
+    "pilot:default",
+    "log:default"
   ]
 }
