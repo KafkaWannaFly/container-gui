@@ -1,0 +1,186 @@
+//! IPC data-transfer objects. Every struct here is serialized to the
+//! frontend and must match the Zod schemas in `src/types/docker.ts`
+//! (camelCase on the wire).
+
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PortMappingDto {
+    pub private_port: u16,
+    pub public_port: Option<u16>,
+    pub ip: Option<String>,
+    #[serde(rename = "type")]
+    pub typ: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ContainerSummaryDto {
+    pub id: String,
+    pub names: Vec<String>,
+    pub image: String,
+    pub state: String,
+    pub status: String,
+    pub created: i64,
+    pub ports: Vec<PortMappingDto>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VolumeItemDto {
+    pub name: String,
+    pub driver: String,
+    pub mountpoint: String,
+    pub created_at: String,
+    pub size_bytes: i64,
+    pub in_use: bool,
+    pub ref_count: i64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImageItemDto {
+    pub id: String,
+    pub repo_tags: Vec<String>,
+    pub size: i64,
+    pub created: i64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImagePullProgressDto {
+    pub id: String,
+    pub status: String,
+    pub current_bytes: i64,
+    pub total_bytes: i64,
+    pub percent: f64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LogChunkDto {
+    pub stream: String,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LayerHistoryItemDto {
+    pub id: String,
+    pub created: i64,
+    pub created_by: String,
+    pub size: i64,
+    pub tags: Vec<String>,
+    pub comment: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DockerEventDto {
+    pub resource_type: String,
+    pub action: String,
+    pub actor_id: String,
+    pub time: i64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DockerContextDto {
+    pub name: String,
+    pub host: String,
+    pub description: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ConnectionKind {
+    Unix,
+    Npipe,
+    Tcp,
+}
+
+impl ConnectionKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            ConnectionKind::Unix => "unix",
+            ConnectionKind::Npipe => "npipe",
+            ConnectionKind::Tcp => "tcp",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConnectionConfig {
+    pub kind: ConnectionKind,
+    pub value: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ConnectionState {
+    Connected,
+    Standby,
+    Connecting,
+    Error,
+}
+
+impl ConnectionState {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            ConnectionState::Connected => "connected",
+            ConnectionState::Standby => "standby",
+            ConnectionState::Connecting => "connecting",
+            ConnectionState::Error => "error",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DockerStatusDto {
+    pub endpoint: String,
+    pub kind: String,
+    pub state: ConnectionState,
+    pub engine_version: Option<String>,
+    pub api_version: Option<String>,
+    pub os: Option<String>,
+    pub arch: Option<String>,
+    pub ping_ms: Option<u64>,
+    pub message: Option<String>,
+}
+
+impl DockerStatusDto {
+    pub fn standby(endpoint: String, kind: String, message: impl Into<String>) -> Self {
+        Self {
+            endpoint,
+            kind,
+            state: ConnectionState::Standby,
+            engine_version: None,
+            api_version: None,
+            os: None,
+            arch: None,
+            ping_ms: None,
+            message: Some(message.into()),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SystemInfoDto {
+    pub docker_version: String,
+    pub api_version: String,
+    pub os: String,
+    pub arch: String,
+    pub kernel_version: String,
+    pub containers_running: i64,
+    pub containers_paused: i64,
+    pub containers_stopped: i64,
+    pub containers_total: i64,
+    pub images_total: i64,
+    pub cpus: i64,
+    pub memory_total: i64,
+    pub ping_ms: u64,
+}

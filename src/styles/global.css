@@ -1,0 +1,272 @@
+:root {
+  --void: #08090a;
+  --carbon: #0f1011;
+  --obsidian: #161718;
+  --graphite: #23252a;
+  --smoke: #383b3f;
+  --ash: #62666d;
+  --fog: #8a8f98;
+  --mist: #d0d6e0;
+  --bone: #e5e5e6;
+  --paper: #fff;
+  --lime: #e4f222;
+  --green: #27a644;
+  --coral: #eb5757;
+  --teal: #02b8cc;
+  --violet: #6366f1;
+  --lav: #8b5cf6;
+  --amber: #d9a441;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  background: var(--void);
+  color: var(--mist);
+  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  font-feature-settings: "cv01" 1, "ss03" 1, "zero" 1;
+  -webkit-font-smoothing: antialiased;
+  font-size: 14px;
+}
+
+.mono {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 12px;
+  letter-spacing: -0.013em;
+}
+
+.dim {
+  color: var(--ash);
+}
+
+.muted {
+  color: var(--fog);
+}
+
+.app-shell {
+  display: flex;
+  min-height: 100vh;
+}
+
+.side {
+  width: 224px;
+  flex: 0 0 224px;
+  height: 100vh;
+  position: sticky;
+  top: 0;
+  background: var(--carbon);
+  border-right: 0.5px solid var(--graphite);
+  padding: 14px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 8px 14px;
+  color: var(--paper);
+  font-weight: 510;
+  font-size: 15px;
+  letter-spacing: -0.011em;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: 6px;
+  color: var(--mist);
+  font-size: 13px;
+  cursor: pointer;
+  border: 0.5px solid transparent;
+  user-select: none;
+  text-decoration: none;
+}
+
+.nav-item:hover {
+  background: var(--obsidian);
+}
+
+.nav-item.active {
+  background: var(--obsidian);
+  border-color: var(--graphite);
+  color: var(--paper);
+}
+
+.side-foot {
+  margin-top: auto;
+  padding: 10px 8px 2px;
+  border-top: 0.5px solid var(--graphite);
+  color: var(--ash);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.topbar {
+  height: 48px;
+  flex: 0 0 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  border-bottom: 0.5px solid var(--graphite);
+  position: sticky;
+  top: 0;
+  background: rgba(8, 9, 10, 0.85);
+  backdrop-filter: blur(8px);
+  z-index: 10;
+}
+
+.page {
+  padding: 24px;
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.card {
+  background: var(--carbon);
+  border: 0.5px solid var(--graphite);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.card.subtle {
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 6px;
+  padding: 8px;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.toolbar .spacer {
+  flex: 1;
+}
+
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(158px, 1fr));
+  gap: 12px;
+}
+
+.metric .k {
+  font-size: 12px;
+  color: var(--fog);
+  margin-bottom: 6px;
+}
+
+.metric .v {
+  font-size: 24px;
+  font-weight: 510;
+  color: var(--paper);
+  letter-spacing: -0.012em;
+}
+
+.metric .v small {
+  font-size: 13px;
+  color: var(--ash);
+  font-weight: 400;
+  margin-left: 6px;
+}
+
+.section-title {
+  font-size: 13px;
+  color: var(--fog);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0 0 12px;
+}
+
+pre.logs {
+  margin: 0;
+  background: var(--void);
+  border: 0.5px solid var(--graphite);
+  border-radius: 6px;
+  padding: 12px;
+  max-height: 340px;
+  overflow: auto;
+  color: var(--mist);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 12px;
+  line-height: 1.7;
+  letter-spacing: -0.013em;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+pre.logs .err {
+  color: var(--coral);
+}
+
+pre.logs .dim {
+  color: var(--ash);
+}
+
+.label {
+  font-size: 12px;
+  color: var(--fog);
+  margin-bottom: 4px;
+}
+
+.ping-ok {
+  color: var(--green);
+}
+
+.ping-bad {
+  color: var(--coral);
+}
+
+.frame {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.grow {
+  flex: 1;
+  min-width: 0;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--graphite);
+  border-radius: 99px;
+  border: 3px solid var(--void);
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}

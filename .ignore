@@ -1,0 +1,3 @@
+# ripgrep-only: keep plans out of git, but show in OpenCode @ file picker.
+# .ignore outranks .gitignore, so this whitelist wins.
+!plans/**
