@@ -24,7 +24,7 @@ export default function LayerHistoryModal({ reference, onClose }: Props) {
     <Drawer
       open={reference != null}
       onClose={onClose}
-      width={680}
+      size={680}
       title={
         <span>
           Layer history — <Mono>{reference}</Mono>

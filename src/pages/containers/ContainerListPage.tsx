@@ -254,7 +254,7 @@ export default function ContainerListPage() {
         ) : row.ports.length ? (
           <div style={{ display: "flex", flexDirection: "column" }}>
             {row.ports.map((port) => (
-              <span key={`${port.privatePort}-${port.publicPort}`} className="mono dim">
+              <span key={portLabel(port)} className="mono dim">
                 {portLabel(port)}
               </span>
             ))}

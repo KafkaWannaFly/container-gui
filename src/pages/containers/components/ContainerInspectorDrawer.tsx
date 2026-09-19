@@ -39,7 +39,7 @@ export default function ContainerInspectorDrawer({ id, onClose }: Props) {
     <Drawer
       open={id != null}
       onClose={onClose}
-      width={560}
+      size={560}
       title={
         data ? (
           <span>

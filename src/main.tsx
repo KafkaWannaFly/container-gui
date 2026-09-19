@@ -12,9 +12,14 @@ if (import.meta.env.DEV) {
     name: "log" | "debug" | "info" | "warn" | "error",
     logger: (message: string) => Promise<void>,
   ) => {
+    // attachConsole mirrors Rust log entries back into console.*; forwarding
+    // those again would echo console -> Rust -> console forever. Rust prefixes
+    // its formatted lines with `[YYYY-MM-DD][`, so skip them.
+    const mirrored = /^\[\d{4}-\d{2}-\d{2}\]\[/;
     const original = console[name];
     console[name] = (...args: unknown[]) => {
       original(...args);
+      if (typeof args[0] === "string" && mirrored.test(args[0])) return;
       void logger(args.map(String).join(" "));
     };
   };
