@@ -28,7 +28,9 @@ function describe(image: ImageItem): Row {
   const valid = image.repoTags.filter((t) => t && !t.startsWith("<none>"));
   const dangling = valid.length === 0;
   const repo = dangling ? "<none>" : valid[0].split(":")[0];
-  const tags = dangling ? ["<none>"] : valid.map((t) => (t.includes(":") ? t.slice(t.indexOf(":") + 1) : "latest"));
+  const tags = dangling
+    ? ["<none>"]
+    : valid.map((t) => (t.includes(":") ? t.slice(t.indexOf(":") + 1) : "latest"));
   return { ...image, repo, tags, dangling, used: !dangling };
 }
 
@@ -112,8 +114,18 @@ export default function ImageListPage() {
           </span>
         ),
     },
-    { title: "Image ID", dataIndex: "id", width: 150, render: (value: string) => <Mono>{shortId(value)}</Mono> },
-    { title: "Size", dataIndex: "size", width: 110, render: (value: number) => <span className="mono">{formatBytes(value)}</span> },
+    {
+      title: "Image ID",
+      dataIndex: "id",
+      width: 150,
+      render: (value: string) => <Mono>{shortId(value)}</Mono>,
+    },
+    {
+      title: "Size",
+      dataIndex: "size",
+      width: 110,
+      render: (value: number) => <span className="mono">{formatBytes(value)}</span>,
+    },
     {
       title: "Created",
       dataIndex: "created",
@@ -127,7 +139,13 @@ export default function ImageListPage() {
       key: "used",
       width: 100,
       render: (_, row) =>
-        row.used ? <Pill tone="green">{row.tags.length} tag{row.tags.length > 1 ? "s" : ""}</Pill> : <Pill>unused</Pill>,
+        row.used ? (
+          <Pill tone="green">
+            {row.tags.length} tag{row.tags.length > 1 ? "s" : ""}
+          </Pill>
+        ) : (
+          <Pill>unused</Pill>
+        ),
     },
     {
       title: "",
@@ -193,7 +211,11 @@ export default function ImageListPage() {
             style={{ width: 260 }}
           />
           <span className="spacer" />
-          {selected.length > 0 ? <span className="dim" style={{ fontSize: 12 }}>{selected.length} selected</span> : null}
+          {selected.length > 0 ? (
+            <span className="dim" style={{ fontSize: 12 }}>
+              {selected.length} selected
+            </span>
+          ) : null}
           <Popconfirm
             title={`Delete ${selected.length} image(s)?`}
             okText="Delete"

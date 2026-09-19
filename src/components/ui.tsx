@@ -34,8 +34,18 @@ export function StateTag({ state }: { state: string }) {
   const color = STATE_COLORS[state] ?? "var(--fog)";
   const label = state ? state.charAt(0).toUpperCase() + state.slice(1) : "Unknown";
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--mist)" }}>
-      <span style={{ width: 7, height: 7, borderRadius: 99, background: color, boxShadow: `0 0 0 3px ${color}22` }} />
+    <span
+      style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--mist)" }}
+    >
+      <span
+        style={{
+          width: 7,
+          height: 7,
+          borderRadius: 99,
+          background: color,
+          boxShadow: `0 0 0 3px ${color}22`,
+        }}
+      />
       {label}
     </span>
   );
@@ -50,7 +60,13 @@ const PILL_TONES: Record<string, [string, string]> = {
   neutral: ["rgba(255,255,255,.05)", "var(--fog)"],
 };
 
-export function Pill({ children, tone = "neutral" }: { children: ReactNode; tone?: keyof typeof PILL_TONES | string }) {
+export function Pill({
+  children,
+  tone = "neutral",
+}: {
+  children: ReactNode;
+  tone?: keyof typeof PILL_TONES | string;
+}) {
   const [bg, fg] = PILL_TONES[tone] ?? PILL_TONES.neutral;
   return (
     <span
@@ -86,7 +102,15 @@ export function RowActions({ groups }: { groups: MenuProps["items"][] }) {
   );
 }
 
-export function MetricCard({ label, value, suffix }: { label: string; value: ReactNode; suffix?: ReactNode }) {
+export function MetricCard({
+  label,
+  value,
+  suffix,
+}: {
+  label: string;
+  value: ReactNode;
+  suffix?: ReactNode;
+}) {
   return (
     <div className="card metric">
       <div className="k">{label}</div>
@@ -100,7 +124,7 @@ export function MetricCard({ label, value, suffix }: { label: string; value: Rea
 
 export function Glyph() {
   return (
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
       <rect x="1" y="4.5" width="16" height="4" rx="1.4" fill="#e4f222" />
       <rect x="1" y="9.5" width="16" height="4" rx="1.4" fill="#62666d" />
     </svg>

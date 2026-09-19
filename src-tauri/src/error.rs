@@ -52,7 +52,9 @@ impl AppError {
             bollard::errors::Error::SocketNotFoundError(path) => AppError::SocketNotFound { path },
             bollard::errors::Error::IOError { err } => {
                 if err.kind() == std::io::ErrorKind::PermissionDenied {
-                    AppError::SocketPermissionDenied { path: endpoint.to_string() }
+                    AppError::SocketPermissionDenied {
+                        path: endpoint.to_string(),
+                    }
                 } else if matches!(
                     err.kind(),
                     std::io::ErrorKind::ConnectionRefused
@@ -61,7 +63,9 @@ impl AppError {
                         | std::io::ErrorKind::BrokenPipe
                         | std::io::ErrorKind::TimedOut
                 ) {
-                    AppError::DaemonUnreachable { message: err.to_string() }
+                    AppError::DaemonUnreachable {
+                        message: err.to_string(),
+                    }
                 } else {
                     AppError::Docker(bollard::errors::Error::IOError { err })
                 }

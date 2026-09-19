@@ -38,8 +38,16 @@ export default function DashboardPage() {
             <MetricCard label="Stopped containers" value={stopped} />
             <MetricCard label="Images" value={imageInUse} suffix={`of ${imageList.length}`} />
             <MetricCard label="Image size" value={formatBytes(imageBytes)} />
-            <MetricCard label="Volumes" value={volumeList.length - orphaned.length} suffix={`of ${volumeList.length}`} />
-            <MetricCard label="Reclaimable" value={formatBytes(reclaimable)} suffix={`${orphaned.length} orphaned`} />
+            <MetricCard
+              label="Volumes"
+              value={volumeList.length - orphaned.length}
+              suffix={`of ${volumeList.length}`}
+            />
+            <MetricCard
+              label="Reclaimable"
+              value={formatBytes(reclaimable)}
+              suffix={`${orphaned.length} orphaned`}
+            />
           </div>
 
           <div className="card">

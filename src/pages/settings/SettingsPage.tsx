@@ -3,7 +3,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { App, Button, Divider, Input, Select, Switch } from "antd";
 import { ApiOutlined, LinkOutlined } from "@ant-design/icons";
 import { queryKeys } from "../../lib/queryClient";
-import { listDockerContexts, switchDockerEndpoint, testConnection, getDockerStatus } from "../../services/tauriApi";
+import {
+  listDockerContexts,
+  switchDockerEndpoint,
+  testConnection,
+  getDockerStatus,
+} from "../../services/tauriApi";
 import type { ConnectionConfig, DockerStatus } from "../../types/docker";
 
 const KIND_OPTIONS = [
@@ -119,7 +124,11 @@ export default function SettingsPage() {
         </div>
 
         <div className="toolbar" style={{ marginTop: 16 }}>
-          <Button icon={<ApiOutlined />} loading={testMutation.isPending} onClick={() => testMutation.mutate()}>
+          <Button
+            icon={<ApiOutlined />}
+            loading={testMutation.isPending}
+            onClick={() => testMutation.mutate()}
+          >
             Test connection
           </Button>
           <Button
@@ -132,7 +141,9 @@ export default function SettingsPage() {
           </Button>
           {ping ? (
             <span className={ping.state === "connected" ? "ping-ok" : "ping-bad"} style={{ fontSize: 12 }}>
-              {ping.state === "connected" ? `Connected · ${ping.pingMs ?? "?"} ms` : ping.message ?? "Connection failed"}
+              {ping.state === "connected"
+                ? `Connected · ${ping.pingMs ?? "?"} ms`
+                : (ping.message ?? "Connection failed")}
             </span>
           ) : null}
         </div>

@@ -33,7 +33,10 @@ body {
   background: var(--void);
   color: var(--mist);
   font-family: "Inter", system-ui, -apple-system, sans-serif;
-  font-feature-settings: "cv01" 1, "ss03" 1, "zero" 1;
+  font-feature-settings:
+    "cv01" 1,
+    "ss03" 1,
+    "zero" 1;
   -webkit-font-smoothing: antialiased;
   font-size: 14px;
 }

@@ -36,7 +36,11 @@ pub fn spawn(app: AppHandle, manager: Arc<DockerSessionManager>) {
             let mut generation = manager.subscribe();
             let filters = HashMap::from([(
                 "type".to_string(),
-                vec!["container".to_string(), "image".to_string(), "volume".to_string()],
+                vec![
+                    "container".to_string(),
+                    "image".to_string(),
+                    "volume".to_string(),
+                ],
             )]);
             let options = EventsOptionsBuilder::new().filters(&filters).build();
             let mut stream = client.events(Some(options)).boxed();
@@ -94,11 +98,13 @@ fn next_backoff(current: Duration) -> Duration {
 
 /// Sleep `base` plus up to 500 ms of jitter without pulling in an RNG.
 async fn sleep_backoff(base: Duration) {
-    let jitter = Duration::from_millis((SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|elapsed| elapsed.subsec_nanos() as u64)
-        .unwrap_or(0))
-        % 500);
+    let jitter = Duration::from_millis(
+        (SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|elapsed| elapsed.subsec_nanos() as u64)
+            .unwrap_or(0))
+            % 500,
+    );
     tokio::time::sleep(base + jitter).await;
 }
 
@@ -137,7 +143,13 @@ mod tests {
     #[test]
     fn backoff_doubles_and_caps() {
         assert_eq!(next_backoff(Duration::from_secs(1)), Duration::from_secs(2));
-        assert_eq!(next_backoff(Duration::from_secs(16)), Duration::from_secs(30));
-        assert_eq!(next_backoff(Duration::from_secs(30)), Duration::from_secs(30));
+        assert_eq!(
+            next_backoff(Duration::from_secs(16)),
+            Duration::from_secs(30)
+        );
+        assert_eq!(
+            next_backoff(Duration::from_secs(30)),
+            Duration::from_secs(30)
+        );
     }
 }

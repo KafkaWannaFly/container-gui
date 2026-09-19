@@ -1,6 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { App, Button, Empty, Input, Popconfirm, Segmented, Table, Tooltip, type TableColumnsType } from "antd";
+import {
+  App,
+  Button,
+  Empty,
+  Input,
+  Popconfirm,
+  Segmented,
+  Table,
+  Tooltip,
+  type TableColumnsType,
+} from "antd";
 import {
   CaretRightOutlined,
   DeleteOutlined,
@@ -16,7 +26,13 @@ import { formatDistanceToNow } from "date-fns";
 import { MetricCard, Mono, RowActions, StateDot } from "../../components/ui";
 import { queryKeys } from "../../lib/queryClient";
 import { containerAction, getSystemInfo, listContainerStats, listContainers } from "../../services/tauriApi";
-import { formatBytes, portLabel, shortId, type ContainerStats, type ContainerSummary } from "../../types/docker";
+import {
+  formatBytes,
+  portLabel,
+  shortId,
+  type ContainerStats,
+  type ContainerSummary,
+} from "../../types/docker";
 import ContainerInspectorDrawer from "./components/ContainerInspectorDrawer";
 import LiveLogModal from "./components/LiveLogModal";
 
@@ -101,7 +117,7 @@ export default function ContainerListPage() {
         buckets.set(project, []);
         order.push({ type: "group", project });
       }
-      buckets.get(project)!.push(row);
+      buckets.get(project)?.push(row);
     }
 
     const result: Row[] = [];
@@ -126,7 +142,9 @@ export default function ContainerListPage() {
     setExpanded((prev) => {
       const kept = prev.filter((key) => keys.includes(String(key)));
       const added = keys.filter((key) => !seenGroups.current.has(key));
-      added.forEach((key) => seenGroups.current.add(key));
+      added.forEach((key) => {
+        seenGroups.current.add(key);
+      });
       return [...kept, ...added];
     });
   }, [tree]);
@@ -209,7 +227,8 @@ export default function ContainerListPage() {
       width: 90,
       align: "right",
       render: (_, row) => {
-        const value = row.kind === "group" ? groupTotals(row.children).cpu : statsById.get(row.id)?.cpuPercent;
+        const value =
+          row.kind === "group" ? groupTotals(row.children).cpu : statsById.get(row.id)?.cpuPercent;
         return <span className="mono">{value == null ? "—" : `${value.toFixed(1)}%`}</span>;
       },
     },
@@ -219,7 +238,8 @@ export default function ContainerListPage() {
       width: 110,
       align: "right",
       render: (_, row) => {
-        const value = row.kind === "group" ? groupTotals(row.children).memory : statsById.get(row.id)?.memoryUsage;
+        const value =
+          row.kind === "group" ? groupTotals(row.children).memory : statsById.get(row.id)?.memoryUsage;
         return <span className="mono">{value ? formatBytes(value) : "—"}</span>;
       },
     },
@@ -249,7 +269,9 @@ export default function ContainerListPage() {
       width: 130,
       render: (_, row) =>
         row.kind === "container" ? (
-          <span className="dim">{formatDistanceToNow(new Date(row.created * 1000), { addSuffix: true })}</span>
+          <span className="dim">
+            {formatDistanceToNow(new Date(row.created * 1000), { addSuffix: true })}
+          </span>
         ) : null,
     },
     {
@@ -294,7 +316,12 @@ export default function ContainerListPage() {
                 },
               ],
               [
-                { key: "logs", label: "View logs", icon: <FileTextOutlined />, onClick: () => setLogTarget(row) },
+                {
+                  key: "logs",
+                  label: "View logs",
+                  icon: <FileTextOutlined />,
+                  onClick: () => setLogTarget(row),
+                },
                 {
                   key: "inspect",
                   label: "Inspect",
@@ -387,13 +414,25 @@ export default function ContainerListPage() {
               />
             </Tooltip>
             <Tooltip title="Start">
-              <Button icon={<PlayCircleOutlined />} disabled={!selectedIds.length} onClick={() => runBatch("start")} />
+              <Button
+                icon={<PlayCircleOutlined />}
+                disabled={!selectedIds.length}
+                onClick={() => runBatch("start")}
+              />
             </Tooltip>
             <Tooltip title="Stop">
-              <Button icon={<PauseCircleOutlined />} disabled={!selectedIds.length} onClick={() => runBatch("stop")} />
+              <Button
+                icon={<PauseCircleOutlined />}
+                disabled={!selectedIds.length}
+                onClick={() => runBatch("stop")}
+              />
             </Tooltip>
             <Tooltip title="Restart">
-              <Button icon={<ReloadOutlined />} disabled={!selectedIds.length} onClick={() => runBatch("restart")} />
+              <Button
+                icon={<ReloadOutlined />}
+                disabled={!selectedIds.length}
+                onClick={() => runBatch("restart")}
+              />
             </Tooltip>
             <Popconfirm
               title={`Remove ${selectedIds.length} container(s)?`}

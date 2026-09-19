@@ -70,7 +70,10 @@ export function inspectContainer(id: string): Promise<ContainerInspect> {
   return call("inspect_container", { id }, ContainerInspectSchema);
 }
 
-export function containerAction(id: string, action: "start" | "stop" | "restart" | "kill" | "remove"): Promise<void> {
+export function containerAction(
+  id: string,
+  action: "start" | "stop" | "restart" | "kill" | "remove",
+): Promise<void> {
   return callVoid("container_action", { id, action });
 }
 

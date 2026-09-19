@@ -39,7 +39,10 @@ impl DockerSessionManager {
         let (generation, _) = watch::channel(0);
         Self {
             app,
-            session: RwLock::new(Session { client: None, status }),
+            session: RwLock::new(Session {
+                client: None,
+                status,
+            }),
             target: RwLock::new(target),
             generation,
             connect_lock: tokio::sync::Mutex::new(()),
@@ -73,15 +76,26 @@ impl DockerSessionManager {
         let status = match probe(&client, &endpoint, &kind).await {
             Ok(status) => status,
             Err(err) => {
-                let status = DockerStatusDto::standby(endpoint.clone(), kind.clone(), err.to_string());
-                self.store(Session { client: None, status: status.clone() }, target).await;
+                let status =
+                    DockerStatusDto::standby(endpoint.clone(), kind.clone(), err.to_string());
+                self.store(
+                    Session {
+                        client: None,
+                        status: status.clone(),
+                    },
+                    target,
+                )
+                .await;
                 self.emit_status(&status);
                 return Err(err);
             }
         };
 
         self.store(
-            Session { client: Some(client), status: status.clone() },
+            Session {
+                client: Some(client),
+                status: status.clone(),
+            },
             target,
         )
         .await;
@@ -109,7 +123,8 @@ impl DockerSessionManager {
                 status
             }
             Err(err) => {
-                let status = DockerStatusDto::standby(current.endpoint, current.kind, err.to_string());
+                let status =
+                    DockerStatusDto::standby(current.endpoint, current.kind, err.to_string());
                 self.session.write().await.status = status.clone();
                 self.emit_status(&status);
                 status
@@ -159,7 +174,9 @@ async fn probe(client: &Docker, endpoint: &str, kind: &str) -> AppResult<DockerS
     let started = Instant::now();
     tokio::time::timeout(PING_TIMEOUT, client.ping())
         .await
-        .map_err(|_| AppError::DaemonUnreachable { message: "ping timed out".to_string() })?
+        .map_err(|_| AppError::DaemonUnreachable {
+            message: "ping timed out".to_string(),
+        })?
         .map_err(|err| AppError::from_bollard(err, endpoint))?;
     let ping_ms = started.elapsed().as_millis() as u64;
 
@@ -203,12 +220,12 @@ pub async fn collect_system_info(client: &Docker) -> AppResult<SystemInfoDto> {
     Ok(SystemInfoDto {
         docker_version: version.version.unwrap_or_default(),
         api_version: version.api_version.unwrap_or_default(),
-        os: info
-            .operating_system
-            .or(version.os)
-            .unwrap_or_default(),
+        os: info.operating_system.or(version.os).unwrap_or_default(),
         arch: info.architecture.or(version.arch).unwrap_or_default(),
-        kernel_version: version.kernel_version.or(info.kernel_version).unwrap_or_default(),
+        kernel_version: version
+            .kernel_version
+            .or(info.kernel_version)
+            .unwrap_or_default(),
         containers_running: info.containers_running.unwrap_or_default(),
         containers_paused: info.containers_paused.unwrap_or_default(),
         containers_stopped: info.containers_stopped.unwrap_or_default(),

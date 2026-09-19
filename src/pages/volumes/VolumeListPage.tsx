@@ -54,7 +54,9 @@ export default function VolumeListPage() {
       width: 480,
       content: (
         <div>
-          <p style={{ color: "var(--mist)" }}>{orphans.length} volume(s) are not attached to any container:</p>
+          <p style={{ color: "var(--mist)" }}>
+            {orphans.length} volume(s) are not attached to any container:
+          </p>
           <div className="card subtle mono" style={{ maxHeight: 200, overflow: "auto" }}>
             {orphans.map((o) => (
               <div key={o.name}>{o.name}</div>
@@ -83,7 +85,11 @@ export default function VolumeListPage() {
   };
 
   const columns: TableColumnsType<VolumeItem> = [
-    { title: "Name", dataIndex: "name", render: (value: string) => <span style={{ color: "var(--paper)" }}>{value}</span> },
+    {
+      title: "Name",
+      dataIndex: "name",
+      render: (value: string) => <span style={{ color: "var(--paper)" }}>{value}</span>,
+    },
     {
       title: "Driver",
       dataIndex: "driver",
@@ -96,7 +102,14 @@ export default function VolumeListPage() {
       render: (value: string) => (
         <span
           className="mono dim"
-          style={{ display: "inline-block", maxWidth: 360, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", verticalAlign: "bottom" }}
+          style={{
+            display: "inline-block",
+            maxWidth: 360,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            verticalAlign: "bottom",
+          }}
         >
           {value}
         </span>
@@ -163,8 +176,16 @@ export default function VolumeListPage() {
   return (
     <div className="page">
       <div className="metrics">
-        <MetricCard label="Volumes in use" value={(data?.length ?? 0) - orphans.length} suffix={`of ${data?.length ?? 0}`} />
-        <MetricCard label="Reclaimable" value={formatBytes(reclaimable)} suffix={`${orphans.length} orphaned`} />
+        <MetricCard
+          label="Volumes in use"
+          value={(data?.length ?? 0) - orphans.length}
+          suffix={`of ${data?.length ?? 0}`}
+        />
+        <MetricCard
+          label="Reclaimable"
+          value={formatBytes(reclaimable)}
+          suffix={`${orphans.length} orphaned`}
+        />
       </div>
 
       <div className="card">
@@ -177,7 +198,11 @@ export default function VolumeListPage() {
             style={{ width: 240 }}
           />
           <span className="spacer" />
-          {selected.length > 0 ? <span className="dim" style={{ fontSize: 12 }}>{selected.length} selected</span> : null}
+          {selected.length > 0 ? (
+            <span className="dim" style={{ fontSize: 12 }}>
+              {selected.length} selected
+            </span>
+          ) : null}
           <Popconfirm
             title={`Delete ${selected.length} volume(s)?`}
             okText="Delete"

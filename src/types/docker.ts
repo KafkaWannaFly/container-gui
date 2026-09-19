@@ -138,30 +138,38 @@ export const ContainerInspectSchema = z.looseObject({
   Id: z.string(),
   Name: z.string().optional(),
   Created: z.string().optional(),
-  State: z.looseObject({
-    Status: z.string().optional(),
-    Running: z.boolean().optional(),
-    Paused: z.boolean().optional(),
-    StartedAt: z.string().optional(),
-    FinishedAt: z.string().optional(),
-    ExitCode: z.number().optional(),
-  }).optional(),
-  Config: z.looseObject({
-    Image: z.string().optional(),
-    Hostname: z.string().optional(),
-    Env: z.array(z.string()).nullish(),
-    Cmd: z.array(z.string()).nullish(),
-    Entrypoint: z.array(z.string()).nullish(),
-    Labels: z.record(z.string(), z.string()).nullish(),
-  }).optional(),
-  HostConfig: z.looseObject({
-    NetworkMode: z.string().optional(),
-    RestartPolicy: z.looseObject({ Name: z.string().optional() }).optional(),
-  }).optional(),
-  NetworkSettings: z.looseObject({
-    Networks: z.record(z.string(), z.any()).optional(),
-    Ports: z.record(z.string(), z.any()).nullish(),
-  }).optional(),
+  State: z
+    .looseObject({
+      Status: z.string().optional(),
+      Running: z.boolean().optional(),
+      Paused: z.boolean().optional(),
+      StartedAt: z.string().optional(),
+      FinishedAt: z.string().optional(),
+      ExitCode: z.number().optional(),
+    })
+    .optional(),
+  Config: z
+    .looseObject({
+      Image: z.string().optional(),
+      Hostname: z.string().optional(),
+      Env: z.array(z.string()).nullish(),
+      Cmd: z.array(z.string()).nullish(),
+      Entrypoint: z.array(z.string()).nullish(),
+      Labels: z.record(z.string(), z.string()).nullish(),
+    })
+    .optional(),
+  HostConfig: z
+    .looseObject({
+      NetworkMode: z.string().optional(),
+      RestartPolicy: z.looseObject({ Name: z.string().optional() }).optional(),
+    })
+    .optional(),
+  NetworkSettings: z
+    .looseObject({
+      Networks: z.record(z.string(), z.any()).optional(),
+      Ports: z.record(z.string(), z.any()).nullish(),
+    })
+    .optional(),
   Mounts: z
     .array(
       z.looseObject({

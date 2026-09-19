@@ -12,11 +12,7 @@ pub async fn list_volumes(state: State<'_, AppState>) -> AppResult<Vec<VolumeIte
 }
 
 #[tauri::command]
-pub async fn remove_volume(
-    state: State<'_, AppState>,
-    name: String,
-    force: bool,
-) -> AppResult<()> {
+pub async fn remove_volume(state: State<'_, AppState>, name: String, force: bool) -> AppResult<()> {
     let client = state.manager.required_client().await?;
     volume_service::remove_volume(&client, &name, force).await
 }

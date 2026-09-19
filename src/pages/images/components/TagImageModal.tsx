@@ -43,7 +43,11 @@ export default function TagImageModal({ image, onClose }: Props) {
       onOk={() => form.submit()}
     >
       <Form form={form} layout="vertical" onFinish={(values) => mutation.mutate(values)}>
-        <Form.Item label="Repository" name="repo" rules={[{ required: true, message: "Repository is required" }]}>
+        <Form.Item
+          label="Repository"
+          name="repo"
+          rules={[{ required: true, message: "Repository is required" }]}
+        >
           <Input className="mono" placeholder="ghcr.io/acme/worker" />
         </Form.Item>
         <Form.Item label="Tag" name="tag" rules={[{ required: true, message: "Tag is required" }]}>

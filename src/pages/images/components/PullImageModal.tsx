@@ -58,17 +58,13 @@ export default function PullImageModal({ open, onClose }: Props) {
     if (!imageName.trim()) return;
     setLayers({});
     setPulling(true);
-    disposeRef.current = pullImage(
-      imageName.trim(),
-      onProgress,
-      () => {
-        setPulling(false);
-        disposeRef.current = null;
-        void queryClient.invalidateQueries({ queryKey: queryKeys.images() });
-        void queryClient.invalidateQueries({ queryKey: queryKeys.system() });
-        message.success(`Pulled ${imageName.trim()}`);
-      },
-    );
+    disposeRef.current = pullImage(imageName.trim(), onProgress, () => {
+      setPulling(false);
+      disposeRef.current = null;
+      void queryClient.invalidateQueries({ queryKey: queryKeys.images() });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.system() });
+      message.success(`Pulled ${imageName.trim()}`);
+    });
   };
 
   const layerList = Object.values(layers).sort((a, b) => a.id.localeCompare(b.id));
@@ -101,10 +97,17 @@ export default function PullImageModal({ open, onClose }: Props) {
 
       <Divider />
 
-      <div className="label">
-        Layers {layerList.length ? `· ${done}/${layerList.length} complete` : ""}
-      </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 12, maxHeight: 320, overflow: "auto" }}>
+      <div className="label">Layers {layerList.length ? `· ${done}/${layerList.length} complete` : ""}</div>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 14,
+          marginTop: 12,
+          maxHeight: 320,
+          overflow: "auto",
+        }}
+      >
         {layerList.length === 0 ? (
           <span className="dim">Progress appears here once the pull starts.</span>
         ) : (

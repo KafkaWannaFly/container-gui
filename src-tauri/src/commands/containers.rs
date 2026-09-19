@@ -25,7 +25,10 @@ pub async fn container_stats(
 }
 
 #[tauri::command]
-pub async fn inspect_container(state: State<'_, AppState>, id: String) -> AppResult<serde_json::Value> {
+pub async fn inspect_container(
+    state: State<'_, AppState>,
+    id: String,
+) -> AppResult<serde_json::Value> {
     let client = state.manager.required_client().await?;
     container_service::inspect_container(&client, &id).await
 }

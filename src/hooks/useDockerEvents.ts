@@ -78,7 +78,9 @@ export function useDockerEvents() {
 
     return () => {
       disposed = true;
-      unlisteners.forEach((unlisten) => unlisten());
+      unlisteners.forEach((unlisten) => {
+        unlisten();
+      });
       unlisteners = [];
     };
   }, [queryClient, notification]);

@@ -34,7 +34,10 @@ export default function LiveLogModal({ container, onClose }: Props) {
     const dispose = streamContainerLogs(
       containerId,
       200,
-      (chunk) => setLines((prev) => (prev.length >= MAX_LINES ? [...prev.slice(-MAX_LINES + 1), chunk] : [...prev, chunk])),
+      (chunk) =>
+        setLines((prev) =>
+          prev.length >= MAX_LINES ? [...prev.slice(-MAX_LINES + 1), chunk] : [...prev, chunk],
+        ),
       () => setConnected(false),
     );
     return () => {
@@ -43,6 +46,7 @@ export default function LiveLogModal({ container, onClose }: Props) {
     };
   }, [containerId]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: re-scroll whenever a new log line arrives
   useEffect(() => {
     if (follow && preRef.current) {
       preRef.current.scrollTop = preRef.current.scrollHeight;
@@ -77,6 +81,7 @@ export default function LiveLogModal({ container, onClose }: Props) {
           <span className="dim">{connected ? "Waiting for output…" : "No logs available."}</span>
         ) : (
           lines.map((line, index) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: append-only log lines; index is stable
             <div key={index} className={line.stream === "stderr" ? "err" : undefined}>
               {line.message.replace(/\n$/, "")}
             </div>
@@ -85,7 +90,8 @@ export default function LiveLogModal({ container, onClose }: Props) {
       </pre>
       <div className="toolbar" style={{ marginTop: 10 }}>
         <span className="dim" style={{ fontSize: 12 }}>
-          {connected ? "Streaming" : "Disconnected"} · {lines.length} lines · auto-scroll pauses when you scroll up
+          {connected ? "Streaming" : "Disconnected"} · {lines.length} lines · auto-scroll pauses when you
+          scroll up
         </span>
         <span className="spacer" />
         <span className="dim" style={{ fontSize: 12 }}>

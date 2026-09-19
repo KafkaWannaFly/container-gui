@@ -2,7 +2,7 @@
 //! Windows named pipes and TCP (including WSL2 relays and Docker
 //! contexts).
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use bollard::{API_DEFAULT_VERSION, Docker};
 use serde_json::Value;
@@ -60,7 +60,9 @@ pub fn target_from_config(config: &ConnectionConfig) -> AppResult<ConnectionTarg
         return Err(AppError::Message("Docker endpoint is empty".into()));
     }
     Ok(match config.kind {
-        ConnectionKind::Unix => ConnectionTarget::UnixSocket(PathBuf::from(strip_scheme(raw, "unix://"))),
+        ConnectionKind::Unix => {
+            ConnectionTarget::UnixSocket(PathBuf::from(strip_scheme(raw, "unix://")))
+        }
         ConnectionKind::Npipe => ConnectionTarget::NamedPipe(normalize_npipe(raw)),
         ConnectionKind::Tcp => ConnectionTarget::Tcp(normalize_tcp(raw)),
     })
@@ -68,18 +70,17 @@ pub fn target_from_config(config: &ConnectionConfig) -> AppResult<ConnectionTarg
 
 /// Best-effort target: `DOCKER_HOST` → Docker context → platform default.
 pub fn default_target() -> ConnectionTarget {
-    if let Ok(host) = std::env::var("DOCKER_HOST") {
-        if let Some(target) = target_from_host(&host) {
-            return target;
-        }
+    if let Ok(host) = std::env::var("DOCKER_HOST")
+        && let Some(target) = target_from_host(&host)
+    {
+        return target;
     }
 
-    if let Some(context) = current_context_name() {
-        if let Some(host) = context_host(&context) {
-            if let Some(target) = target_from_host(&host) {
-                return target;
-            }
-        }
+    if let Some(context) = current_context_name()
+        && let Some(host) = context_host(&context)
+        && let Some(target) = target_from_host(&host)
+    {
+        return target;
     }
 
     platform_default()
@@ -129,21 +130,27 @@ pub fn connect(target: &ConnectionTarget) -> AppResult<Docker> {
     }?;
 
     Ok(docker.tap(|_| {
-        log::info!("[docker] connection established: {}", redact_endpoint(&endpoint))
+        log::info!(
+            "[docker] connection established: {}",
+            redact_endpoint(&endpoint)
+        )
     }))
 }
 
 #[cfg(unix)]
-fn connect_unix(path: &PathBuf) -> AppResult<Docker> {
+fn connect_unix(path: &Path) -> AppResult<Docker> {
     let addr = format!("unix://{}", path.display());
     Docker::connect_with_unix(&addr, REQUEST_TIMEOUT_SECS, API_DEFAULT_VERSION)
         .map_err(|err| AppError::from_bollard(err, &addr))
 }
 
 #[cfg(not(unix))]
-fn connect_unix(path: &PathBuf) -> AppResult<Docker> {
+fn connect_unix(path: &Path) -> AppResult<Docker> {
     Err(AppError::UnsupportedHost {
-        host: format!("unix://{} (Unix sockets require a Unix host)", path.display()),
+        host: format!(
+            "unix://{} (Unix sockets require a Unix host)",
+            path.display()
+        ),
     })
 }
 
@@ -172,7 +179,9 @@ pub fn current_context_name() -> Option<String> {
 /// Read the engine host for a named context from its `meta.json`.
 pub fn context_host(context: &str) -> Option<String> {
     let meta = read_context_meta(context)?;
-    meta.pointer("/Endpoints/docker/Host")?.as_str().map(str::to_string)
+    meta.pointer("/Endpoints/docker/Host")?
+        .as_str()
+        .map(str::to_string)
 }
 
 /// List every context under `~/.docker/contexts/meta`, plus `default`.
@@ -187,35 +196,38 @@ pub fn list_contexts() -> Vec<crate::models::dto::DockerContextDto> {
         description: Some("Built-in local engine".to_string()),
     });
 
-    if let Some(dir) = home_dir().map(|home| home.join(".docker").join("contexts").join("meta")) {
-        if let Ok(entries) = std::fs::read_dir(dir) {
-            for entry in entries.flatten() {
-                let meta_path = entry.path().join("meta.json");
-                let Ok(raw) = std::fs::read_to_string(&meta_path) else {
-                    continue;
-                };
-                let Ok(value) = serde_json::from_str::<Value>(&raw) else {
-                    continue;
-                };
-                let Some(name) = value.get("Name").and_then(Value::as_str) else {
-                    continue;
-                };
-                if name == "default" {
-                    continue;
-                }
-                let Some(host) = value.pointer("/Endpoints/docker/Host").and_then(Value::as_str) else {
-                    continue;
-                };
-                contexts.push(DockerContextDto {
-                    name: name.to_string(),
-                    host: host.to_string(),
-                    description: value
-                        .pointer("/Metadata/Description")
-                        .and_then(Value::as_str)
-                        .map(str::to_string)
-                        .filter(|d| !d.is_empty()),
-                });
+    if let Some(dir) = home_dir().map(|home| home.join(".docker").join("contexts").join("meta"))
+        && let Ok(entries) = std::fs::read_dir(dir)
+    {
+        for entry in entries.flatten() {
+            let meta_path = entry.path().join("meta.json");
+            let Ok(raw) = std::fs::read_to_string(&meta_path) else {
+                continue;
+            };
+            let Ok(value) = serde_json::from_str::<Value>(&raw) else {
+                continue;
+            };
+            let Some(name) = value.get("Name").and_then(Value::as_str) else {
+                continue;
+            };
+            if name == "default" {
+                continue;
             }
+            let Some(host) = value
+                .pointer("/Endpoints/docker/Host")
+                .and_then(Value::as_str)
+            else {
+                continue;
+            };
+            contexts.push(DockerContextDto {
+                name: name.to_string(),
+                host: host.to_string(),
+                description: value
+                    .pointer("/Metadata/Description")
+                    .and_then(Value::as_str)
+                    .map(str::to_string)
+                    .filter(|d| !d.is_empty()),
+            });
         }
     }
 
@@ -297,7 +309,10 @@ mod tests {
     fn normalizes_endpoints() {
         assert_eq!(normalize_tcp("127.0.0.1:2375"), "tcp://127.0.0.1:2375");
         assert_eq!(normalize_tcp("http://host:2375"), "tcp://host:2375");
-        assert_eq!(normalize_npipe("//./pipe/docker_engine"), "npipe:////./pipe/docker_engine");
+        assert_eq!(
+            normalize_npipe("//./pipe/docker_engine"),
+            "npipe:////./pipe/docker_engine"
+        );
     }
 
     #[test]
@@ -306,8 +321,14 @@ mod tests {
             redact_endpoint("tcp://user:secret@host:2375"),
             "tcp://***@host:2375"
         );
-        assert_eq!(redact_endpoint("unix:///var/run/docker.sock"), "unix:///var/run/docker.sock");
-        assert_eq!(redact_endpoint("npipe:////./pipe/docker_engine"), "npipe:////./pipe/docker_engine");
+        assert_eq!(
+            redact_endpoint("unix:///var/run/docker.sock"),
+            "unix:///var/run/docker.sock"
+        );
+        assert_eq!(
+            redact_endpoint("npipe:////./pipe/docker_engine"),
+            "npipe:////./pipe/docker_engine"
+        );
     }
 
     /// Live smoke test: resolves the real endpoint, and when a daemon is

@@ -35,10 +35,8 @@ pub async fn list_containers(
     let mut options = ListContainersOptionsBuilder::new().all(filter.all);
 
     if let Some(status) = filter.status.as_deref() {
-        let filters = std::collections::HashMap::from([(
-            "status".to_string(),
-            vec![status.to_string()],
-        )]);
+        let filters =
+            std::collections::HashMap::from([("status".to_string(), vec![status.to_string()])]);
         options = options.filters(&filters);
     }
 
@@ -105,7 +103,10 @@ pub async fn list_container_stats(client: &Docker, all: bool) -> AppResult<Vec<C
 }
 
 async fn container_stats(client: &Docker, id: &str) -> AppResult<ContainerStatsDto> {
-    let options = StatsOptionsBuilder::new().stream(false).one_shot(true).build();
+    let options = StatsOptionsBuilder::new()
+        .stream(false)
+        .one_shot(true)
+        .build();
     let response = client
         .stats(id, Some(options))
         .next()
@@ -115,8 +116,12 @@ async fn container_stats(client: &Docker, id: &str) -> AppResult<ContainerStatsD
 
     let cpu = response.cpu_stats.as_ref();
     let prev = response.precpu_stats.as_ref();
-    let cpu_total = cpu.and_then(|stats| stats.cpu_usage.as_ref()).and_then(|usage| usage.total_usage);
-    let prev_total = prev.and_then(|stats| stats.cpu_usage.as_ref()).and_then(|usage| usage.total_usage);
+    let cpu_total = cpu
+        .and_then(|stats| stats.cpu_usage.as_ref())
+        .and_then(|usage| usage.total_usage);
+    let prev_total = prev
+        .and_then(|stats| stats.cpu_usage.as_ref())
+        .and_then(|usage| usage.total_usage);
     let system_total = cpu.and_then(|stats| stats.system_cpu_usage);
     let prev_system = prev.and_then(|stats| stats.system_cpu_usage);
     let online_cpus = cpu
@@ -128,7 +133,13 @@ async fn container_stats(client: &Docker, id: &str) -> AppResult<ContainerStatsD
 
     Ok(ContainerStatsDto {
         id: id.to_string(),
-        cpu_percent: cpu_percent(cpu_total, prev_total, system_total, prev_system, online_cpus),
+        cpu_percent: cpu_percent(
+            cpu_total,
+            prev_total,
+            system_total,
+            prev_system,
+            online_cpus,
+        ),
         memory_usage: resident_memory(
             memory.and_then(|stats| stats.usage).unwrap_or(0),
             memory.and_then(|stats| stats.stats.as_ref()),
@@ -189,7 +200,9 @@ impl ContainerAction {
             "restart" => Ok(ContainerAction::Restart),
             "kill" => Ok(ContainerAction::Kill),
             "remove" => Ok(ContainerAction::Remove),
-            other => Err(AppError::Message(format!("Unknown container action: {other}"))),
+            other => Err(AppError::Message(format!(
+                "Unknown container action: {other}"
+            ))),
         }
     }
 }
@@ -204,17 +217,26 @@ pub async fn execute_action(client: &Docker, id: &str, action: ContainerAction) 
         }
         ContainerAction::Restart => {
             client
-                .restart_container(id, Some(RestartContainerOptionsBuilder::new().t(10).build()))
+                .restart_container(
+                    id,
+                    Some(RestartContainerOptionsBuilder::new().t(10).build()),
+                )
                 .await?
         }
         ContainerAction::Kill => {
             client
-                .kill_container(id, Some(KillContainerOptionsBuilder::new().signal("SIGKILL").build()))
+                .kill_container(
+                    id,
+                    Some(KillContainerOptionsBuilder::new().signal("SIGKILL").build()),
+                )
                 .await?
         }
         ContainerAction::Remove => {
             client
-                .remove_container(id, Some(RemoveContainerOptionsBuilder::new().force(true).build()))
+                .remove_container(
+                    id,
+                    Some(RemoveContainerOptionsBuilder::new().force(true).build()),
+                )
                 .await?
         }
     }
@@ -290,11 +312,20 @@ mod tests {
     fn cpu_percent_scales_by_online_cores() {
         // `system_cpu_usage` spans all cores, so a fully busy one-core
         // container on a one-core host moves both counters equally.
-        assert_eq!(cpu_percent(Some(1_000), Some(0), Some(1_000), Some(0), 1.0), 100.0);
+        assert_eq!(
+            cpu_percent(Some(1_000), Some(0), Some(1_000), Some(0), 1.0),
+            100.0
+        );
         // Half a core.
-        assert_eq!(cpu_percent(Some(500), Some(0), Some(1_000), Some(0), 1.0), 50.0);
+        assert_eq!(
+            cpu_percent(Some(500), Some(0), Some(1_000), Some(0), 1.0),
+            50.0
+        );
         // Both cores busy on a four-core host.
-        assert_eq!(cpu_percent(Some(2_000), Some(0), Some(4_000), Some(0), 4.0), 200.0);
+        assert_eq!(
+            cpu_percent(Some(2_000), Some(0), Some(4_000), Some(0), 4.0),
+            200.0
+        );
     }
 
     #[test]
@@ -315,16 +346,27 @@ mod tests {
             return;
         }
         let stats = list_container_stats(&client, true).await;
-        assert!(stats.is_ok(), "list_container_stats failed: {:?}", stats.err());
+        assert!(
+            stats.is_ok(),
+            "list_container_stats failed: {:?}",
+            stats.err()
+        );
         for stat in stats.unwrap() {
-            assert!(stat.memory_limit > 0, "container {} reported a zero memory limit", stat.id);
+            assert!(
+                stat.memory_limit > 0,
+                "container {} reported a zero memory limit",
+                stat.id
+            );
             assert!(stat.cpu_percent >= 0.0);
         }
     }
 
     #[test]
     fn resident_memory_excludes_page_cache() {
-        let v2 = HashMap::from([("inactive_file".to_string(), 400), ("anon".to_string(), 600)]);
+        let v2 = HashMap::from([
+            ("inactive_file".to_string(), 400),
+            ("anon".to_string(), 600),
+        ]);
         assert_eq!(resident_memory(1_000, Some(&v2)), 600);
 
         let v1 = HashMap::from([("cache".to_string(), 250)]);

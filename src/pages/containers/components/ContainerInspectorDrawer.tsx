@@ -68,7 +68,11 @@ export default function ContainerInspectorDrawer({ id, onClose }: Props) {
                   items={[
                     { key: "name", label: "Name", children: (data.Name ?? "").replace(/^\//, "") || "—" },
                     { key: "id", label: "ID", children: <Mono>{shortId(data.Id)}</Mono> },
-                    { key: "state", label: "State", children: <StateTag state={data.State?.Status ?? "unknown"} /> },
+                    {
+                      key: "state",
+                      label: "State",
+                      children: <StateTag state={data.State?.Status ?? "unknown"} />,
+                    },
                     { key: "image", label: "Image", children: <Mono>{data.Config?.Image ?? "—"}</Mono> },
                     {
                       key: "ports",
@@ -82,7 +86,11 @@ export default function ContainerInspectorDrawer({ id, onClose }: Props) {
                     { key: "created", label: "Created", children: data.Created ?? "—" },
                     { key: "started", label: "Started", children: data.State?.StartedAt ?? "—" },
                     { key: "exit", label: "Exit code", children: data.State?.ExitCode ?? "—" },
-                    { key: "restart", label: "Restart policy", children: data.HostConfig?.RestartPolicy?.Name ?? "—" },
+                    {
+                      key: "restart",
+                      label: "Restart policy",
+                      children: data.HostConfig?.RestartPolicy?.Name ?? "—",
+                    },
                   ]}
                 />
               ),
@@ -91,7 +99,10 @@ export default function ContainerInspectorDrawer({ id, onClose }: Props) {
               key: "env",
               label: "Environment",
               children: env.length ? (
-                <div className="card subtle mono" style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                <div
+                  className="card subtle mono"
+                  style={{ display: "flex", flexDirection: "column", gap: 4 }}
+                >
                   {env.map((item) => (
                     <div key={item.key}>
                       {item.key}={item.value}

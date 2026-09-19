@@ -32,7 +32,11 @@ const TITLES: Record<string, string> = {
 };
 
 function ConnectionBadge() {
-  const { data } = useQuery({ queryKey: queryKeys.status(), queryFn: getDockerStatus, refetchInterval: 10_000 });
+  const { data } = useQuery({
+    queryKey: queryKeys.status(),
+    queryFn: getDockerStatus,
+    refetchInterval: 10_000,
+  });
   const state = data?.state ?? "connecting";
   const color =
     state === "connected" ? "var(--green)" : state === "connecting" ? "var(--amber)" : "var(--coral)";
@@ -50,7 +54,11 @@ export default function MainLayout() {
   const location = useLocation();
   useDockerEvents();
 
-  const { data: status, isError, refetch } = useQuery({
+  const {
+    data: status,
+    isError,
+    refetch,
+  } = useQuery({
     queryKey: queryKeys.status(),
     queryFn: getDockerStatus,
     refetchInterval: 10_000,
@@ -117,7 +125,9 @@ export default function MainLayout() {
             <Result
               status="warning"
               title="Docker Daemon Not Reachable"
-              subTitle={status?.message ?? "Start Docker Desktop or check the WSL2 backend. Retrying automatically…"}
+              subTitle={
+                status?.message ?? "Start Docker Desktop or check the WSL2 backend. Retrying automatically…"
+              }
               extra={
                 <Button icon={<ReloadOutlined />} onClick={() => void refetch()}>
                   Retry now
