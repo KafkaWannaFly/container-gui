@@ -40,6 +40,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::containers::list_containers,
+            commands::containers::container_stats,
             commands::containers::inspect_container,
             commands::containers::container_action,
             commands::containers::stream_container_logs,

@@ -24,6 +24,17 @@ pub struct ContainerSummaryDto {
     pub status: String,
     pub created: i64,
     pub ports: Vec<PortMappingDto>,
+    pub compose_project: Option<String>,
+    pub compose_service: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ContainerStatsDto {
+    pub id: String,
+    pub cpu_percent: f64,
+    pub memory_usage: i64,
+    pub memory_limit: i64,
 }
 
 #[derive(Debug, Clone, Serialize)]

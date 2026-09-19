@@ -1,0 +1,28 @@
+# Sample compose group for `make up`. Project name = directory name,
+# so both services share the com.docker.compose.project label.
+services:
+  one-volume-one-port:
+    image: nginx:alpine
+    container_name: cgui-sample-1v1p
+    ports:
+      - "18080:80"
+    volumes:
+      - cgui-sample-vol-1:/data
+
+  three-volume-three-port:
+    image: nginx:alpine
+    container_name: cgui-sample-3v3p
+    ports:
+      - "18081:80"
+      - "18082:80"
+      - "18083:80"
+    volumes:
+      - cgui-sample-vol-2:/a
+      - cgui-sample-vol-3:/b
+      - cgui-sample-vol-4:/c
+
+volumes:
+  cgui-sample-vol-1:
+  cgui-sample-vol-2:
+  cgui-sample-vol-3:
+  cgui-sample-vol-4:

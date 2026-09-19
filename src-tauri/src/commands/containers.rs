@@ -2,7 +2,7 @@ use tauri::State;
 
 use crate::AppState;
 use crate::error::AppResult;
-use crate::models::dto::{ContainerSummaryDto, LogChunkDto};
+use crate::models::dto::{ContainerStatsDto, ContainerSummaryDto, LogChunkDto};
 use crate::services::container_service::{self, ContainerListFilter};
 
 #[tauri::command]
@@ -13,6 +13,15 @@ pub async fn list_containers(
     let client = state.manager.required_client().await?;
     let filter = ContainerListFilter::builder().all(all).build();
     container_service::list_containers(&client, &filter).await
+}
+
+#[tauri::command]
+pub async fn container_stats(
+    state: State<'_, AppState>,
+    all: bool,
+) -> AppResult<Vec<ContainerStatsDto>> {
+    let client = state.manager.required_client().await?;
+    container_service::list_container_stats(&client, all).await
 }
 
 #[tauri::command]

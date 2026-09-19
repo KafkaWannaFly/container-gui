@@ -1,6 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import { useMount, useUnmount } from "ahooks";
 import { useQueryClient } from "@tanstack/react-query";
 import { App } from "antd";
 import { DockerEventSchema, DockerStatusSchema } from "../types/docker";
@@ -13,62 +12,76 @@ import { queryKeys } from "../lib/queryClient";
 export function useDockerEvents() {
   const queryClient = useQueryClient();
   const { notification } = App.useApp();
-  const unlisteners = useRef<UnlistenFn[]>([]);
-  const disposed = useRef(false);
-  const lastStandby = useRef<string | null>(null);
 
-  useMount(() => {
+  useEffect(() => {
+    // Closure state, not refs: StrictMode mounts this effect twice in dev and
+    // a shared `disposed` ref would make the second run unlisten itself.
+    let disposed = false;
+    let unlisteners: UnlistenFn[] = [];
+    let lastStandby: string | null = null;
+
     void (async () => {
-      const eventUnlisten = await listen<unknown>("docker://event", (event) => {
-        const parsed = DockerEventSchema.safeParse(event.payload);
-        if (!parsed.success) return;
-        switch (parsed.data.resourceType) {
-          case "container":
-            void queryClient.invalidateQueries({ queryKey: ["containers"] });
-            void queryClient.invalidateQueries({ queryKey: ["system-info"] });
-            break;
-          case "volume":
-            void queryClient.invalidateQueries({ queryKey: queryKeys.volumes() });
-            break;
-          case "image":
-            void queryClient.invalidateQueries({ queryKey: queryKeys.images() });
-            break;
-        }
-      });
-
-      const statusUnlisten = await listen<unknown>("docker://status", (event) => {
-        const parsed = DockerStatusSchema.safeParse(event.payload);
-        if (!parsed.success) return;
-        const status = parsed.data;
-        queryClient.setQueryData(queryKeys.status(), status);
-        if (status.state === "standby" || status.state === "error") {
-          if (lastStandby.current !== status.message) {
-            lastStandby.current = status.message;
-            notification.error({
-              message: "Docker engine unreachable",
-              description: status.message ?? "Retrying in the background…",
-              placement: "bottomRight",
-            });
+      let eventUnlisten: UnlistenFn;
+      try {
+        eventUnlisten = await listen<unknown>("docker://event", (event) => {
+          const parsed = DockerEventSchema.safeParse(event.payload);
+          if (!parsed.success) return;
+          switch (parsed.data.resourceType) {
+            case "container":
+              void queryClient.invalidateQueries({ queryKey: ["containers"] });
+              void queryClient.invalidateQueries({ queryKey: queryKeys.system() });
+              break;
+            case "volume":
+              void queryClient.invalidateQueries({ queryKey: queryKeys.volumes() });
+              break;
+            case "image":
+              void queryClient.invalidateQueries({ queryKey: queryKeys.images() });
+              break;
           }
-        } else if (status.state === "connected") {
-          lastStandby.current = null;
-        }
-      });
+        });
+      } catch {
+        return;
+      }
 
-      if (disposed.current) {
+      let statusUnlisten: UnlistenFn;
+      try {
+        statusUnlisten = await listen<unknown>("docker://status", (event) => {
+          const parsed = DockerStatusSchema.safeParse(event.payload);
+          if (!parsed.success) return;
+          const status = parsed.data;
+          queryClient.setQueryData(queryKeys.status(), status);
+          if (status.state === "standby" || status.state === "error") {
+            if (lastStandby !== status.message) {
+              lastStandby = status.message;
+              notification.error({
+                message: "Docker engine unreachable",
+                description: status.message ?? "Retrying in the background…",
+                placement: "bottomRight",
+              });
+            }
+          } else if (status.state === "connected") {
+            lastStandby = null;
+          }
+        });
+      } catch {
+        eventUnlisten();
+        return;
+      }
+
+      if (disposed) {
         eventUnlisten();
         statusUnlisten();
       } else {
-        unlisteners.current.push(eventUnlisten, statusUnlisten);
+        unlisteners = [eventUnlisten, statusUnlisten];
       }
     })();
-  });
 
-  useUnmount(() => {
-    disposed.current = true;
-    unlisteners.current.forEach((unlisten) => unlisten());
-    unlisteners.current = [];
-  });
+    return () => {
+      disposed = true;
+      unlisteners.forEach((unlisten) => unlisten());
+      unlisteners = [];
+    };
+  }, [queryClient, notification]);
 }
 
 /**

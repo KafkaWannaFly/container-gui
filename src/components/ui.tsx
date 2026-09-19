@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Button, Dropdown, type MenuProps } from "antd";
+import { Button, Dropdown, Tooltip, type MenuProps } from "antd";
 import { MoreOutlined } from "@ant-design/icons";
 
 export const STATE_COLORS: Record<string, string> = {
@@ -13,18 +13,20 @@ export const STATE_COLORS: Record<string, string> = {
 
 export function StateDot({ state }: { state: string }) {
   const color = STATE_COLORS[state] ?? "var(--fog)";
+  const label = state ? state.charAt(0).toUpperCase() + state.slice(1) : "Unknown";
   return (
-    <span
-      title={state}
-      style={{
-        display: "inline-block",
-        width: 7,
-        height: 7,
-        borderRadius: 99,
-        background: color,
-        boxShadow: `0 0 0 3px ${color}22`,
-      }}
-    />
+    <Tooltip title={label}>
+      <span
+        style={{
+          display: "inline-block",
+          width: 10,
+          height: 10,
+          borderRadius: 99,
+          background: color,
+          boxShadow: `0 0 0 3px ${color}22`,
+        }}
+      />
+    </Tooltip>
   );
 }
 

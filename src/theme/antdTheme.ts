@@ -43,6 +43,8 @@ export const antdTheme: ThemeConfig = {
       headerColor: "#8a8f98",
       headerSplitColor: "transparent",
       rowHoverBg: "#161718",
+      rowSelectedBg: "transparent",
+      rowSelectedHoverBg: "#161718",
       borderColor: "#23252a",
       headerBorderRadius: 8,
       cellPaddingBlock: 10,

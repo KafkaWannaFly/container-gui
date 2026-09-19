@@ -21,8 +21,18 @@ export const ContainerSummarySchema = z.object({
   status: z.string(),
   created: z.number(),
   ports: z.array(PortMappingSchema),
+  composeProject: z.string().nullable(),
+  composeService: z.string().nullable(),
 });
 export type ContainerSummary = z.infer<typeof ContainerSummarySchema>;
+
+export const ContainerStatsSchema = z.object({
+  id: z.string(),
+  cpuPercent: z.number(),
+  memoryUsage: z.number(),
+  memoryLimit: z.number(),
+});
+export type ContainerStats = z.infer<typeof ContainerStatsSchema>;
 
 export const VolumeItemSchema = z.object({
   name: z.string(),

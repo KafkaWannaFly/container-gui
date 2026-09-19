@@ -2,7 +2,7 @@
 # Parallel targets background each side and wait on both PIDs so a
 # failure on either side fails the target.
 
-.PHONY: i dev test
+.PHONY: i dev test up down
 
 ## Install frontend and backend dependencies in parallel.
 i:
@@ -11,6 +11,17 @@ i:
 ## Start the Tauri app (runs Vite + the Rust shell).
 dev:
 	pnpm tauri dev
+
+## Create sample containers: one bare, one 1 volume/1 port, one 3 volumes/3 ports.
+## The last two share a compose project group (`com.docker.compose.project`).
+up:
+	docker run -d --name cgui-sample-bare alpine sleep infinity
+	docker compose up -d
+
+## Remove the sample containers and volumes created by `up`.
+down:
+	-docker rm -f cgui-sample-bare
+	-docker compose down -v
 
 ## Type-check/build the frontend and run backend tests in parallel.
 test:

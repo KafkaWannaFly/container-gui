@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   ConnectionConfigSchema,
   ContainerInspectSchema,
+  ContainerStatsSchema,
   ContainerSummarySchema,
   DockerContextSchema,
   DockerStatusSchema,
@@ -14,6 +15,7 @@ import {
   ImagePullProgressSchema,
   type ConnectionConfig,
   type ContainerInspect,
+  type ContainerStats,
   type ContainerSummary,
   type DockerContext,
   type DockerStatus,
@@ -58,6 +60,10 @@ async function callVoid(cmd: string, args: Record<string, unknown> = {}): Promis
 
 export function listContainers(all = true): Promise<ContainerSummary[]> {
   return call("list_containers", { all }, z.array(ContainerSummarySchema));
+}
+
+export function listContainerStats(all = true): Promise<ContainerStats[]> {
+  return call("container_stats", { all }, z.array(ContainerStatsSchema));
 }
 
 export function inspectContainer(id: string): Promise<ContainerInspect> {
