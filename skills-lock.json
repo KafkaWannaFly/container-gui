@@ -13,6 +13,12 @@
       "skillPath": "plugins/systems-programming/skills/rust-async-patterns/SKILL.md",
       "computedHash": "9203b9abc8238c578887994730421879778720184b027859fecda3f76d31ab05"
     },
+    "tauri-v2": {
+      "source": "nodnarbnitram/claude-code-extensions",
+      "sourceType": "github",
+      "skillPath": ".claude/skills/tauri-v2/SKILL.md",
+      "computedHash": "7108944eec3bef17686df9ebae9c9bdbee7809744930c8734c979e3c4573eaab"
+    },
     "vercel-react-best-practices": {
       "source": "vercel-labs/agent-skills",
       "sourceType": "github",
