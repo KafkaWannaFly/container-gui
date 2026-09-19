@@ -18,8 +18,14 @@ pub struct AppState {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
-        .plugin(tauri_plugin_opener::init())
+    let builder = tauri::Builder::default().plugin(tauri_plugin_opener::init());
+
+    // Debug-only UI automation bridge for agents (`tauri-pilot`). The plugin
+    // opens a named pipe; it is never compiled into release builds.
+    #[cfg(debug_assertions)]
+    let builder = builder.plugin(tauri_plugin_pilot::init());
+
+    builder
         .setup(|app| {
             let handle = app.handle().clone();
             let manager = Arc::new(DockerSessionManager::new(handle.clone()));

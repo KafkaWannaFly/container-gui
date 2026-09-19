@@ -15,6 +15,7 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2.11", features = [] }
 tauri-plugin-opener = "2"
+tauri-plugin-pilot = "0.7"
 tokio = { version = "1.53", features = ["full"] }
 bollard = { version = "0.21", features = ["pipe", "ssl", "chrono"] }
 serde = { version = "1.0", features = ["derive"] }
