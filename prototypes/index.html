@@ -1,0 +1,793 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Container GUI — Prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300..700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/antd@5/dist/reset.css">
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/htm@3/dist/htm.umd.js"></script>
+<script src="https://unpkg.com/dayjs@1/dayjs.min.js"></script>
+<script src="https://unpkg.com/antd@5/dist/antd.min.js"></script>
+<script src="https://unpkg.com/@ant-design/icons@5/dist/index.umd.js"></script>
+<style>
+  :root{
+    --void:#08090a; --carbon:#0f1011; --obsidian:#161718; --graphite:#23252a; --smoke:#383b3f;
+    --ash:#62666d; --fog:#8a8f98; --mist:#d0d6e0; --bone:#e5e5e6; --paper:#fff;
+    --lime:#e4f222; --green:#27a644; --coral:#eb5757; --teal:#02b8cc; --violet:#6366f1; --lav:#8b5cf6;
+    --amber:#d9a441;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    background:var(--void); color:var(--mist);
+    font-family:'Inter',system-ui,-apple-system,sans-serif;
+    font-feature-settings:'cv01' 1,'ss03' 1,'zero' 1;
+    -webkit-font-smoothing:antialiased; font-size:14px;
+  }
+  .mono{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;letter-spacing:-.013em}
+  .app{display:flex;min-height:100vh}
+  .side{
+    width:224px;flex:0 0 224px;height:100vh;position:sticky;top:0;
+    background:var(--carbon);border-right:.5px solid var(--graphite);
+    padding:14px 10px;display:flex;flex-direction:column;gap:2px;
+  }
+  .brand{display:flex;align-items:center;gap:9px;padding:6px 8px 14px;color:var(--paper);font-weight:510;font-size:15px;letter-spacing:-.011em}
+  .brand svg{display:block}
+  .nav-item{
+    display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:6px;
+    color:var(--mist);font-size:13px;cursor:pointer;border:.5px solid transparent;user-select:none;
+  }
+  .nav-item:hover{background:var(--obsidian)}
+  .nav-item.active{background:var(--obsidian);border-color:var(--graphite);color:var(--paper)}
+  .side-foot{margin-top:auto;padding:10px 8px 2px;border-top:.5px solid var(--graphite);color:var(--ash);display:flex;justify-content:space-between;align-items:center}
+  .main{flex:1;min-width:0;display:flex;flex-direction:column}
+  .page{padding:24px;max-width:1200px;width:100%;margin:0 auto;display:flex;flex-direction:column;gap:24px}
+  .card{background:var(--carbon);border:.5px solid var(--graphite);border-radius:12px;padding:16px}
+  .card.subtle{background:rgba(255,255,255,.02);border-radius:6px;padding:8px}
+  .toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .toolbar .spacer{flex:1}
+  .metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:12px}
+  .metric .k{font-size:12px;color:var(--fog);margin-bottom:6px}
+  .metric .v{font-size:24px;font-weight:510;color:var(--paper);letter-spacing:-.012em}
+  .metric .v small{font-size:13px;color:var(--ash);font-weight:400;margin-left:6px}
+  .section-title{font-size:13px;color:var(--fog);text-transform:uppercase;letter-spacing:.06em;margin:0 0 12px}
+  pre.logs{
+    margin:0;background:var(--void);border:.5px solid var(--graphite);border-radius:6px;
+    padding:12px;max-height:340px;overflow:auto;color:var(--mist);
+    font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;line-height:1.7;letter-spacing:-.013em;
+  }
+  pre.logs .err{color:var(--coral)}
+  pre.logs .dim{color:var(--ash)}
+  .hair{height:.5px;background:var(--graphite);border:0;margin:16px 0}
+  .muted{color:var(--fog)}
+  .dim{color:var(--ash)}
+  .label{font-size:12px;color:var(--fog);margin-bottom:4px}
+  .field{display:flex;flex-direction:column}
+  .ping-ok{color:var(--green)}
+  .ping-bad{color:var(--coral)}
+  .frame{display:flex;gap:16px;align-items:flex-start}
+  .grow{flex:1;min-width:0}
+  .ant-table-wrapper .ant-table{background:transparent}
+  .ant-table-tbody > tr > td{border-bottom:.5px solid var(--graphite) !important}
+  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar-thumb{background:var(--graphite);border-radius:99px;border:3px solid var(--void)}
+  ::-webkit-scrollbar-track{background:transparent}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+const { useState, useMemo } = React;
+const html = htm.bind(React.createElement);
+const {
+  ConfigProvider, theme, App: AntApp,
+  Table, Tag, Button, Input, Drawer, Descriptions, Tabs, Modal, Form,
+  Select, Switch, Progress, Divider, Alert, Segmented, Dropdown, Empty,
+} = antd;
+
+const {
+  MoreOutlined, PlayCircleOutlined, PauseCircleOutlined, ReloadOutlined,
+  FileTextOutlined, InfoCircleOutlined, DeleteOutlined, HistoryOutlined,
+  TagOutlined, PlusOutlined, CloudDownloadOutlined, ClearOutlined,
+  ApiOutlined, LinkOutlined, SyncOutlined, FolderOpenOutlined,
+  ContainerOutlined, PictureOutlined, HddOutlined, SettingOutlined,
+  RightOutlined, DownOutlined,
+} = window.icons;
+
+/* ---------- Linear theme tokens ---------- */
+const themeCfg = {
+  algorithm: theme.darkAlgorithm,
+  token: {
+    colorBgBase: '#08090a',
+    colorBgContainer: '#0f1011',
+    colorBgElevated: '#161718',
+    colorBorder: '#23252a',
+    colorBorderSecondary: '#23252a',
+    colorText: '#d0d6e0',
+    colorTextSecondary: '#8a8f98',
+    colorTextTertiary: '#62666d',
+    colorPrimary: '#e4f222',
+    colorTextLightSolid: '#08090a',
+    colorError: '#eb5757',
+    colorSuccess: '#27a644',
+    colorWarning: '#d9a441',
+    colorInfo: '#02b8cc',
+    borderRadius: 6,
+    borderRadiusLG: 12,
+    fontFamily: "'Inter',system-ui,-apple-system,sans-serif",
+    fontSize: 13,
+    controlHeight: 32,
+    controlHeightSM: 26,
+    lineHeight: 1.5,
+    wireframe: false,
+  },
+  components: {
+    Button: { primaryShadow: 'none', defaultBg: 'transparent', defaultBorderColor: '#23252a', fontWeight: 400, paddingInline: 12 },
+    Table: {
+      headerBg: '#0f1011', headerColor: '#8a8f98', headerSplitColor: 'transparent',
+      rowHoverBg: '#161718', borderColor: '#23252a', headerBorderRadius: 8,
+      cellPaddingBlock: 10, cellPaddingInline: 12,
+    },
+    Input: { colorBgContainer: 'rgba(255,255,255,0.02)', activeBorderColor: '#d0d6e0', hoverBorderColor: '#383b3f', activeShadow: 'none' },
+    Select: { colorBgContainer: 'rgba(255,255,255,0.02)', optionSelectedBg: '#23252a' },
+    Modal: { contentBg: '#0f1011', headerBg: '#0f1011', titleColor: '#ffffff' },
+    Drawer: { colorBgElevated: '#0f1011' },
+    Descriptions: { labelBg: 'transparent', titleColor: '#ffffff' },
+    Tabs: { itemColor: '#8a8f98', itemSelectedColor: '#ffffff', inkBarColor: '#e4f222' },
+    Progress: { defaultColor: '#e4f222' },
+    Tag: { defaultBg: 'rgba(255,255,255,0.05)', defaultColor: '#8a8f98' },
+    Segmented: { itemSelectedBg: '#23252a', itemColor: '#8a8f98', itemSelectedColor: '#ffffff' },
+    Divider: { colorSplit: '#23252a' },
+  },
+};
+
+/* ---------- primitives ---------- */
+const Mono = ({ children }) => html`<span className="mono">${children}</span>`;
+
+function StateTag({ state }) {
+  const map = {
+    running: ['#27a644', 'Running'],
+    exited: ['#eb5757', 'Exited'],
+    paused: ['#d9a441', 'Paused'],
+    created: ['#8a8f98', 'Created'],
+  };
+  const [color, label] = map[state] || ['#8a8f98', state];
+  return html`
+    <span style=${{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#d0d6e0' }}>
+      <span style=${{ width: 7, height: 7, borderRadius: 99, background: color, boxShadow: `0 0 0 3px ${color}22` }}></span>
+      ${label}
+    </span>`;
+}
+
+function StateDot({ state }) {
+  const color = { running: '#27a644', exited: '#eb5757', paused: '#d9a441', created: '#8a8f98' }[state] || '#8a8f98';
+  return html`<span title=${state} style=${{
+    display: 'inline-block', width: 7, height: 7, borderRadius: 99, background: color,
+    boxShadow: `0 0 0 3px ${color}22`,
+  }}></span>`;
+}
+
+function Pill({ children, tone }) {
+  const tones = {
+    green: ['rgba(39,166,68,.13)', '#27a644'],
+    coral: ['rgba(235,87,87,.12)', '#eb5757'],
+    violet: ['rgba(99,102,241,.16)', '#8b93ff'],
+    lav: ['rgba(139,92,246,.16)', '#b79bff'],
+    teal: ['rgba(2,184,204,.13)', '#02b8cc'],
+    neutral: ['rgba(255,255,255,.05)', '#8a8f98'],
+  };
+  const [bg, fg] = tones[tone || 'neutral'];
+  return html`<span style=${{
+    display: 'inline-block', padding: '0 6px', borderRadius: 4, fontSize: 12, lineHeight: '18px',
+    background: bg, color: fg,
+  }}>${children}</span>`;
+}
+
+/* Row action menu: 3-dot trigger, icon per item, separators between groups */
+function RowActions({ groups }) {
+  const items = groups.flatMap((g, i) => [...(i ? [{ type: 'divider' }] : []), ...g]);
+  return html`
+    <${Dropdown} menu=${{ items }} trigger=${['click']} placement="bottomRight">
+      <${Button} type="text" size="small" aria-label="Actions" icon=${html`<${MoreOutlined} />`} />
+    <//>`;
+}
+
+const Glyph = () => html`<svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+  <rect x="1" y="4.5" width="16" height="4" rx="1.4" fill="#e4f222"/>
+  <rect x="1" y="9.5" width="16" height="4" rx="1.4" fill="#62666d"/>
+</svg>`;
+
+/* ---------- mock data ---------- */
+const CONTAINERS = [
+  { key: 'c1', name: 'api-gateway', id: 'a91f3c2d8e04', state: 'running', image: 'nginx:alpine', ports: ['0.0.0.0:8080 → 80/tcp'], uptime: '4 days', cpu: '0.8%', mem: '42 MB', created: '2026-09-14 09:12', compose: 'shop' },
+  { key: 'c2', name: 'postgres-main', id: '77bd10fe3311', state: 'running', image: 'postgres:16', ports: ['0.0.0.0:5432 → 5432/tcp'], uptime: '4 days', cpu: '2.4%', mem: '218 MB', created: '2026-09-14 09:13', compose: 'shop' },
+  { key: 'c3', name: 'redis-cache', id: 'b31e88a0c5f9', state: 'paused', image: 'redis:7-alpine', ports: ['6379/tcp'], uptime: '2 hours', cpu: '0.0%', mem: '11 MB', created: '2026-09-17 18:40', compose: 'shop' },
+  { key: 'c4', name: 'traefik', id: 'd42c9be1a730', state: 'running', image: 'traefik:v3.1', ports: ['0.0.0.0:80 → 80/tcp', '0.0.0.0:443 → 443/tcp', '0.0.0.0:8080 → 8080/tcp'], uptime: '2 days', cpu: '0.4%', mem: '64 MB', created: '2026-09-16 08:05' },
+  { key: 'c5', name: 'minio', id: '1f7a55c0d8e2', state: 'running', image: 'minio/minio:RELEASE.2026-08', ports: ['0.0.0.0:9000 → 9000/tcp', '0.0.0.0:9001 → 9001/tcp'], uptime: '6 hours', cpu: '1.3%', mem: '128 MB', created: '2026-09-18 21:40' },
+  { key: 'c6', name: 'worker-pool-1', id: 'e0a4c7d912bb', state: 'exited', image: 'ghcr.io/acme/worker:2.4.1', ports: [], uptime: '—', cpu: '0.0%', mem: '0 MB', created: '2026-09-12 21:07' },
+  { key: 'c7', name: 'grafana', id: '5cf9d2e77a10', state: 'running', image: 'grafana/grafana:10.4', ports: ['0.0.0.0:3000 → 3000/tcp'], uptime: '1 day', cpu: '1.1%', mem: '96 MB', created: '2026-09-16 11:22' },
+];
+
+const IMAGES = [
+  { key: 'i1', repo: 'nginx', tags: ['alpine'], usedTags: ['alpine'], id: 'sha256:9c24e1', size: '48.2 MB', created: '3 weeks ago' },
+  { key: 'i2', repo: 'postgres', tags: ['16', '16.3', 'latest'], usedTags: ['16'], id: 'sha256:71ab0f', size: '432.7 MB', created: '2 weeks ago' },
+  { key: 'i3', repo: 'redis', tags: ['7-alpine', '7.2-alpine'], usedTags: ['7-alpine', '7.2-alpine'], id: 'sha256:2d80b4', size: '41.1 MB', created: '1 week ago' },
+  { key: 'i4', repo: 'ghcr.io/acme/worker', tags: ['2.4.1', '2.4.0', 'latest', 'stable', 'main-20260918'], usedTags: [], id: 'sha256:aa10c9', size: '812.4 MB', created: '5 days ago' },
+  { key: 'i5', repo: 'grafana/grafana', tags: ['10.4', 'latest'], usedTags: ['10.4'], id: 'sha256:3be1f7', size: '421.8 MB', created: '3 days ago' },
+  { key: 'i6', repo: '<none>', tags: ['<none>'], usedTags: [], id: 'sha256:08fe33', size: '213.6 MB', created: '1 month ago', dangling: true },
+];
+
+const LAYERS = [
+  { ins: 'FROM node:20-alpine', author: 'node', size: '128 MB' },
+  { ins: 'RUN apk add --no-cache dumb-init', author: 'root', size: '1.2 MB' },
+  { ins: 'COPY package*.json ./', author: 'root', size: '412 kB' },
+  { ins: 'RUN npm ci --omit=dev', author: 'root', size: '188 MB' },
+  { ins: 'COPY . /app', author: 'root', size: '6.4 MB' },
+  { ins: 'CMD ["dumb-init","node","server.js"]', author: 'root', size: '0 B' },
+];
+
+const VOLUMES = [
+  { key: 'v1', name: 'pgdata', driver: 'local', mount: '/var/lib/docker/volumes/pgdata/_data', inUse: 'postgres-main', size: '1.4 GB', created: '2026-09-14' },
+  { key: 'v2', name: 'grafana-storage', driver: 'local', mount: '/var/lib/docker/volumes/grafana-storage/_data', inUse: 'grafana', size: '88 MB', created: '2026-09-16' },
+  { key: 'v3', name: 'redis-data', driver: 'local', mount: '/var/lib/docker/volumes/redis-data/_data', inUse: 'redis-cache', size: '6 MB', created: '2026-09-17' },
+  { key: 'v4', name: 'legacy-backup', driver: 'local', mount: '/var/lib/docker/volumes/legacy-backup/_data', inUse: '', size: '2.1 GB', created: '2026-08-02' },
+  { key: 'v5', name: 'tmp-buildcache', driver: 'local', mount: '/var/lib/docker/volumes/tmp-buildcache/_data', inUse: '', size: '310 MB', created: '2026-09-01' },
+];
+
+const CONTEXTS = [
+  { value: 'desktop-linux', label: 'desktop-linux  ·  unix:///home/kafka/.docker/desktop/docker.sock' },
+  { value: 'default', label: 'default  ·  npipe:////./pipe/docker_engine' },
+  { value: 'wsl2-ubuntu', label: 'wsl2-ubuntu  ·  tcp://127.0.0.1:2375' },
+];
+
+/* ---------- Containers ---------- */
+function ContainersPage() {
+  const { modal } = AntApp.useApp();
+  const [sel, setSel] = useState([]);
+  const [q, setQ] = useState('');
+  const [state, setState] = useState('all');
+  const [inspect, setInspect] = useState(null);
+  const [logs, setLogs] = useState(null);
+  const [expandedKeys, setExpandedKeys] = useState(
+    [...new Set(CONTAINERS.filter(c => c.compose).map(c => 'stack:' + c.compose))]
+  );
+
+  const filtered = CONTAINERS.filter(c =>
+    c.name.includes(q) && (state === 'all' || c.state === state)
+  );
+
+  const rows = useMemo(() => {
+    const stacks = {};
+    filtered.forEach(c => { if (c.compose) (stacks[c.compose] = stacks[c.compose] || []).push(c); });
+    const stacked = Object.entries(stacks).map(([project, kids]) => ({
+      key: 'stack:' + project, stack: true, project, children: kids, name: project,
+      state: kids.every(k => k.state === 'running') ? 'running' : 'paused',
+      image: `${kids.length} services`, ports: [], uptime: '—',
+      cpu: kids.reduce((s, k) => s + parseFloat(k.cpu), 0).toFixed(1) + '%',
+      mem: kids.reduce((s, k) => s + parseInt(k.mem, 10), 0) + ' MB',
+    }));
+    return [...stacked, ...filtered.filter(c => !c.compose)];
+  }, [filtered]);
+
+  const containerMenu = r => html`
+    <${RowActions} groups=${[
+      [
+        { key: 'start', label: 'Start', icon: html`<${PlayCircleOutlined} />`, disabled: r.state === 'running' },
+        { key: 'stop', label: 'Stop', icon: html`<${PauseCircleOutlined} />`, disabled: r.state !== 'running' },
+        { key: 'restart', label: 'Restart', icon: html`<${ReloadOutlined} />` },
+      ],
+      [
+        { key: 'logs', label: 'View logs', icon: html`<${FileTextOutlined} />`, onClick: () => setLogs(r) },
+        { key: 'inspect', label: 'Inspect', icon: html`<${InfoCircleOutlined} />`, onClick: () => setInspect(r) },
+      ],
+      [
+        { key: 'remove', label: 'Remove', icon: html`<${DeleteOutlined} />`, danger: true,
+          onClick: () => modal.confirm({
+            title: 'Remove container?', centered: true, okText: 'Remove', okType: 'danger',
+            content: html`<span><${Mono}>${r.name}<//> will be stopped and deleted.</span>`,
+          }) },
+      ],
+    ]} />`;
+
+  const stackMenu = r => html`
+    <${RowActions} groups=${[
+      [
+        { key: 'start', label: 'Start all', icon: html`<${PlayCircleOutlined} />`, disabled: r.state === 'running' },
+        { key: 'stop', label: 'Stop all', icon: html`<${PauseCircleOutlined} />` },
+        { key: 'restart', label: 'Restart all', icon: html`<${ReloadOutlined} />` },
+      ],
+      [
+        { key: 'logs', label: 'Stack logs', icon: html`<${FileTextOutlined} />`, onClick: () => setLogs(r.children[0]) },
+        { key: 'inspect', label: 'Inspect stack', icon: html`<${InfoCircleOutlined} />` },
+      ],
+      [
+        { key: 'remove', label: 'Remove stack', icon: html`<${DeleteOutlined} />`, danger: true,
+          onClick: () => modal.confirm({
+            title: 'Remove compose stack?', centered: true, okText: 'Remove', okType: 'danger',
+            content: html`<span>All <${Mono}>${r.children.length}<//> containers in <${Mono}>${r.project}<//> will be removed. Named volumes are kept.</span>`,
+          }) },
+      ],
+    ]} />`;
+
+  const cols = [
+    {
+      title: '', dataIndex: 'state', width: 30, render: (v, r) => r.stack
+        ? html`<${StateDot} state=${r.children.every(k => k.state === 'running') ? 'running' : 'paused'} />`
+        : html`<${StateDot} state=${v} />`,
+    },
+    {
+      title: 'Name', dataIndex: 'name', render: (v, r) => r.stack
+        ? html`<div style=${{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <span style=${{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+              <span role="button" aria-label=${expandedKeys.includes(r.key) ? 'Collapse' : 'Expand'}
+                onClick=${() => setExpandedKeys(ks => ks.includes(r.key) ? ks.filter(k => k !== r.key) : [...ks, r.key])}
+                style=${{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  width: 14, height: 14, cursor: 'pointer', color: '#8a8f98' }}>
+                ${expandedKeys.includes(r.key) ? html`<${DownOutlined} />` : html`<${RightOutlined} />`}
+              </span>
+              <${FolderOpenOutlined} style=${{ color: '#8a8f98' }} />
+              <span style=${{ color: '#ffffff' }}>${v}</span>
+              <${Pill} tone="teal">compose<//>
+            </span>
+            <span className="mono">${r.children.length} services</span>
+            <span className="mono dim">${r.children.filter(k => k.state === 'running').length}/${r.children.length} running</span>
+          </div>`
+        : html`<div style=${{ display: 'flex', flexDirection: 'column', gap: 2, paddingLeft: r.compose ? 22 : 0 }}>
+            <span style=${{ color: '#ffffff' }}>${v}</span>
+            <span className="mono">${r.image}</span>
+            <span className="mono dim">${r.id}</span>
+          </div>`,
+    },
+    {
+      title: 'Ports', dataIndex: 'ports', render: v => v.length
+        ? html`<div style=${{ display: 'flex', flexDirection: 'column' }}>
+            ${v.map(p => html`<span key=${p} className="mono dim">${p}</span>`)}
+          </div>`
+        : html`<span className="dim">—</span>`,
+    },
+    { title: 'CPU', dataIndex: 'cpu', width: 70, render: v => html`<span className="mono">${v}</span>` },
+    { title: 'Mem', dataIndex: 'mem', width: 80, render: v => html`<span className="mono">${v}</span>` },
+    { title: 'Uptime', dataIndex: 'uptime', width: 90, render: v => html`<span className="dim">${v}</span>` },
+    { title: '', key: 'act', width: 56, align: 'right', render: (_, r) => r.stack ? stackMenu(r) : containerMenu(r) },
+  ];
+
+  const runningCount = CONTAINERS.filter(c => c.state === 'running').length;
+  const cpuTotal = CONTAINERS.reduce((s, c) => s + parseFloat(c.cpu), 0).toFixed(1);
+  const memTotal = CONTAINERS.reduce((s, c) => s + parseInt(c.mem, 10), 0);
+
+  return html`
+    <div className="page">
+      <div className="metrics">
+        <div className="card metric"><div className="k">Running</div><div className="v">${runningCount}<small>of ${CONTAINERS.length}</small></div></div>
+        <div className="card metric"><div className="k">Total CPU</div><div className="v">${cpuTotal}%<small>2 vCPU</small></div></div>
+        <div className="card metric"><div className="k">Total memory</div><div className="v">${memTotal}<small>MB / 8 GB</small></div></div>
+      </div>
+
+      <div className="card">
+        <div className="toolbar" style=${{ marginBottom: 16 }}>
+          <${Input} placeholder="Search containers" allowClear value=${q} onChange=${e => setQ(e.target.value)} style=${{ width: 240 }} />
+          <${Segmented} value=${state} onChange=${setState} options=${[
+            { label: 'All', value: 'all' }, { label: 'Running', value: 'running' },
+            { label: 'Paused', value: 'paused' }, { label: 'Exited', value: 'exited' },
+          ]} />
+          <span className="spacer"></span>
+          ${sel.length > 0 && html`<span className="dim" style=${{ fontSize: 12 }}>${sel.length} selected</span>`}
+          <${Button} icon=${html`<${SyncOutlined} />`}>Refresh<//>
+          <${Button} icon=${html`<${PlayCircleOutlined} />`} disabled=${!sel.length}>Start<//>
+          <${Button} icon=${html`<${PauseCircleOutlined} />`} disabled=${!sel.length}>Stop<//>
+          <${Button} icon=${html`<${ReloadOutlined} />`} disabled=${!sel.length}>Restart<//>
+          <${Button} danger icon=${html`<${DeleteOutlined} />`} disabled=${!sel.length}
+            onClick=${() => modal.confirm({
+              title: `Remove ${sel.length} container${sel.length > 1 ? 's' : ''}?`, centered: true, okText: 'Remove', okType: 'danger',
+              content: 'Selected containers will be stopped and deleted.',
+            })}>Remove<//>
+          <${Button} type="primary" icon=${html`<${PlusOutlined} />`} onClick=${() => setInspect(CONTAINERS[0])}>Run container<//>
+        </div>
+
+        <${Table}
+          size="small"
+          rowSelection=${{ selectedRowKeys: sel, onChange: setSel }}
+          columns=${cols}
+          dataSource=${rows}
+          expandable=${{ expandedRowKeys: expandedKeys, expandIcon: () => null, showExpandColumn: false, indentSize: 0 }}
+          pagination=${{ pageSize: 12, showSizeChanger: false }}
+          locale=${{ emptyText: html`<${Empty} description="No containers" />` }}
+        />
+      </div>
+    </div>
+
+    <${Drawer}
+      open=${!!inspect} onClose=${() => setInspect(null)} width=${560}
+      title=${inspect ? html`<span>Container <${Mono}>${inspect.name}<//></span>` : ''}
+    >
+      ${inspect && html`
+        <${Tabs} items=${[
+          { key: 'ov', label: 'Overview', children: html`
+            <${Descriptions} column=${1} size="small" bordered items=${[
+              { key: 'n', label: 'Name', children: inspect.name },
+              { key: 'i', label: 'ID', children: html`<${Mono}>${inspect.id}<//>` },
+              { key: 's', label: 'State', children: html`<${StateTag} state=${inspect.state} />` },
+              { key: 'im', label: 'Image', children: html`<${Mono}>${inspect.image}<//>` },
+              { key: 'p', label: 'Ports', children: html`<${Mono}>${inspect.ports}<//>` },
+              { key: 'c', label: 'Created', children: inspect.created },
+              { key: 'ip', label: 'IP', children: html`<${Mono}>172.18.0.4/16<//>` },
+              { key: 'nw', label: 'Network', children: 'bridge' },
+            ]} />` },
+          { key: 'logs', label: 'Logs', children: html`
+            <pre className="logs">
+${`2026-09-19T09:00:00Z  starting`}
+${`2026-09-19T09:00:01Z  listening on :80`}
+${`2026-09-19T09:00:12Z  GET /health 200 1ms`}
+<span className="dim">${'2026-09-19T09:01:04Z  GET /api/v1/items 200 14ms'}</span>
+<span className="dim">${'2026-09-19T09:01:04Z  GET /api/v1/items 200 11ms'}</span>
+<span className="err">${'2026-09-19T09:02:18Z  upstream timeout after 30000ms'}</span>
+<span className="err">${'2026-09-19T09:02:19Z  retry 1/3 failed'}</span>
+${`2026-09-19T09:02:20Z  recovered`}
+            </pre>` },
+          { key: 'env', label: 'Env', children: html`
+            <div className="subtle mono">
+              <div>NODE_ENV=production</div>
+              <div>PORT=80</div>
+              <div>LOG_LEVEL=info</div>
+              <div className="dim">DATABASE_URL=••••••••</div>
+            </div>` },
+          { key: 'mnt', label: 'Mounts', children: html`
+            <${Table} size="small" pagination=${false} dataSource=${[
+              { key: 'm1', host: 'pgdata', ctr: '/var/lib/postgresql/data', mode: 'rw' },
+            ]} columns=${[
+              { title: 'Volume', dataIndex: 'host', render: v => html`<${Mono}>${v}<//>` },
+              { title: 'Target', dataIndex: 'ctr', render: v => html`<${Mono}>${v}<//>` },
+              { title: 'Mode', dataIndex: 'mode', width: 60 },
+            ]} />` },
+        ]} />`}
+    <//>
+
+    <${Modal}
+      open=${!!logs} onCancel=${() => setLogs(null)} footer=${null} width=${720}
+      title=${logs ? html`Live logs — <${Mono}>${logs.name}<//>` : ''}
+    >
+      <pre className="logs" style=${{ maxHeight: 420 }}>
+${`2026-09-19T09:10:00Z  request id=8f21 started`}
+${`2026-09-19T09:10:00Z  cache hit key=items:all`}
+<span className="err">${'2026-09-19T09:10:01Z  ERROR connection reset by peer'}</span>
+${`2026-09-19T09:10:01Z  request id=8f21 503 41ms`}
+${`2026-09-19T09:10:02Z  request id=8f22 started`}
+      </pre>
+      <div className="dim" style=${{ fontSize: 12, marginTop: 8 }}>Auto-scroll pauses when you scroll up.</div>
+    <//>
+  `;
+}
+
+/* ---------- Images ---------- */
+function ImagesPage() {
+  const { modal } = AntApp.useApp();
+  const [q, setQ] = useState('');
+  const [sel, setSel] = useState([]);
+  const [pull, setPull] = useState(false);
+  const [history, setHistory] = useState(null);
+  const [prune, setPrune] = useState(false);
+
+  const rows = IMAGES.filter(i => (i.repo + i.tags.join(' ')).includes(q));
+  const dangling = IMAGES.filter(i => i.dangling).length;
+  const inUse = IMAGES.filter(i => i.usedTags.length).length;
+  const sizeMb = IMAGES.reduce((s, i) => s + (i.size.endsWith('GB') ? parseFloat(i.size) * 1024 : parseFloat(i.size)), 0);
+
+  const cols = [
+    { title: 'Repository', dataIndex: 'repo', render: (v, r) => r.dangling
+      ? html`<span className="dim">${v}</span>`
+      : html`<span style=${{ color: '#ffffff' }}>${v}</span>` },
+    { title: 'Tags', dataIndex: 'tags', width: 250, render: (v, r) => r.dangling
+      ? html`<span className="dim"><${Mono}>${v[0]}<//></span>`
+      : html`<span style=${{ display: 'inline-flex', flexWrap: 'wrap', gap: 4 }}>
+          ${v.map(t => html`<${Pill} key=${t} tone=${r.usedTags.includes(t) ? 'green' : 'neutral'}>${t}<//>`)}
+        </span>` },
+    { title: 'Image ID', dataIndex: 'id', width: 170, render: v => html`<${Mono}>${v}<//>` },
+    { title: 'Size', dataIndex: 'size', width: 110, render: v => html`<span className="mono">${v}</span>` },
+    { title: 'Created', dataIndex: 'created', width: 130, render: v => html`<span className="dim">${v}</span>` },
+    { title: 'In use', key: 'used', width: 100, render: (_, r) => r.usedTags.length
+      ? html`<${Pill} tone="green">${r.usedTags.length} tag${r.usedTags.length > 1 ? 's' : ''}<//>`
+      : html`<${Pill} tone="neutral">unused<//>` },
+    { title: '', key: 'act', width: 56, align: 'right', render: (_, r) => html`
+      <${RowActions} groups=${[
+        [
+          { key: 'history', label: 'Layer history', icon: html`<${HistoryOutlined} />`, onClick: () => setHistory(r) },
+          { key: 'tag', label: 'Tag image', icon: html`<${TagOutlined} />` },
+        ],
+        [
+          { key: 'delete', label: 'Delete', icon: html`<${DeleteOutlined} />`, danger: true, disabled: !!r.usedTags.length,
+            onClick: () => modal.confirm({
+              title: 'Delete image?', centered: true, okText: 'Delete', okType: 'danger',
+              content: html`<span><${Mono}>${r.repo}:${r.tags[0]}<//>${r.tags.length > 1 ? ` and ${r.tags.length - 1} more tag${r.tags.length > 2 ? 's' : ''}` : ''} will be deleted.</span>`,
+            }) },
+        ],
+      ]} />` },
+  ];
+
+  return html`
+    <div className="page">
+      <div className="metrics">
+        <div className="card metric"><div className="k">Images</div><div className="v">${inUse}<small>/${IMAGES.length} in use</small></div></div>
+        <div className="card metric"><div className="k">Total size</div><div className="v">${(sizeMb / 1024).toFixed(1)}<small>GB</small></div></div>
+      </div>
+
+      <div className="card">
+        <div className="toolbar" style=${{ marginBottom: 16 }}>
+          <${Input} placeholder="Search repository or tag" allowClear value=${q} onChange=${e => setQ(e.target.value)} style=${{ width: 260 }} />
+          <span className="spacer"></span>
+          ${sel.length > 0 && html`<span className="dim" style=${{ fontSize: 12 }}>${sel.length} selected</span>`}
+          <${Button} danger icon=${html`<${DeleteOutlined} />`} disabled=${!sel.length}
+            onClick=${() => modal.confirm({
+              title: `Delete ${sel.length} image${sel.length > 1 ? 's' : ''}?`, centered: true, okText: 'Delete', okType: 'danger',
+              content: 'All tags of the selected images will be deleted.',
+            })}>Delete<//>
+          <${Button} icon=${html`<${ClearOutlined} />`} onClick=${() => setPrune(true)}>Prune dangling${dangling ? ` (${dangling})` : ''}<//>
+          <${Button} type="primary" icon=${html`<${CloudDownloadOutlined} />`} onClick=${() => setPull(true)}>Pull image<//>
+        </div>
+        <${Table} size="small" columns=${cols} dataSource=${rows} pagination=${{ pageSize: 8, showSizeChanger: false }}
+          rowSelection=${{
+            selectedRowKeys: sel,
+            onChange: setSel,
+            getCheckboxProps: r => ({ disabled: !!r.usedTags.length }),
+          }} />
+      </div>
+    </div>
+
+    <${Modal} open=${pull} onCancel=${() => setPull(false)} title="Pull image" okText="Pull" width=${560}>
+      <div className="label">Image reference</div>
+      <${Input} defaultValue="nginx:latest" className="mono" />
+      <${Divider} />
+      <div className="label">Layers</div>
+      <div style=${{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 12 }}>
+        ${[
+          ['a2f1c0', 100, 'success', 'Pull complete'],
+          ['7b93de', 100, 'success', 'Pull complete'],
+          ['ff0021', 72, 'active', 'Downloading'],
+          ['9c11b7', 34, 'active', 'Extracting'],
+          ['e4a20f', 0, 'normal', 'Waiting'],
+        ].map(([id, pct, st, label]) => html`
+          <div key=${id}>
+            <div style=${{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+              <${Mono}>${id}<//>
+              <span className="dim" style=${{ fontSize: 12 }}>${label}${pct ? ` · ${pct}%` : ''}</span>
+            </div>
+            <${Progress} percent=${pct} status=${st === 'active' ? 'active' : st === 'success' ? 'success' : 'normal'} showInfo=${false} size="small" />
+          </div>`)}
+      </div>
+    <//>
+
+    <${Modal} open=${prune} onCancel=${() => setPrune(false)} title="Prune dangling images" okText="Prune" okButtonProps=${{ danger: true }}>
+      <${Alert} type="warning" showIcon message=${`${dangling} dangling image will be removed.`} description="Running and stopped containers are unaffected." />
+    <//>
+
+    <${Drawer} open=${!!history} onClose=${() => setHistory(null)} width=${640}
+      title=${history ? html`Layer history — <${Mono}>${history.repo}:${history.tags[0]}<//>${history.tags.length > 1 ? html` <span className="dim">+${history.tags.length - 1} tags</span>` : ''}` : ''}>
+      <${Table} size="small" pagination=${false} dataSource=${LAYERS.map((l, i) => ({ key: i, ...l }))} columns=${[
+        { title: 'Instruction', dataIndex: 'ins', render: v => html`<${Mono}>${v}<//>` },
+        { title: 'Author', dataIndex: 'author', width: 90, render: v => html`<span className="dim">${v}</span>` },
+        { title: 'Size', dataIndex: 'size', width: 90, align: 'right', render: v => html`<span className="mono">${v}</span>` },
+      ]} />
+    <//>
+  `;
+}
+
+/* ---------- Volumes ---------- */
+function VolumesPage() {
+  const { modal } = AntApp.useApp();
+  const [q, setQ] = useState('');
+  const [sel, setSel] = useState([]);
+  const [prune, setPrune] = useState(false);
+  const rows = VOLUMES.filter(v => v.name.includes(q));
+  const orphans = VOLUMES.filter(v => !v.inUse);
+  const reclaimMb = orphans.reduce((s, v) => s + (v.size.endsWith('GB') ? parseFloat(v.size) * 1024 : parseFloat(v.size)), 0);
+
+  const cols = [
+    { title: 'Name', dataIndex: 'name', render: v => html`<span style=${{ color: '#ffffff' }}>${v}</span>` },
+    { title: 'Driver', dataIndex: 'driver', width: 90, render: v => html`<${Pill} tone=${v === 'local' ? 'neutral' : 'teal'}>${v}<//>` },
+    { title: 'Mountpoint', dataIndex: 'mount', render: v => html`<span className="mono dim" style=${{ display: 'inline-block', maxWidth: 380, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', verticalAlign: 'bottom' }}>${v}</span>` },
+    { title: 'Size', dataIndex: 'size', width: 90, render: v => html`<span className="mono">${v}</span>` },
+    { title: 'Created', dataIndex: 'created', width: 110, render: v => html`<span className="dim">${v}</span>` },
+    { title: 'In use', dataIndex: 'inUse', width: 150, render: v => v
+      ? html`<span style=${{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><${Pill} tone="green">mounted<//><${Mono}>${v}<//></span>`
+      : html`<${Pill} tone="neutral">orphaned<//>` },
+    { title: '', key: 'act', width: 56, align: 'right', render: (_, r) => html`
+      <${RowActions} groups=${[
+        [
+          { key: 'copy', label: 'Copy mountpoint', icon: html`<${FileTextOutlined} />`,
+            onClick: () => navigator.clipboard && navigator.clipboard.writeText(r.mount) },
+        ],
+        [
+          { key: 'delete', label: 'Delete', icon: html`<${DeleteOutlined} />`, danger: true, disabled: !!r.inUse,
+            onClick: () => modal.confirm({
+              title: 'Delete volume?', centered: true, okText: 'Delete', okType: 'danger',
+              content: html`<span>Data in <${Mono}>${r.name}<//> will be permanently lost.</span>`,
+            }) },
+        ],
+      ]} />` },
+  ];
+
+  return html`
+    <div className="page">
+      <div className="metrics">
+        <div className="card metric"><div className="k">Volumes</div><div className="v">${VOLUMES.length - orphans.length}<small>/${VOLUMES.length} in use</small></div></div>
+        <div className="card metric"><div className="k">Reclaimable</div><div className="v">${(reclaimMb / 1024).toFixed(1)}<small>GB</small></div></div>
+      </div>
+
+      <div className="card">
+        <div className="toolbar" style=${{ marginBottom: 16 }}>
+          <${Input} placeholder="Search volumes" allowClear value=${q} onChange=${e => setQ(e.target.value)} style=${{ width: 240 }} />
+          <span className="spacer"></span>
+          ${sel.length > 0 && html`<span className="dim" style=${{ fontSize: 12 }}>${sel.length} selected</span>`}
+          <${Button} danger icon=${html`<${DeleteOutlined} />`} disabled=${!sel.length}
+            onClick=${() => modal.confirm({
+              title: `Delete ${sel.length} volume${sel.length > 1 ? 's' : ''}?`, centered: true, okText: 'Delete', okType: 'danger',
+              content: 'All data in the selected volumes will be permanently lost.',
+            })}>Delete<//>
+          <${Button} icon=${html`<${ClearOutlined} />`} onClick=${() => setPrune(true)}>Prune unused${orphans.length ? ` (${orphans.length})` : ''}<//>
+          <${Button} type="primary" icon=${html`<${PlusOutlined} />`}>Create volume<//>
+        </div>
+        <${Table} size="small" columns=${cols} dataSource=${rows} pagination=${{ pageSize: 8, showSizeChanger: false }}
+          rowSelection=${{
+            selectedRowKeys: sel,
+            onChange: setSel,
+            getCheckboxProps: r => ({ disabled: !!r.inUse }),
+          }} />
+      </div>
+    </div>
+
+    <${Modal} open=${prune} onCancel=${() => setPrune(false)} title="Prune unused volumes" okText="Prune" okButtonProps=${{ danger: true }}>
+      <p style=${{ color: '#d0d6e0' }}>${orphans.length} volumes are not attached to any container and will be deleted:</p>
+      <div className="subtle mono">
+        ${orphans.map(o => html`<div key=${o.name}>${o.name}</div>`)}
+      </div>
+      <p className="dim" style=${{ marginBottom: 0, fontSize: 12 }}>This permanently deletes data.</p>
+    <//>
+  `;
+}
+
+/* ---------- Preferences ---------- */
+function PrefsPage() {
+  const [form] = Form.useForm();
+  const [testing, setTesting] = useState(false);
+  const [ping, setPing] = useState(null);
+
+  const test = () => {
+    setTesting(true); setPing(null);
+    setTimeout(() => { setTesting(false); setPing({ ok: true, ms: 7, version: '27.1.1', api: '1.46', os: 'linux/amd64' }); }, 900);
+  };
+
+  return html`
+    <div className="page">
+      <div className="card">
+        <div className="section-title">Docker connection</div>
+        <${Form} form=${form} layout="vertical" initialValues=${{ context: 'desktop-linux', endpoint: '', autoRefresh: true, autoScroll: true, confirm: true, telemetry: false }}>
+          <div className="frame">
+            <div className="grow">
+              <div className="label">Detected context</div>
+              <${Form.Item} name="context" noStyle>
+                <${Select} options=${CONTEXTS} style=${{ width: '100%' }} />
+              <//>
+            </div>
+            <div style=${{ width: 120 }}>
+              <div className="label">Docker host</div>
+              <${Form.Item} name="endpoint" noStyle>
+                <${Select} style=${{ width: '100%' }} options=${[
+                  { value: '', label: 'Context default' },
+                  { value: 'unix', label: 'Unix socket' },
+                  { value: 'npipe', label: 'Named pipe' },
+                  { value: 'tcp', label: 'TCP' },
+                ]} />
+              <//>
+            </div>
+          </div>
+
+          <div style=${{ marginTop: 12 }}>
+            <div className="label">Endpoint override</div>
+            <${Form.Item} name="endpointValue" noStyle>
+              <${Input} className="mono" placeholder="unix:///var/run/docker.sock · npipe:////./pipe/docker_engine · tcp://127.0.0.1:2375" />
+            <//>
+          </div>
+
+          <div className="toolbar" style=${{ marginTop: 16 }}>
+            <${Button} icon=${html`<${ApiOutlined} />`} onClick=${test} loading=${testing}>Test connection<//>
+            <${Button} type="primary" icon=${html`<${LinkOutlined} />`}>Apply & reconnect<//>
+            ${ping && html`<span className=${ping.ok ? 'ping-ok' : 'ping-bad'} style=${{ fontSize: 12 }}>
+              ${ping.ok ? `Connected · ${ping.ms} ms` : 'Connection failed'}
+            </span>`}
+          </div>
+
+          ${ping && html`
+            <div className="card subtle" style=${{ marginTop: 12 }}>
+              <div className="mono dim" style=${{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
+                <span>Engine ${ping.version}</span>
+                <span>API ${ping.api}</span>
+                <span>OS ${ping.os}</span>
+                <span>Ping ${ping.ms}ms</span>
+              </div>
+            </div>`}
+        <//>
+      </div>
+
+      <div className="card">
+        <div className="section-title">Behavior</div>
+        <${Form} layout="vertical" initialValues=${{ autoRefresh: true, autoScroll: true, confirm: true, telemetry: false }}>
+          <div style=${{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px 32px' }}>
+            ${[
+              ['autoRefresh', 'Live metrics', 'Poll container stats every 2s'],
+              ['autoScroll', 'Follow logs', 'Pause auto-scroll when scrolled up'],
+              ['confirm', 'Confirm destructive actions', 'Remove, terminate, prune'],
+              ['telemetry', 'Anonymous telemetry', 'Never sent by default'],
+            ].map(([name, title, desc]) => html`
+              <div key=${name} style=${{ display: 'flex', justifyContent: 'space-between', gap: 16 }}>
+                <div>
+                  <div style=${{ color: '#e5e5e6' }}>${title}</div>
+                  <div className="dim" style=${{ fontSize: 12 }}>${desc}</div>
+                </div>
+                <${Form.Item} name=${name} valuePropName="checked" noStyle>
+                  <${Switch} size="small" />
+                <//>
+              </div>`)}
+          </div>
+        <//>
+      </div>
+
+      <div className="card">
+        <div className="section-title">About</div>
+        <div className="mono dim" style=${{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
+          <span>container-gui 0.1.0</span>
+          <span>tauri 2.0</span>
+          <span>docker engine 27.1.1</span>
+          <span>build 2026.09.19</span>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+/* ---------- shell ---------- */
+const NAV = [
+  { key: 'containers', label: 'Containers', hint: String(CONTAINERS.length), icon: ContainerOutlined, page: ContainersPage },
+  { key: 'images', label: 'Images', hint: String(IMAGES.length), icon: PictureOutlined, page: ImagesPage },
+  { key: 'volumes', label: 'Volumes', hint: String(VOLUMES.length), icon: HddOutlined, page: VolumesPage },
+  { key: 'prefs', label: 'Preferences', hint: '', icon: SettingOutlined, page: PrefsPage },
+];
+
+function Shell() {
+  const [active, setActive] = useState('containers');
+  const Current = NAV.find(n => n.key === active).page;
+
+  return html`
+    <div className="app">
+      <aside className="side">
+        <div className="brand"><${Glyph} />Container GUI</div>
+        ${NAV.map(n => html`
+          <div key=${n.key} className=${'nav-item' + (active === n.key ? ' active' : '')} onClick=${() => setActive(n.key)}>
+            <${n.icon} style=${{ fontSize: 14, color: active === n.key ? '#e4f222' : '#62666d' }} />
+            <span style=${{ flex: 1 }}>${n.label}</span>
+            ${n.hint && html`<span className="mono dim">${n.hint}</span>`}
+          </div>`)}
+        <div className="side-foot">
+          <span className="mono">desktop-linux</span>
+          <span style=${{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <span style=${{ width: 6, height: 6, borderRadius: 99, background: '#27a644' }}></span>
+            <span className="mono">7ms</span>
+          </span>
+        </div>
+      </aside>
+
+      <main className="main">
+        <${Current} />
+      </main>
+    </div>`;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(
+  html`<${ConfigProvider} theme=${themeCfg}><${AntApp}><${Shell} /><//><//>`
+);
+</script>
+</body>
+</html>
