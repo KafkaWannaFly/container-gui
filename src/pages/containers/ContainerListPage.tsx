@@ -7,6 +7,7 @@ import {
   Input,
   Popconfirm,
   Segmented,
+  Spin,
   Table,
   Tooltip,
   type TableColumnsType,
@@ -16,6 +17,7 @@ import {
   DeleteOutlined,
   FileTextOutlined,
   InfoCircleOutlined,
+  MinusCircleOutlined,
   PauseCircleOutlined,
   PlayCircleOutlined,
   ReloadOutlined,
@@ -26,6 +28,7 @@ import { formatDistanceToNow } from "date-fns";
 import { MetricCard, Mono, RowActions, StateDot } from "../../components/ui";
 import { queryKeys } from "../../lib/queryClient";
 import { containerAction, getSystemInfo, listContainerStats, listContainers } from "../../services/tauriApi";
+import type { ContainerActionKind } from "../../services/tauriApi";
 import {
   formatBytes,
   portLabel,
@@ -36,7 +39,24 @@ import {
 import ContainerInspectorDrawer from "./components/ContainerInspectorDrawer";
 import LiveLogModal from "./components/LiveLogModal";
 
-type ActionKind = "start" | "stop" | "restart" | "kill" | "remove";
+type ActionKind = ContainerActionKind;
+
+/** Which container states each action is valid for. */
+function actionApplies(action: ActionKind, state: string): boolean {
+  switch (action) {
+    case "start":
+      return state === "exited" || state === "created" || state === "dead";
+    case "stop":
+    case "restart":
+    case "kill":
+    case "pause":
+      return state === "running";
+    case "unpause":
+      return state === "paused";
+    case "remove":
+      return true;
+  }
+}
 
 type ContainerRow = ContainerSummary & { kind: "container"; key: string };
 type ComposeGroupRow = { kind: "group"; key: string; project: string; children: ContainerRow[] };
@@ -53,6 +73,7 @@ export default function ContainerListPage() {
   const [inspectId, setInspectId] = useState<string | null>(null);
   const [logTarget, setLogTarget] = useState<ContainerSummary | null>(null);
   const [expanded, setExpanded] = useState<React.Key[]>([]);
+  const [pending, setPending] = useState<Record<string, ActionKind>>({});
   const seenGroups = useRef<Set<string>>(new Set());
 
   const { data, isLoading } = useQuery({
@@ -83,6 +104,21 @@ export default function ContainerListPage() {
     },
     onError: (err: Error) => message.error(err.message),
   });
+
+  const clearPending = (id: string) =>
+    setPending((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+
+  const runAction = (id: string, action: ActionKind) => {
+    setPending((prev) => ({ ...prev, [id]: action }));
+    void actionMutation
+      .mutateAsync({ id, action })
+      .catch(() => undefined)
+      .finally(() => clearPending(id));
+  };
 
   const rows = useMemo(() => {
     const list = data ?? [];
@@ -156,6 +192,13 @@ export default function ContainerListPage() {
     () => selected.map(String).filter((id) => containerIds.has(id)),
     [selected, containerIds],
   );
+  const stateById = useMemo(() => new Map((data ?? []).map((c) => [c.id, c.state])), [data]);
+  // Batch skips containers the action can't apply to rather than erroring.
+  const eligibleIds = (action: ActionKind) =>
+    selectedIds.filter((id) => {
+      const state = stateById.get(id);
+      return state != null && actionApplies(action, state);
+    });
 
   const totals = useMemo(() => {
     let cpu = 0;
@@ -179,12 +222,10 @@ export default function ContainerListPage() {
     );
 
   const runBatch = (action: ActionKind) => {
-    const ids = selectedIds;
-    void Promise.all(ids.map((id) => actionMutation.mutateAsync({ id, action }))).then(
-      () => message.success(`${action} applied to ${ids.length} container(s)`),
-      () => undefined,
-    );
-    setSelected([]);
+    const ids = eligibleIds(action);
+    ids.forEach((id) => runAction(id, action));
+    // Remove drops the rows; other actions keep the selection for follow-ups.
+    if (action === "remove") setSelected([]);
   };
 
   const confirmBatchRemove = () => {
@@ -210,8 +251,16 @@ export default function ContainerListPage() {
           </span>
         ) : (
           <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-            <span style={{ display: "inline-flex", height: 20, alignItems: "center" }}>
-              <StateDot state={row.state} />
+            <span
+              style={{
+                display: "inline-flex",
+                alignSelf: "stretch",
+                alignItems: "center",
+                justifyContent: "center",
+                minWidth: 10,
+              }}
+            >
+              {pending[row.id] ? <Spin size="small" /> : <StateDot state={row.state} />}
             </span>
             <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
               <span style={{ color: "var(--paper)" }}>{row.names[0] ?? shortId(row.id)}</span>
@@ -229,7 +278,7 @@ export default function ContainerListPage() {
       render: (_, row) => {
         const value =
           row.kind === "group" ? groupTotals(row.children).cpu : statsById.get(row.id)?.cpuPercent;
-        return <span className="mono">{value == null ? "—" : `${value.toFixed(1)}%`}</span>;
+        return <span className="mono">{value == null ? "—" : `${(value / 100).toFixed(2)}`}</span>;
       },
     },
     {
@@ -240,7 +289,7 @@ export default function ContainerListPage() {
       render: (_, row) => {
         const value =
           row.kind === "group" ? groupTotals(row.children).memory : statsById.get(row.id)?.memoryUsage;
-        return <span className="mono">{value ? formatBytes(value) : "—"}</span>;
+        return <span className="mono">{value ? formatBytes(value, 2) : "—"}</span>;
       },
     },
     {
@@ -281,7 +330,7 @@ export default function ContainerListPage() {
       align: "right",
       render: (_, row) => {
         if (row.kind === "group") return null;
-        const running = row.state === "running";
+        const paused = row.state === "paused";
         return (
           <RowActions
             groups={[
@@ -290,29 +339,37 @@ export default function ContainerListPage() {
                   key: "start",
                   label: "Start",
                   icon: <PlayCircleOutlined />,
-                  disabled: running,
-                  onClick: () => actionMutation.mutate({ id: row.id, action: "start" }),
+                  disabled: !actionApplies("start", row.state),
+                  onClick: () => runAction(row.id, "start"),
                 },
                 {
                   key: "stop",
                   label: "Stop",
-                  icon: <PauseCircleOutlined />,
-                  disabled: !running,
-                  onClick: () => actionMutation.mutate({ id: row.id, action: "stop" }),
+                  icon: <MinusCircleOutlined />,
+                  disabled: !actionApplies("stop", row.state),
+                  onClick: () => runAction(row.id, "stop"),
                 },
                 {
                   key: "restart",
                   label: "Restart",
                   icon: <ReloadOutlined />,
-                  onClick: () => actionMutation.mutate({ id: row.id, action: "restart" }),
+                  disabled: !actionApplies("restart", row.state),
+                  onClick: () => runAction(row.id, "restart"),
                 },
                 {
                   key: "kill",
                   label: "Terminate",
                   icon: <StopOutlined />,
                   danger: true,
-                  disabled: !running,
-                  onClick: () => actionMutation.mutate({ id: row.id, action: "kill" }),
+                  disabled: !actionApplies("kill", row.state),
+                  onClick: () => runAction(row.id, "kill"),
+                },
+                {
+                  key: paused ? "unpause" : "pause",
+                  label: paused ? "Resume" : "Pause",
+                  icon: paused ? <PlayCircleOutlined /> : <PauseCircleOutlined />,
+                  disabled: !actionApplies(paused ? "unpause" : "pause", row.state),
+                  onClick: () => runAction(row.id, paused ? "unpause" : "pause"),
                 },
               ],
               [
@@ -346,7 +403,7 @@ export default function ContainerListPage() {
                           <Mono>{row.names[0] ?? shortId(row.id)}</Mono> will be stopped and deleted.
                         </span>
                       ),
-                      onOk: () => actionMutation.mutateAsync({ id: row.id, action: "remove" }),
+                      onOk: () => runAction(row.id, "remove"),
                     }),
                 },
               ],
@@ -365,12 +422,12 @@ export default function ContainerListPage() {
         <MetricCard label="Running" value={runningCount} suffix={`of ${data?.length ?? 0}`} />
         <MetricCard
           label="Memory"
-          value={stats.data ? formatBytes(totals.memory) : "—"}
-          suffix={`/ ${system.data ? formatBytes(system.data.memoryTotal) : "—"}`}
+          value={stats.data ? formatBytes(totals.memory, 2) : "—"}
+          suffix={`/ ${system.data ? formatBytes(system.data.memoryTotal, 2) : "—"}`}
         />
         <MetricCard
           label="CPU"
-          value={stats.data ? (totals.cpu / 100).toFixed(1) : "—"}
+          value={stats.data ? (totals.cpu / 100).toFixed(2) : "—"}
           suffix={`/ ${system.data?.cpus ?? "—"} cpu`}
         />
       </div>
@@ -416,21 +473,28 @@ export default function ContainerListPage() {
             <Tooltip title="Start">
               <Button
                 icon={<PlayCircleOutlined />}
-                disabled={!selectedIds.length}
+                disabled={!eligibleIds("start").length}
                 onClick={() => runBatch("start")}
               />
             </Tooltip>
             <Tooltip title="Stop">
               <Button
-                icon={<PauseCircleOutlined />}
-                disabled={!selectedIds.length}
+                icon={<MinusCircleOutlined />}
+                disabled={!eligibleIds("stop").length}
                 onClick={() => runBatch("stop")}
+              />
+            </Tooltip>
+            <Tooltip title="Pause">
+              <Button
+                icon={<PauseCircleOutlined />}
+                disabled={!eligibleIds("pause").length}
+                onClick={() => runBatch("pause")}
               />
             </Tooltip>
             <Tooltip title="Restart">
               <Button
                 icon={<ReloadOutlined />}
-                disabled={!selectedIds.length}
+                disabled={!eligibleIds("restart").length}
                 onClick={() => runBatch("restart")}
               />
             </Tooltip>

@@ -189,6 +189,8 @@ pub enum ContainerAction {
     Stop,
     Restart,
     Kill,
+    Pause,
+    Unpause,
     Remove,
 }
 
@@ -199,6 +201,8 @@ impl ContainerAction {
             "stop" => Ok(ContainerAction::Stop),
             "restart" => Ok(ContainerAction::Restart),
             "kill" => Ok(ContainerAction::Kill),
+            "pause" => Ok(ContainerAction::Pause),
+            "unpause" => Ok(ContainerAction::Unpause),
             "remove" => Ok(ContainerAction::Remove),
             other => Err(AppError::Message(format!(
                 "Unknown container action: {other}"
@@ -231,6 +235,8 @@ pub async fn execute_action(client: &Docker, id: &str, action: ContainerAction) 
                 )
                 .await?
         }
+        ContainerAction::Pause => client.pause_container(id).await?,
+        ContainerAction::Unpause => client.unpause_container(id).await?,
         ContainerAction::Remove => {
             client
                 .remove_container(
