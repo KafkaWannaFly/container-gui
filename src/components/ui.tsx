@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Button, Dropdown, Tooltip, type MenuProps } from "antd";
 import { MoreOutlined } from "@ant-design/icons";
+import whale from "../assets/whale.png";
 
 export const STATE_COLORS: Record<string, string> = {
   running: "var(--green)",
@@ -123,10 +124,5 @@ export function MetricCard({
 }
 
 export function Glyph() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
-      <rect x="1" y="4.5" width="16" height="4" rx="1.4" fill="#e4f222" />
-      <rect x="1" y="9.5" width="16" height="4" rx="1.4" fill="#62666d" />
-    </svg>
-  );
+  return <img src={whale} height={18} alt="" aria-hidden="true" style={{ display: "block" }} />;
 }
