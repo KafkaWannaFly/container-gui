@@ -23,7 +23,7 @@ export const antdTheme: ThemeConfig = {
     colorInfo: "#02b8cc",
     borderRadius: 6,
     borderRadiusLG: 12,
-    fontFamily: "'Inter',system-ui,-apple-system,sans-serif",
+    fontFamily: "var(--font-ui)",
     fontSize: 13,
     controlHeight: 32,
     controlHeightSM: 26,

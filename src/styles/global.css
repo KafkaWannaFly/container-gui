@@ -16,6 +16,8 @@
   --violet: #6366f1;
   --lav: #8b5cf6;
   --amber: #d9a441;
+  --font-ui: "Be Vietnam Pro", system-ui, -apple-system, sans-serif;
+  --font-mono: "Paper Mono", ui-monospace, monospace;
 }
 
 * {
@@ -32,17 +34,13 @@ body,
 body {
   background: var(--void);
   color: var(--mist);
-  font-family: "Inter", system-ui, -apple-system, sans-serif;
-  font-feature-settings:
-    "cv01" 1,
-    "ss03" 1,
-    "zero" 1;
+  font-family: var(--font-ui);
   -webkit-font-smoothing: antialiased;
   font-size: 14px;
 }
 
 .mono {
-  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   letter-spacing: -0.013em;
 }
@@ -218,7 +216,7 @@ pre.logs {
   max-height: 340px;
   overflow: auto;
   color: var(--mist);
-  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   line-height: 1.7;
   letter-spacing: -0.013em;
