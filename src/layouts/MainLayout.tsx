@@ -3,8 +3,8 @@ import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Button, Result, Spin } from "antd";
 import {
-  ContainerOutlined,
-  PictureOutlined,
+  CodeSandboxOutlined,
+  BlockOutlined,
   HddOutlined,
   SettingOutlined,
   DashboardOutlined,
@@ -17,8 +17,8 @@ import { useDockerEvents } from "../hooks/useDockerEvents";
 
 const NAV = [
   { key: "/", label: "Dashboard", icon: DashboardOutlined },
-  { key: "/containers", label: "Containers", icon: ContainerOutlined },
-  { key: "/images", label: "Images", icon: PictureOutlined },
+  { key: "/containers", label: "Containers", icon: CodeSandboxOutlined },
+  { key: "/images", label: "Images", icon: BlockOutlined },
   { key: "/volumes", label: "Volumes", icon: HddOutlined },
   { key: "/settings", label: "Preferences", icon: SettingOutlined },
 ];
