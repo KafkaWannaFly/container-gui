@@ -1,10 +1,9 @@
 import { App as AntApp, ConfigProvider } from "antd";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { HashRouter, Route, Routes } from "react-router-dom";
+import { HashRouter, Navigate, Route, Routes } from "react-router-dom";
 import { antdTheme } from "./theme/antdTheme";
 import { queryClient } from "./lib/queryClient";
 import MainLayout from "./layouts/MainLayout";
-import DashboardPage from "./pages/dashboard/DashboardPage";
 import ContainerListPage from "./pages/containers/ContainerListPage";
 import ImageListPage from "./pages/images/ImageListPage";
 import VolumeListPage from "./pages/volumes/VolumeListPage";
@@ -18,7 +17,7 @@ export default function App() {
           <HashRouter>
             <Routes>
               <Route element={<MainLayout />}>
-                <Route index element={<DashboardPage />} />
+                <Route index element={<Navigate to="containers" replace />} />
                 <Route path="containers" element={<ContainerListPage />} />
                 <Route path="images" element={<ImageListPage />} />
                 <Route path="volumes" element={<VolumeListPage />} />

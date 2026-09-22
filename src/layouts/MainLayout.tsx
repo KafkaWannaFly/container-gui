@@ -7,7 +7,6 @@ import {
   BlockOutlined,
   HddOutlined,
   SettingOutlined,
-  DashboardOutlined,
   ReloadOutlined,
 } from "@ant-design/icons";
 import { Glyph } from "../components/ui";
@@ -16,7 +15,6 @@ import { getDockerStatus } from "../services/tauriApi";
 import { useDockerEvents } from "../hooks/useDockerEvents";
 
 const NAV = [
-  { key: "/", label: "Dashboard", icon: DashboardOutlined },
   { key: "/containers", label: "Containers", icon: CodeSandboxOutlined },
   { key: "/images", label: "Images", icon: BlockOutlined },
   { key: "/volumes", label: "Volumes", icon: HddOutlined },
@@ -24,7 +22,6 @@ const NAV = [
 ];
 
 const TITLES: Record<string, string> = {
-  "/": "Dashboard",
   "/containers": "Containers",
   "/images": "Images",
   "/volumes": "Volumes",
@@ -75,7 +72,6 @@ export default function MainLayout() {
           <NavLink
             key={item.key}
             to={item.key}
-            end={item.key === "/"}
             className={({ isActive }) => `nav-item${isActive ? " active" : ""}`}
           >
             {({ isActive }) => (

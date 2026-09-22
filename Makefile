@@ -1,12 +1,24 @@
 # Container GUI — frontend is pnpm/Vite, backend is Tauri/cargo.
-# Parallel targets background each side and wait on both PIDs so a
-# failure on either side fails the target.
+# Parallel targets recurse with `make -j2` rather than shell backgrounding, so
+# they work under cmd.exe (PowerShell) as well as sh. `-Otarget` keeps each
+# side's output in one block instead of interleaving it; a failure on either
+# side fails the parent target.
 
-.PHONY: i dev test up down fm lint
+.PHONY: i i-front i-back dev test test-front test-back up down fm fm-front fm-back lint lint-front lint-back
+
+PAR := $(MAKE) -j2 -Otarget --no-print-directory
+
+# Clearing MAKEFLAGS per cargo target hides Make's jobserver from cargo, which
+# would otherwise warn that it is ignoring the inherited `-j`.
+i-back test-back fm-back lint-back: MAKEFLAGS =
 
 ## Install frontend and backend dependencies in parallel.
 i:
-	@pnpm install & p1=$$!; cargo fetch --manifest-path src-tauri/Cargo.toml & p2=$$!; wait $$p1; wait $$p2
+	@$(PAR) i-front i-back
+i-front:
+	pnpm install
+i-back:
+	cargo fetch --manifest-path src-tauri/Cargo.toml
 
 ## Start the Tauri app (runs Vite + the Rust shell).
 dev:
@@ -25,12 +37,24 @@ down:
 
 ## Type-check/build the frontend and run backend tests in parallel.
 test:
-	@pnpm build & p1=$$!; cargo test --manifest-path src-tauri/Cargo.toml --lib & p2=$$!; wait $$p1; wait $$p2
+	@$(PAR) test-front test-back
+test-front:
+	pnpm build
+test-back:
+	cargo test --manifest-path src-tauri/Cargo.toml --lib
 
 ## Format frontend (Biome) and backend (rustfmt) in parallel.
 fm:
-	@pnpm format & p1=$$!; cargo fmt --manifest-path src-tauri/Cargo.toml & p2=$$!; wait $$p1; wait $$p2
+	@$(PAR) fm-front fm-back
+fm-front:
+	pnpm format
+fm-back:
+	cargo fmt --manifest-path src-tauri/Cargo.toml
 
 ## Lint frontend (Biome) and backend (clippy, warnings as errors) in parallel.
 lint:
-	@pnpm lint & p1=$$!; cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings & p2=$$!; wait $$p1; wait $$p2
+	@$(PAR) lint-front lint-back
+lint-front:
+	pnpm lint
+lint-back:
+	cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings

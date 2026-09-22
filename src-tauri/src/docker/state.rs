@@ -209,7 +209,7 @@ pub async fn probe_target(target: &ConnectionTarget) -> AppResult<DockerStatusDt
     probe(&client, &target.endpoint(), target.kind()).await
 }
 
-/// Build the dashboard system-info payload from a live client.
+/// Build the system-info payload from a live client.
 pub async fn collect_system_info(client: &Docker) -> AppResult<SystemInfoDto> {
     let started = Instant::now();
     client.ping().await?;

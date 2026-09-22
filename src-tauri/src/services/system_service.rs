@@ -1,4 +1,4 @@
-//! Engine-level info used by the dashboard.
+//! Engine-level info surfaced in the UI.
 
 use bollard::Docker;
 
