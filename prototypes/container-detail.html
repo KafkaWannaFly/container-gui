@@ -1,0 +1,1016 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Container GUI — Container detail</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300..700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/antd@5/dist/reset.css">
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/htm@3/dist/htm.umd.js"></script>
+<script src="https://unpkg.com/dayjs@1/dayjs.min.js"></script>
+<script src="https://unpkg.com/antd@5/dist/antd.min.js"></script>
+<script src="https://unpkg.com/@ant-design/icons@5/dist/index.umd.js"></script>
+<style>
+  :root{
+    --void:#08090a; --carbon:#0f1011; --obsidian:#161718; --graphite:#23252a; --smoke:#383b3f;
+    --ash:#62666d; --fog:#8a8f98; --mist:#d0d6e0; --bone:#e5e5e6; --paper:#fff;
+    --lime:#e4f222; --green:#27a644; --coral:#eb5757; --teal:#02b8cc; --violet:#6366f1; --lav:#8b5cf6;
+    --amber:#d9a441;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    background:var(--void); color:var(--mist);
+    font-family:'Inter',system-ui,-apple-system,sans-serif;
+    font-feature-settings:'cv01' 1,'ss03' 1,'zero' 1;
+    -webkit-font-smoothing:antialiased; font-size:14px;
+  }
+  .mono{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;letter-spacing:-.013em}
+  .app{display:flex;min-height:100vh}
+  .side{
+    width:224px;flex:0 0 224px;height:100vh;position:sticky;top:0;
+    background:var(--carbon);border-right:.5px solid var(--graphite);
+    padding:14px 10px;display:flex;flex-direction:column;gap:2px;
+  }
+  .brand{display:flex;align-items:center;gap:9px;padding:6px 8px 14px;color:var(--paper);font-weight:510;font-size:15px;letter-spacing:-.011em}
+  .brand svg{display:block}
+  .nav-item{
+    display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:6px;
+    color:var(--mist);font-size:13px;cursor:pointer;border:.5px solid transparent;user-select:none;
+  }
+  .nav-item:hover{background:var(--obsidian)}
+  .nav-item.active{background:var(--obsidian);border-color:var(--graphite);color:var(--paper)}
+  .side-foot{margin-top:auto;padding:10px 8px 2px;border-top:.5px solid var(--graphite);color:var(--ash);display:flex;justify-content:space-between;align-items:center}
+  .main{flex:1;min-width:0;display:flex;flex-direction:column}
+
+  /* ---- detail header ---- */
+  .head{
+    position:sticky;top:0;z-index:5;background:var(--void);
+    border-bottom:.5px solid var(--graphite);padding:16px 24px 0;
+  }
+  .crumbs{display:flex;align-items:center;gap:6px;color:var(--ash);font-size:12px;margin-bottom:10px}
+  .crumbs .link{cursor:pointer}
+  .crumbs .link:hover{color:var(--mist)}
+  .head-row{display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap}
+  .title{display:flex;align-items:center;gap:10px;font-size:20px;font-weight:510;color:var(--paper);letter-spacing:-.014em;white-space:nowrap;flex-wrap:wrap}
+  .sub{display:flex;align-items:center;gap:10px;margin-top:6px;flex-wrap:wrap}
+  .copyable{display:inline-flex;align-items:center;gap:6px;cursor:pointer;color:var(--ash)}
+  .copyable:hover{color:var(--mist)}
+  .stats{display:flex;gap:28px;flex-wrap:wrap;padding:14px 0 12px}
+  .stat .k{font-size:11px;color:var(--ash);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px}
+  .stat .v{font-size:15px;color:var(--bone);font-family:'JetBrains Mono',ui-monospace,monospace;letter-spacing:-.013em}
+  .stat .v small{font-size:11px;color:var(--ash);margin-left:5px}
+
+  /* ---- body ---- */
+  .page{padding:20px 24px 28px;max-width:1200px;width:100%;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+  .card{background:var(--carbon);border:.5px solid var(--graphite);border-radius:12px;padding:16px}
+  .card.subtle{background:rgba(255,255,255,.02);border-radius:6px;padding:8px}
+  .card-head{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+  .section-title{font-size:12px;color:var(--fog);text-transform:uppercase;letter-spacing:.06em;margin:0}
+  .toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .toolbar .spacer{flex:1}
+  .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px}
+  .muted{color:var(--fog)}
+  .dim{color:var(--ash)}
+  .label{font-size:12px;color:var(--fog);margin-bottom:4px}
+  .hair{height:.5px;background:var(--graphite);border:0;margin:14px 0}
+
+  /* ---- logs ---- */
+  pre.logs{
+    margin:0;background:var(--void);border:.5px solid var(--graphite);border-radius:8px;
+    padding:12px;height:calc(100vh - 430px);min-height:300px;overflow:auto;color:var(--mist);
+    font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;line-height:1.75;letter-spacing:-.013em;
+  }
+  .lg-ts{color:var(--ash)}
+  .lg-error{color:var(--coral)}
+  .lg-warn{color:var(--amber)}
+  .lg-info{color:var(--mist)}
+  .lg-debug{color:var(--ash)}
+  .lg-lvl{display:inline-block;width:46px}
+  .hl{background:rgba(228,242,34,.22);color:var(--paper);border-radius:2px}
+
+  /* ---- terminal ---- */
+  .term{
+    background:var(--void);border:.5px solid var(--graphite);border-radius:8px;padding:12px;
+    height:calc(100vh - 430px);min-height:300px;overflow:auto;cursor:text;
+    font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;line-height:1.75;letter-spacing:-.013em;
+  }
+  .term-line{white-space:pre-wrap;word-break:break-word}
+  .term-sys{color:var(--teal)}
+  .term-err{color:var(--coral)}
+  .term-out{color:var(--mist)}
+  .term-prompt{color:var(--green)}
+  .term-cwd{color:var(--teal)}
+  .term-inrow{display:flex;align-items:baseline;gap:8px}
+  .term-in{
+    flex:1;min-width:0;background:transparent;border:0;outline:0;padding:0;color:var(--bone);
+    font:inherit;letter-spacing:inherit;caret-color:var(--lime);
+  }
+  .env-val{display:inline-block;max-width:520px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}
+
+  /* ---- code views (json / yaml / .env) ---- */
+  .code-view{
+    margin:0;background:var(--void);border:.5px solid var(--graphite);border-radius:8px;
+    padding:12px;max-height:calc(100vh - 400px);min-height:220px;overflow:auto;color:var(--mist);
+    font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;line-height:1.75;letter-spacing:-.013em;
+    white-space:pre-wrap;word-break:break-word;
+  }
+  .cv-k{color:var(--paper)}
+  .cv-s{color:var(--ash)}
+  .view-item{display:flex;align-items:center;gap:10px;min-width:168px}
+  .view-item .nm{flex:1}
+
+  .ant-table-wrapper .ant-table{background:transparent}
+  .ant-table-tbody > tr > td{border-bottom:.5px solid var(--graphite) !important}
+  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar-thumb{background:var(--graphite);border-radius:99px;border:3px solid var(--void)}
+  ::-webkit-scrollbar-track{background:transparent}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+const { useState, useMemo, useRef, useEffect } = React;
+const html = htm.bind(React.createElement);
+const {
+  ConfigProvider, theme, App: AntApp,
+  Table, Button, Input, Descriptions, Tabs, Modal, Select, Switch,
+  Divider, Segmented, Dropdown, Empty, Tooltip, Badge,
+} = antd;
+
+const {
+  MoreOutlined, PlayCircleOutlined, PauseCircleOutlined, ReloadOutlined,
+  DeleteOutlined, CopyOutlined, ArrowLeftOutlined, SearchOutlined,
+  DownloadOutlined, ClearOutlined, CodeOutlined, FileTextOutlined,
+  InfoCircleOutlined, EyeOutlined, EyeInvisibleOutlined, SettingOutlined,
+  ContainerOutlined, PictureOutlined, HddOutlined, DisconnectOutlined,
+  VerticalAlignBottomOutlined, ExportOutlined, PoweroffOutlined,
+  CheckOutlined, DownOutlined, TableOutlined,
+} = window.icons;
+
+/* ---------- Linear theme tokens (shared with index.html) ---------- */
+const themeCfg = {
+  algorithm: theme.darkAlgorithm,
+  token: {
+    colorBgBase: '#08090a',
+    colorBgContainer: '#0f1011',
+    colorBgElevated: '#161718',
+    colorBorder: '#23252a',
+    colorBorderSecondary: '#23252a',
+    colorText: '#d0d6e0',
+    colorTextSecondary: '#8a8f98',
+    colorTextTertiary: '#62666d',
+    colorPrimary: '#e4f222',
+    colorTextLightSolid: '#08090a',
+    colorError: '#eb5757',
+    colorSuccess: '#27a644',
+    colorWarning: '#d9a441',
+    colorInfo: '#02b8cc',
+    borderRadius: 6,
+    borderRadiusLG: 12,
+    fontFamily: "'Inter',system-ui,-apple-system,sans-serif",
+    fontSize: 13,
+    controlHeight: 32,
+    controlHeightSM: 26,
+    lineHeight: 1.5,
+    wireframe: false,
+  },
+  components: {
+    Button: { primaryShadow: 'none', defaultBg: 'transparent', defaultBorderColor: '#23252a', fontWeight: 400, paddingInline: 12 },
+    Table: {
+      headerBg: '#0f1011', headerColor: '#8a8f98', headerSplitColor: 'transparent',
+      rowHoverBg: '#161718', borderColor: '#23252a', headerBorderRadius: 8,
+      cellPaddingBlock: 9, cellPaddingInline: 12,
+    },
+    Input: { colorBgContainer: 'rgba(255,255,255,0.02)', activeBorderColor: '#d0d6e0', hoverBorderColor: '#383b3f', activeShadow: 'none' },
+    Select: { colorBgContainer: 'rgba(255,255,255,0.02)', optionSelectedBg: '#23252a' },
+    Modal: { contentBg: '#0f1011', headerBg: '#0f1011', titleColor: '#ffffff' },
+    Descriptions: { labelBg: 'transparent', titleColor: '#ffffff' },
+    Tabs: { itemColor: '#8a8f98', itemSelectedColor: '#ffffff', inkBarColor: '#e4f222', horizontalItemGutter: 24 },
+    Segmented: { itemSelectedBg: '#23252a', itemColor: '#8a8f98', itemSelectedColor: '#ffffff' },
+    Divider: { colorSplit: '#23252a' },
+  },
+};
+
+/* ---------- primitives ---------- */
+const Mono = ({ children }) => html`<span className="mono">${children}</span>`;
+
+function StateDot({ state, size }) {
+  const color = { running: '#27a644', exited: '#eb5757', paused: '#d9a441', created: '#8a8f98', restarting: '#02b8cc' }[state] || '#8a8f98';
+  const s = size || 8;
+  return html`<span title=${state} style=${{
+    display: 'inline-block', width: s, height: s, borderRadius: 99, background: color,
+    boxShadow: `0 0 0 3px ${color}22`, flex: '0 0 auto',
+  }}></span>`;
+}
+
+function Pill({ children, tone }) {
+  const tones = {
+    green: ['rgba(39,166,68,.13)', '#27a644'],
+    coral: ['rgba(235,87,87,.12)', '#eb5757'],
+    amber: ['rgba(217,164,65,.14)', '#d9a441'],
+    violet: ['rgba(99,102,241,.16)', '#8b93ff'],
+    lav: ['rgba(139,92,246,.16)', '#b79bff'],
+    teal: ['rgba(2,184,204,.13)', '#02b8cc'],
+    neutral: ['rgba(255,255,255,.05)', '#8a8f98'],
+  };
+  const [bg, fg] = tones[tone || 'neutral'];
+  return html`<span style=${{
+    display: 'inline-block', padding: '0 6px', borderRadius: 4, fontSize: 12, lineHeight: '18px',
+    background: bg, color: fg, fontFamily: "'JetBrains Mono',ui-monospace,monospace", letterSpacing: '-.013em',
+  }}>${children}</span>`;
+}
+
+const Glyph = () => html`<svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+  <rect x="1" y="4.5" width="16" height="4" rx="1.4" fill="#e4f222"/>
+  <rect x="1" y="9.5" width="16" height="4" rx="1.4" fill="#62666d"/>
+</svg>`;
+
+/* ---------- mock container ---------- */
+const CTR = {
+  name: 'api-gateway',
+  id: 'a91f3c2d8e04f7b1c6d9e2a5b8f0c3d4e7a1b9c2d5e8f0a3b6c9d2e5f8a1b4c7',
+  shortId: 'a91f3c2d8e04',
+  image: 'nginx:alpine',
+  imageId: 'sha256:9c24e1b6a0f2c8d3',
+  compose: { project: 'shop', service: 'gateway', file: '/home/kafka/dev/shop/compose.yaml' },
+  created: '2026-09-14 09:12:41',
+  started: '2026-09-18 07:04:02',
+  uptime: '4d 6h 21m',
+  restarts: 1,
+  restartPolicy: 'unless-stopped',
+  command: 'nginx -g "daemon off;"',
+  entrypoint: '/docker-entrypoint.sh',
+  workdir: '/',
+  user: 'root',
+  platform: 'linux/amd64',
+  health: { status: 'healthy', test: 'CMD-SHELL curl -fsS http://localhost/health || exit 1', interval: '30s', last: '12s ago', streak: 412 },
+  limits: { cpus: '1.50', memory: '512 MB', pids: '256' },
+  stats: { cpu: '0.8%', mem: '42 MB', memPct: '8.2%', net: '1.2 MB / 840 kB', block: '0 B / 4.1 MB', pids: 9 },
+};
+
+const PORTS = [
+  { key: 'p1', host: '0.0.0.0:8080', ctr: '80/tcp', proto: 'tcp', url: 'http://localhost:8080' },
+  { key: 'p2', host: '0.0.0.0:8443', ctr: '443/tcp', proto: 'tcp', url: 'https://localhost:8443' },
+  { key: 'p3', host: '—', ctr: '9113/tcp', proto: 'tcp', url: '' },
+];
+
+const MOUNTS = [
+  { key: 'm1', type: 'volume', source: 'gateway-conf', target: '/etc/nginx/conf.d', mode: 'rw' },
+  { key: 'm2', type: 'bind', source: '/home/kafka/dev/shop/certs', target: '/etc/nginx/certs', mode: 'ro' },
+  { key: 'm3', type: 'tmpfs', source: '—', target: '/var/cache/nginx', mode: 'rw' },
+];
+
+const NETWORKS = [
+  { key: 'n1', name: 'shop_default', driver: 'bridge', ip: '172.18.0.4/16', gateway: '172.18.0.1', mac: '02:42:ac:12:00:04', aliases: 'gateway, api-gateway' },
+  { key: 'n2', name: 'edge', driver: 'bridge', ip: '172.20.0.2/16', gateway: '172.20.0.1', mac: '02:42:ac:14:00:02', aliases: 'gateway' },
+];
+
+const LABELS = [
+  { key: 'l1', k: 'com.docker.compose.project', v: 'shop' },
+  { key: 'l2', k: 'com.docker.compose.service', v: 'gateway' },
+  { key: 'l3', k: 'org.opencontainers.image.version', v: '1.27.1' },
+  { key: 'l4', k: 'maintainer', v: 'NGINX Docker Maintainers <docker-maint@nginx.com>' },
+];
+
+const ENVS = [
+  { key: 'e1', k: 'NODE_ENV', v: 'production', src: 'compose' },
+  { key: 'e2', k: 'PORT', v: '80', src: 'compose' },
+  { key: 'e3', k: 'LOG_LEVEL', v: 'info', src: 'compose' },
+  { key: 'e4', k: 'UPSTREAM_URL', v: 'http://api-core:3000', src: 'compose' },
+  { key: 'e5', k: 'DATABASE_URL', v: 'postgres://shop:s3cr3t-p4ss@postgres-main:5432/shop', src: 'compose', secret: true },
+  { key: 'e6', k: 'JWT_SIGNING_KEY', v: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.pr0t0type', src: 'runtime', secret: true },
+  { key: 'e7', k: 'NGINX_VERSION', v: '1.27.1', src: 'image' },
+  { key: 'e8', k: 'PKG_RELEASE', v: '1', src: 'image' },
+  { key: 'e9', k: 'PATH', v: '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin', src: 'image' },
+  { key: 'e10', k: 'HOSTNAME', v: 'a91f3c2d8e04', src: 'runtime' },
+  { key: 'e11', k: 'TZ', v: 'Europe/Berlin', src: 'compose' },
+];
+
+const LOGS = [
+  ['2026-09-22T08:00:00.114Z', 'info', 'nginx/1.27.1 starting, pid 1'],
+  ['2026-09-22T08:00:00.221Z', 'info', 'using the "epoll" event method'],
+  ['2026-09-22T08:00:00.223Z', 'debug', 'worker processes: 4, worker connections: 1024'],
+  ['2026-09-22T08:00:00.310Z', 'info', 'listening on 0.0.0.0:80'],
+  ['2026-09-22T08:00:00.312Z', 'info', 'listening on 0.0.0.0:443 (tls)'],
+  ['2026-09-22T08:00:01.004Z', 'info', 'upstream api-core:3000 resolved to 172.18.0.7'],
+  ['2026-09-22T08:00:12.556Z', 'info', 'GET /health 200 1ms'],
+  ['2026-09-22T08:00:42.101Z', 'info', 'GET /health 200 1ms'],
+  ['2026-09-22T08:01:04.880Z', 'info', 'GET /api/v1/items 200 14ms'],
+  ['2026-09-22T08:01:04.902Z', 'debug', 'cache hit key=items:all ttl=58s'],
+  ['2026-09-22T08:01:05.330Z', 'info', 'GET /api/v1/items 200 11ms'],
+  ['2026-09-22T08:01:12.560Z', 'info', 'GET /health 200 1ms'],
+  ['2026-09-22T08:01:48.775Z', 'warn', 'upstream api-core:3000 slow response 1840ms'],
+  ['2026-09-22T08:02:18.004Z', 'error', 'upstream timed out (110: Connection timed out) after 30000ms'],
+  ['2026-09-22T08:02:18.006Z', 'error', 'GET /api/v1/orders 504 30001ms'],
+  ['2026-09-22T08:02:19.220Z', 'warn', 'retry 1/3 to upstream api-core:3000'],
+  ['2026-09-22T08:02:20.118Z', 'info', 'upstream api-core:3000 recovered'],
+  ['2026-09-22T08:02:20.640Z', 'info', 'GET /api/v1/orders 200 412ms'],
+  ['2026-09-22T08:02:42.559Z', 'info', 'GET /health 200 1ms'],
+  ['2026-09-22T08:03:01.770Z', 'info', 'POST /api/v1/cart 201 22ms'],
+  ['2026-09-22T08:03:02.880Z', 'debug', 'session 8f21ac issued, ttl=3600s'],
+  ['2026-09-22T08:03:14.010Z', 'warn', 'client 10.0.2.19 rate-limited (60 req/min)'],
+  ['2026-09-22T08:03:22.441Z', 'info', 'GET /api/v1/items?page=2 200 9ms'],
+  ['2026-09-22T08:03:42.558Z', 'info', 'GET /health 200 1ms'],
+  ['2026-09-22T08:04:08.330Z', 'error', 'TLS handshake error from 10.0.2.44: unknown certificate authority'],
+  ['2026-09-22T08:04:12.120Z', 'info', 'GET /api/v1/items 200 12ms'],
+  ['2026-09-22T08:04:42.557Z', 'info', 'GET /health 200 1ms'],
+  ['2026-09-22T08:05:00.990Z', 'info', 'config reload signalled (SIGHUP)'],
+  ['2026-09-22T08:05:01.220Z', 'info', 'config /etc/nginx/nginx.conf test is successful'],
+  ['2026-09-22T08:05:01.480Z', 'info', 'worker processes restarted gracefully'],
+  ['2026-09-22T08:05:12.556Z', 'info', 'GET /health 200 1ms'],
+  ['2026-09-22T08:05:33.870Z', 'debug', 'gzip ratio 3.41 for /api/v1/items'],
+  ['2026-09-22T08:05:42.558Z', 'info', 'GET /health 200 1ms'],
+];
+
+/* ---------- Info tab ---------- */
+function InfoTab({ onCopy }) {
+  const general = [
+    { key: 'id', label: 'Container ID', children: html`<span className="copyable mono" onClick=${() => onCopy(CTR.id, 'Container ID')}>${CTR.shortId}<${CopyOutlined} /></span>` },
+    { key: 'img', label: 'Image', children: html`<span style=${{ display: 'inline-flex', gap: 8, alignItems: 'center' }}><${Mono}>${CTR.image}<//><span className="mono dim">${CTR.imageId}</span></span>` },
+    { key: 'cmd', label: 'Command', children: html`<${Mono}>${CTR.command}<//>` },
+    { key: 'ep', label: 'Entrypoint', children: html`<${Mono}>${CTR.entrypoint}<//>` },
+    { key: 'usr', label: 'User / Workdir', children: html`<span><${Mono}>${CTR.user}<//> <span className="dim">·</span> <${Mono}>${CTR.workdir}<//></span>` },
+    { key: 'plat', label: 'Platform', children: html`<${Mono}>${CTR.platform}<//>` },
+    { key: 'cre', label: 'Created', children: html`<${Mono}>${CTR.created}<//>` },
+    { key: 'sta', label: 'Started', children: html`<span><${Mono}>${CTR.started}<//> <span className="dim">(${CTR.uptime} ago)</span></span>` },
+    { key: 'rp', label: 'Restart policy', children: html`<span style=${{ display: 'inline-flex', gap: 8, alignItems: 'center' }}><${Pill} tone="neutral">${CTR.restartPolicy}<//><span className="dim" style=${{ fontSize: 12 }}>${CTR.restarts} restart</span></span>` },
+    { key: 'cmp', label: 'Compose', children: html`<span style=${{ display: 'inline-flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <${Pill} tone="teal">${CTR.compose.project}<//><span className="dim">/</span><${Mono}>${CTR.compose.service}<//>
+        <span className="mono dim">${CTR.compose.file}</span>
+      </span>` },
+  ];
+
+  const health = [
+    { key: 'st', label: 'Status', children: html`<span style=${{ display: 'inline-flex', gap: 8, alignItems: 'center' }}><${StateDot} state="running" /><span style=${{ color: '#27a644' }}>healthy</span></span>` },
+    { key: 'tst', label: 'Test', children: html`<${Mono}>${CTR.health.test}<//>` },
+    { key: 'iv', label: 'Interval', children: html`<${Mono}>${CTR.health.interval}<//>` },
+    { key: 'lc', label: 'Last check', children: html`<span className="dim">${CTR.health.last} · ${CTR.health.streak} consecutive passes</span>` },
+  ];
+
+  const limits = [
+    { key: 'cpu', label: 'CPU limit', children: html`<${Mono}>${CTR.limits.cpus} cpus<//>` },
+    { key: 'mem', label: 'Memory limit', children: html`<${Mono}>${CTR.limits.memory}<//>` },
+    { key: 'pid', label: 'PID limit', children: html`<${Mono}>${CTR.limits.pids}<//>` },
+  ];
+
+  return html`
+    <div style=${{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div className="card">
+        <div className="card-head"><h3 className="section-title">General</h3></div>
+        <${Descriptions} column=${1} size="small" bordered items=${general} />
+      </div>
+
+      <div className="grid2">
+        <div className="card">
+          <div className="card-head"><h3 className="section-title">Health check</h3></div>
+          <${Descriptions} column=${1} size="small" bordered items=${health} />
+        </div>
+        <div className="card">
+          <div className="card-head"><h3 className="section-title">Resource limits</h3></div>
+          <${Descriptions} column=${1} size="small" bordered items=${limits} />
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-head">
+          <h3 className="section-title">Ports</h3>
+          <span className="dim" style=${{ fontSize: 12 }}>${PORTS.filter(p => p.url).length} published</span>
+        </div>
+        <${Table} size="small" pagination=${false} dataSource=${PORTS} columns=${[
+          { title: 'Host', dataIndex: 'host', width: 170, render: v => v === '—'
+            ? html`<span className="dim">not published</span>`
+            : html`<${Mono}>${v}<//>` },
+          { title: '', key: 'arrow', width: 30, render: () => html`<span className="dim">→</span>` },
+          { title: 'Container', dataIndex: 'ctr', width: 130, render: v => html`<${Mono}>${v}<//>` },
+          { title: 'Protocol', dataIndex: 'proto', width: 100, render: v => html`<${Pill} tone="neutral">${v}<//>` },
+          { title: '', key: 'open', align: 'right', render: (_, r) => r.url
+            ? html`<${Button} type="text" size="small" icon=${html`<${ExportOutlined} />`}>Open<//>`
+            : null },
+        ]} />
+      </div>
+
+      <div className="card">
+        <div className="card-head"><h3 className="section-title">Mounts</h3></div>
+        <${Table} size="small" pagination=${false} dataSource=${MOUNTS} columns=${[
+          { title: 'Type', dataIndex: 'type', width: 90, render: v => html`<${Pill} tone=${v === 'bind' ? 'lav' : v === 'tmpfs' ? 'amber' : 'teal'}>${v}<//>` },
+          { title: 'Source', dataIndex: 'source', render: v => v === '—'
+            ? html`<span className="dim">—</span>`
+            : html`<${Mono}>${v}<//>` },
+          { title: 'Target', dataIndex: 'target', render: v => html`<${Mono}>${v}<//>` },
+          { title: 'Mode', dataIndex: 'mode', width: 70, render: v => html`<${Pill} tone=${v === 'ro' ? 'neutral' : 'green'}>${v}<//>` },
+        ]} />
+      </div>
+
+      <div className="card">
+        <div className="card-head"><h3 className="section-title">Networks</h3></div>
+        <${Table} size="small" pagination=${false} dataSource=${NETWORKS} columns=${[
+          { title: 'Network', dataIndex: 'name', render: v => html`<span style=${{ color: '#ffffff' }}>${v}</span>` },
+          { title: 'Driver', dataIndex: 'driver', width: 90, render: v => html`<${Pill} tone="neutral">${v}<//>` },
+          { title: 'IP address', dataIndex: 'ip', width: 150, render: v => html`<${Mono}>${v}<//>` },
+          { title: 'Gateway', dataIndex: 'gateway', width: 130, render: v => html`<span className="mono dim">${v}</span>` },
+          { title: 'MAC', dataIndex: 'mac', width: 160, render: v => html`<span className="mono dim">${v}</span>` },
+          { title: 'Aliases', dataIndex: 'aliases', render: v => html`<span className="mono dim">${v}</span>` },
+        ]} />
+      </div>
+
+      <div className="card">
+        <div className="card-head"><h3 className="section-title">Labels</h3></div>
+        <${Table} size="small" pagination=${false} showHeader=${false} dataSource=${LABELS} columns=${[
+          { title: 'Key', dataIndex: 'k', width: 330, render: v => html`<span className="mono dim">${v}</span>` },
+          { title: 'Value', dataIndex: 'v', render: v => html`<${Mono}>${v}<//>` },
+        ]} />
+      </div>
+    </div>`;
+}
+
+/* ---------- Env tab ---------- */
+const MASK = '••••••••••••••••';
+
+/* serialise the given rows into one of the supported formats */
+function serialize(kind, rows, valueOf) {
+  if (kind === 'json') {
+    return [
+      '{',
+      ...rows.map((r, i) => `  ${JSON.stringify(r.k)}: ${JSON.stringify(valueOf(r))}${i < rows.length - 1 ? ',' : ''}`),
+      '}',
+    ];
+  }
+  if (kind === 'yaml') {
+    const risky = s => s === '' || /[\s#:'"{}\[\],&*?|<>=!%@`]/.test(s);
+    return rows.map(r => {
+      const v = valueOf(r);
+      return `${r.k}: ${risky(v) ? JSON.stringify(v) : v}`;
+    });
+  }
+  return rows.map(r => {
+    const v = valueOf(r);
+    return `${r.k}=${/[\s"']/.test(v) ? JSON.stringify(v) : v}`;
+  });
+}
+
+/* split a serialised line into key / separator / value so it can be tinted */
+function tint(kind, line, i) {
+  const sep = kind === 'env' ? '=' : ':';
+  const at = line.indexOf(sep);
+  if (at < 0 || (kind === 'json' && !line.startsWith('  '))) {
+    return html`<div key=${i} className="cv-s">${line}</div>`;
+  }
+  return html`<div key=${i}>
+    <span className="cv-k">${line.slice(0, at)}</span>
+    <span className="cv-s">${sep}</span>
+    <span>${line.slice(at + 1)}</span>
+  </div>`;
+}
+
+const VIEWS = [
+  { key: 'table', label: 'Table', icon: TableOutlined },
+  { key: 'json', label: 'JSON', icon: CodeOutlined },
+  { key: 'yaml', label: 'YAML', icon: FileTextOutlined },
+  { key: 'env', label: '.env', icon: SettingOutlined },
+];
+
+function EnvTab({ onCopy }) {
+  const [q, setQ] = useState('');
+  const [src, setSrc] = useState('all');
+  const [revealed, setRevealed] = useState([]);
+  const [view, setView] = useState('table');
+
+  const rows = ENVS.filter(e =>
+    (src === 'all' || e.src === src) &&
+    (e.k.toLowerCase().includes(q.toLowerCase()) || e.v.toLowerCase().includes(q.toLowerCase()))
+  );
+
+  const toggle = k => setRevealed(r => r.includes(k) ? r.filter(x => x !== k) : [...r, k]);
+
+  /* display honours the reveal toggles; copy always yields the real values */
+  const shown = r => (r.secret && !revealed.includes(r.key) ? MASK : r.v);
+  const real = r => r.v;
+
+  const viewItems = VIEWS.map(v => ({
+    key: v.key,
+    label: html`<div className="view-item">
+      <${v.icon} style=${{ color: view === v.key ? '#e4f222' : '#62666d', fontSize: 13 }} />
+      <span className="nm">${v.label}</span>
+      ${view === v.key
+        ? html`<${CheckOutlined} style=${{ color: '#e4f222', fontSize: 11 }} />`
+        : html`<span style=${{ width: 11 }}></span>`}
+      <${Tooltip} title=${`Copy as ${v.label}`} placement="right">
+        <${Button} type="text" size="small" aria-label=${`Copy as ${v.label}`}
+          icon=${html`<${CopyOutlined} />`}
+          onClick=${e => {
+            e.stopPropagation();
+            const text = v.key === 'table'
+              ? rows.map(r => `${r.k}\t${real(r)}\t${r.src}`).join('\n')
+              : serialize(v.key, rows, real).join('\n');
+            onCopy(text, `${rows.length} variables as ${v.label}`);
+          }} />
+      <//>
+    </div>`,
+    onClick: () => setView(v.key),
+  }));
+
+  const cols = [
+    {
+      title: 'Variable', dataIndex: 'k', width: 260,
+      render: v => html`<span className="mono" style=${{ color: '#ffffff' }}>${v}</span>`,
+    },
+    {
+      title: 'Value', dataIndex: 'v',
+      render: (v, r) => {
+        const hidden = r.secret && !revealed.includes(r.key);
+        return html`<span style=${{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+          <span className=${'mono env-val' + (hidden ? ' dim' : '')} title=${hidden ? '' : v}>
+            ${hidden ? '••••••••••••••••' : v}
+          </span>
+          ${r.secret && html`<${Button} type="text" size="small" aria-label=${hidden ? 'Reveal value' : 'Hide value'}
+            onClick=${() => toggle(r.key)}
+            icon=${hidden ? html`<${EyeOutlined} />` : html`<${EyeInvisibleOutlined} />`} />`}
+        </span>`;
+      },
+    },
+    {
+      title: 'Source', dataIndex: 'src', width: 110,
+      render: v => html`<${Pill} tone=${v === 'compose' ? 'teal' : v === 'runtime' ? 'lav' : 'neutral'}>${v}<//>`,
+    },
+    {
+      title: '', key: 'act', width: 46, align: 'right',
+      render: (_, r) => html`<${Tooltip} title="Copy KEY=value">
+        <${Button} type="text" size="small" icon=${html`<${CopyOutlined} />`}
+          onClick=${() => onCopy(`${r.k}=${r.v}`, r.k)} />
+      <//>`,
+    },
+  ];
+
+  return html`
+    <div className="card">
+      <div className="toolbar" style=${{ marginBottom: 14 }}>
+        <${Input} placeholder="Filter variables" allowClear value=${q} onChange=${e => setQ(e.target.value)}
+          prefix=${html`<${SearchOutlined} style=${{ color: '#62666d' }} />`} style=${{ width: 260 }} />
+        <${Segmented} value=${src} onChange=${setSrc} options=${[
+          { label: 'All', value: 'all' },
+          { label: 'Compose', value: 'compose' },
+          { label: 'Image', value: 'image' },
+          { label: 'Runtime', value: 'runtime' },
+        ]} />
+        <span className="spacer"></span>
+        <span className="dim" style=${{ fontSize: 12 }}>${rows.length} of ${ENVS.length}</span>
+        <${Button} icon=${html`<${EyeOutlined} />`}
+          onClick=${() => setRevealed(r => r.length ? [] : ENVS.filter(e => e.secret).map(e => e.key))}>
+          ${revealed.length ? 'Hide secrets' : 'Reveal secrets'}
+        <//>
+        <${Dropdown} menu=${{ items: viewItems }} trigger=${['click']} placement="bottomRight">
+          <${Button}>
+            View as: ${VIEWS.find(v => v.key === view).label} <${DownOutlined} style=${{ fontSize: 10 }} />
+          <//>
+        <//>
+      </div>
+
+      ${view === 'table'
+        ? html`<${Table} size="small" columns=${cols} dataSource=${rows} pagination=${false}
+            locale=${{ emptyText: html`<${Empty} description="No matching variables" />` }} />`
+        : rows.length === 0
+          ? html`<${Empty} description="No matching variables" />`
+          : html`<pre className="code-view">
+              ${serialize(view, rows, shown).map((line, i) => tint(view, line, i))}
+            </pre>`}
+
+      <div className="toolbar" style=${{ marginTop: 12 }}>
+        <span className="dim" style=${{ fontSize: 12 }}>
+          Values are read-only — changing them requires recreating the container.
+        </span>
+        <span className="spacer"></span>
+        ${view !== 'table' && html`<span className="dim" style=${{ fontSize: 12 }}>
+          Reflects the current filter${revealed.length < ENVS.filter(e => e.secret).length ? ' · secrets masked' : ''}.
+        </span>`}
+      </div>
+    </div>`;
+}
+
+/* ---------- Logs tab ---------- */
+function LogsTab() {
+  const [q, setQ] = useState('');
+  const [level, setLevel] = useState('all');
+  const [follow, setFollow] = useState(true);
+  const [timestamps, setTimestamps] = useState(true);
+  const [wrap, setWrap] = useState(true);
+  const [tail, setTail] = useState('500');
+  const [cleared, setCleared] = useState(0);
+  const boxRef = useRef(null);
+
+  const rank = { debug: 0, info: 1, warn: 2, error: 3 };
+  const rows = useMemo(() => LOGS
+    .slice(cleared)
+    .filter(([, lv, msg]) =>
+      (level === 'all' || rank[lv] >= rank[level]) &&
+      (!q || msg.toLowerCase().includes(q.toLowerCase()))
+    ), [q, level, cleared]);
+
+  useEffect(() => { if (follow && boxRef.current) boxRef.current.scrollTop = boxRef.current.scrollHeight; }, [rows, follow]);
+
+  const counts = LOGS.reduce((a, [, lv]) => ({ ...a, [lv]: (a[lv] || 0) + 1 }), {});
+
+  const renderMsg = msg => {
+    if (!q) return msg;
+    const i = msg.toLowerCase().indexOf(q.toLowerCase());
+    if (i < 0) return msg;
+    return html`${msg.slice(0, i)}<span className="hl">${msg.slice(i, i + q.length)}</span>${msg.slice(i + q.length)}`;
+  };
+
+  return html`
+    <div className="card">
+      <div className="toolbar" style=${{ marginBottom: 12 }}>
+        <${Input} placeholder="Search in logs" allowClear value=${q} onChange=${e => setQ(e.target.value)}
+          prefix=${html`<${SearchOutlined} style=${{ color: '#62666d' }} />`} style=${{ width: 240 }} />
+        <${Segmented} value=${level} onChange=${setLevel} options=${[
+          { label: 'All', value: 'all' },
+          { label: `Info`, value: 'info' },
+          { label: `Warn ${counts.warn || 0}`, value: 'warn' },
+          { label: `Error ${counts.error || 0}`, value: 'error' },
+        ]} />
+        <${Select} value=${tail} onChange=${setTail} style=${{ width: 116 }} options=${[
+          { value: '100', label: 'Last 100' },
+          { value: '500', label: 'Last 500' },
+          { value: '5000', label: 'Last 5000' },
+          { value: 'all', label: 'All lines' },
+        ]} />
+        <span className="spacer"></span>
+        <span style=${{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <${Switch} size="small" checked=${timestamps} onChange=${setTimestamps} />
+          <span className="dim" style=${{ fontSize: 12 }}>Timestamps</span>
+        </span>
+        <span style=${{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <${Switch} size="small" checked=${wrap} onChange=${setWrap} />
+          <span className="dim" style=${{ fontSize: 12 }}>Wrap</span>
+        </span>
+        <${Button} icon=${html`<${VerticalAlignBottomOutlined} />`} type=${follow ? 'primary' : 'default'}
+          onClick=${() => setFollow(f => !f)}>Follow<//>
+        <${Button} icon=${html`<${ClearOutlined} />`} onClick=${() => setCleared(LOGS.length)}>Clear<//>
+        <${Button} icon=${html`<${DownloadOutlined} />`}>Download<//>
+      </div>
+
+      <pre className="logs" ref=${boxRef} style=${{ whiteSpace: wrap ? 'pre-wrap' : 'pre' }}>
+        ${rows.length === 0
+          ? html`<span className="dim">No log lines match the current filter.</span>`
+          : rows.map(([ts, lv, msg], i) => html`<div key=${i} className=${'lg-' + lv}>
+              ${timestamps && html`<span className="lg-ts">${ts} </span>`}
+              <span className="lg-lvl">${lv.toUpperCase()}</span>
+              <span> ${renderMsg(msg)}</span>
+            </div>`)}
+      </pre>
+
+      <div className="toolbar" style=${{ marginTop: 10 }}>
+        <span className="dim" style=${{ fontSize: 12 }}>
+          ${rows.length} lines${q || level !== 'all' ? ` (filtered from ${LOGS.length - cleared})` : ''}
+        </span>
+        <span className="spacer"></span>
+        <span className="dim" style=${{ fontSize: 12 }}>
+          ${follow ? 'Following — auto-scroll pauses when you scroll up.' : 'Paused — new lines are buffered.'}
+        </span>
+      </div>
+    </div>`;
+}
+
+/* ---------- Exec tab ---------- */
+const FILES = {
+  '/etc/nginx/nginx.conf': [
+    'user  nginx;',
+    'worker_processes  auto;',
+    'error_log  /var/log/nginx/error.log notice;',
+    'pid        /var/run/nginx.pid;',
+    '',
+    'events { worker_connections  1024; }',
+    '',
+    'http {',
+    '    include       /etc/nginx/mime.types;',
+    '    sendfile      on;',
+    '    keepalive_timeout  65;',
+    '    include /etc/nginx/conf.d/*.conf;',
+    '}',
+  ],
+  '/etc/hosts': [
+    '127.0.0.1\tlocalhost',
+    '::1\tlocalhost ip6-localhost ip6-loopback',
+    '172.18.0.4\ta91f3c2d8e04',
+  ],
+};
+
+const LS_ROOT = [
+  'total 68',
+  'drwxr-xr-x    1 root     root          4096 Sep 18 07:04 .',
+  'drwxr-xr-x    1 root     root          4096 Sep 18 07:04 ..',
+  'drwxr-xr-x    2 root     root         12288 Sep 14 09:12 bin',
+  'drwxr-xr-x    5 root     root           360 Sep 18 07:04 dev',
+  'lrwxrwxrwx    1 root     root            20 Sep 14 09:12 docker-entrypoint.sh',
+  'drwxr-xr-x    1 root     root          4096 Sep 18 07:04 etc',
+  'drwxr-xr-x    2 root     root          4096 Sep 14 09:12 home',
+  'dr-xr-xr-x  204 root     root             0 Sep 18 07:04 proc',
+  'drwx------    1 root     root          4096 Sep 18 07:04 root',
+  'drwxr-xr-x    1 root     root          4096 Sep 18 07:04 usr',
+  'drwxr-xr-x    1 root     root          4096 Sep 14 09:12 var',
+];
+
+const PS_OUT = [
+  'PID   USER     TIME  COMMAND',
+  '    1 root      0:04 nginx: master process nginx -g daemon off;',
+  '   29 nginx     0:11 nginx: worker process',
+  '   30 nginx     0:09 nginx: worker process',
+  '   31 nginx     0:12 nginx: worker process',
+  '   32 nginx     0:08 nginx: worker process',
+  '   44 root      0:00 sh',
+  '   51 root      0:00 ps',
+];
+
+function ExecTab() {
+  const [shell, setShell] = useState('/bin/sh');
+  const [user, setUser] = useState('root');
+  const [connected, setConnected] = useState(true);
+  const [lines, setLines] = useState([
+    { t: 'sys', s: `Attached to ${CTR.shortId} — ${'/bin/sh'} as root` },
+    { t: 'sys', s: 'Type "help" for the commands this prototype fakes.' },
+  ]);
+  const [cmd, setCmd] = useState('');
+  const [past, setPast] = useState([]);
+  const [ptr, setPtr] = useState(-1);
+  const boxRef = useRef(null);
+  const inRef = useRef(null);
+
+  useEffect(() => { if (boxRef.current) boxRef.current.scrollTop = boxRef.current.scrollHeight; }, [lines]);
+
+  const push = (arr, t) => setLines(l => [...l, ...(Array.isArray(arr) ? arr : [arr]).map(s => ({ t: t || 'out', s }))]);
+
+  const reconnect = () => {
+    setConnected(true);
+    setLines([{ t: 'sys', s: `Attached to ${CTR.shortId} — ${shell} as ${user}` }]);
+  };
+
+  const run = raw => {
+    const line = raw.trim();
+    setLines(l => [...l, { t: 'cmd', s: raw }]);
+    if (line) { setPast(p => [...p, line]); setPtr(-1); }
+    if (!line) return;
+
+    const [bin, ...args] = line.split(/\s+/);
+    switch (bin) {
+      case 'help':
+        push([
+          'Faked in this prototype:',
+          '  ls [-la]   pwd        whoami     id',
+          '  env        ps         uname -a   date',
+          '  cat <file> hostname   df -h      nginx -t',
+          '  clear      exit',
+        ]); break;
+      case 'clear': setLines([]); break;
+      case 'exit':
+        push('session ended', 'sys'); setConnected(false); break;
+      case 'ls':
+        push(args.includes('-la') || args.includes('-l') ? LS_ROOT
+          : ['bin  dev  docker-entrypoint.sh  etc  home  proc  root  usr  var']); break;
+      case 'pwd': push('/'); break;
+      case 'whoami': push(user); break;
+      case 'id': push(user === 'root' ? 'uid=0(root) gid=0(root) groups=0(root)' : 'uid=101(nginx) gid=101(nginx) groups=101(nginx)'); break;
+      case 'hostname': push(CTR.shortId); break;
+      case 'uname': push('Linux a91f3c2d8e04 6.10.4-linuxkit #1 SMP Thu Sep 4 12:00:00 UTC 2026 x86_64 Linux'); break;
+      case 'date': push(dayjs().format('ddd MMM D HH:mm:ss [UTC] YYYY')); break;
+      case 'env': push(ENVS.map(e => `${e.k}=${e.v}`)); break;
+      case 'ps': push(PS_OUT); break;
+      case 'df': push([
+        'Filesystem                Size      Used Available Use% Mounted on',
+        'overlay                  58.4G     21.2G     34.2G  38% /',
+        'tmpfs                    64.0M         0     64.0M   0% /dev',
+        '/dev/vda1                58.4G     21.2G     34.2G  38% /etc/hosts',
+        'tmpfs                   256.0M    120.0K    255.9M   0% /var/cache/nginx',
+      ]); break;
+      case 'nginx':
+        if (args[0] === '-t') push([
+          'nginx: the configuration file /etc/nginx/nginx.conf syntax is ok',
+          'nginx: configuration file /etc/nginx/nginx.conf test is successful',
+        ]);
+        else push(`nginx version: nginx/1.27.1`);
+        break;
+      case 'cat': {
+        if (!args[0]) { push('cat: missing operand', 'err'); break; }
+        const f = FILES[args[0]];
+        if (f) push(f);
+        else push(`cat: can't open '${args[0]}': No such file or directory`, 'err');
+        break;
+      }
+      case 'rm':
+        push('rm: prototype is read-only — nothing was deleted', 'err'); break;
+      default:
+        push(`sh: ${bin}: not found`, 'err');
+    }
+  };
+
+  const onKey = e => {
+    if (e.key === 'Enter') { run(cmd); setCmd(''); }
+    else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (!past.length) return;
+      const n = ptr < 0 ? past.length - 1 : Math.max(0, ptr - 1);
+      setPtr(n); setCmd(past[n]);
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (ptr < 0) return;
+      const n = ptr + 1;
+      if (n >= past.length) { setPtr(-1); setCmd(''); } else { setPtr(n); setCmd(past[n]); }
+    } else if (e.key === 'l' && e.ctrlKey) { e.preventDefault(); setLines([]); }
+  };
+
+  const prompt = html`<span><span className="term-prompt">${user}@${CTR.shortId}</span><span className="dim">:</span><span className="term-cwd">/</span><span className="dim">${user === 'root' ? '#' : '$'}</span></span>`;
+
+  return html`
+    <div className="card">
+      <div className="toolbar" style=${{ marginBottom: 12 }}>
+        <span className="label" style=${{ margin: 0 }}>Shell</span>
+        <${Select} value=${shell} onChange=${setShell} disabled=${connected} style=${{ width: 150 }} options=${[
+          { value: '/bin/sh', label: '/bin/sh' },
+          { value: '/bin/bash', label: '/bin/bash' },
+          { value: '/bin/ash', label: '/bin/ash' },
+        ]} />
+        <span className="label" style=${{ margin: '0 0 0 8px' }}>User</span>
+        <${Select} value=${user} onChange=${setUser} disabled=${connected} style=${{ width: 130 }} options=${[
+          { value: 'root', label: 'root' },
+          { value: 'nginx', label: 'nginx' },
+        ]} />
+        <span className="spacer"></span>
+        <span style=${{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
+          <${StateDot} state=${connected ? 'running' : 'exited'} size=${7} />
+          <span className="mono dim">${connected ? 'attached' : 'detached'}</span>
+        </span>
+        <${Button} icon=${html`<${ClearOutlined} />`} onClick=${() => setLines([])}>Clear<//>
+        ${connected
+          ? html`<${Button} danger icon=${html`<${DisconnectOutlined} />`} onClick=${() => { setConnected(false); push('session ended', 'sys'); }}>Disconnect<//>`
+          : html`<${Button} type="primary" icon=${html`<${CodeOutlined} />`} onClick=${reconnect}>Reconnect<//>`}
+      </div>
+
+      <div className="term" ref=${boxRef} onClick=${() => inRef.current && inRef.current.focus()}>
+        ${lines.map((l, i) => html`<div key=${i} className=${'term-line term-' + (l.t === 'cmd' ? 'out' : l.t)}>
+          ${l.t === 'cmd' ? html`<span>${prompt} ${l.s}</span>` : l.s}
+        </div>`)}
+        ${connected && html`
+          <div className="term-inrow">
+            ${prompt}
+            <input ref=${inRef} className="term-in" value=${cmd} spellCheck=${false} autoFocus
+              aria-label="Terminal input"
+              onChange=${e => setCmd(e.target.value)} onKeyDown=${onKey} />
+          </div>`}
+        ${!connected && html`<div className="term-line dim">Session closed. Press Reconnect to start a new one.</div>`}
+      </div>
+
+      <div className="toolbar" style=${{ marginTop: 10 }}>
+        <span className="dim" style=${{ fontSize: 12 }}>
+          <${Mono}>docker exec -it ${CTR.shortId} ${shell}<//>
+        </span>
+        <span className="spacer"></span>
+        <span className="dim" style=${{ fontSize: 12 }}>↑ ↓ history · Ctrl+L clear · type "help"</span>
+      </div>
+    </div>`;
+}
+
+/* ---------- detail page ---------- */
+function ContainerDetail() {
+  const { modal, message } = AntApp.useApp();
+  const [tab, setTab] = useState('info');
+  const [state, setState] = useState('running');
+
+  const onCopy = (text, what) => {
+    if (navigator.clipboard) navigator.clipboard.writeText(text);
+    message.success(`${what} copied`);
+  };
+
+  const running = state === 'running';
+  const paused = state === 'paused';
+
+  const remove = () => modal.confirm({
+    title: 'Remove container?', centered: true, okText: 'Remove', okType: 'danger',
+    content: html`<span><${Mono}>${CTR.name}<//> will be stopped and deleted. Named volumes are kept.</span>`,
+  });
+
+  const moreItems = [
+    { key: 'kill', label: 'Kill', icon: html`<${PoweroffOutlined} />`, disabled: !running,
+      onClick: () => { setState('exited'); message.warning('Container killed'); } },
+    { key: 'copy-id', label: 'Copy full ID', icon: html`<${CopyOutlined} />`, onClick: () => onCopy(CTR.id, 'Container ID') },
+    { key: 'inspect', label: 'Copy inspect JSON', icon: html`<${FileTextOutlined} />`, onClick: () => onCopy('{ "Id": "' + CTR.id + '" }', 'Inspect JSON') },
+    { type: 'divider' },
+    { key: 'remove', label: 'Remove', icon: html`<${DeleteOutlined} />`, danger: true, onClick: remove },
+  ];
+
+  const tabs = [
+    { key: 'info', label: html`<span><${InfoCircleOutlined} /> Info</span>`, children: html`<${InfoTab} onCopy=${onCopy} />` },
+    { key: 'env', label: html`<span><${SettingOutlined} /> Environment</span>`, children: html`<${EnvTab} onCopy=${onCopy} />` },
+    { key: 'logs', label: html`<span><${FileTextOutlined} /> Logs</span>`, children: html`<${LogsTab} />` },
+    { key: 'exec', label: html`<span><${CodeOutlined} /> Exec</span>`, children: html`<${ExecTab} />` },
+  ];
+
+  const stats = running ? CTR.stats : { cpu: '0.0%', mem: '0 MB', memPct: '0%', net: '— / —', block: '— / —', pids: 0 };
+
+  return html`
+    <div>
+      <div className="head">
+        <div className="crumbs">
+          <span className="link">Containers</span>
+          <span>/</span>
+          <span style=${{ color: '#8a8f98' }}>${CTR.name}</span>
+        </div>
+
+        <div className="head-row">
+          <${Button} type="text" icon=${html`<${ArrowLeftOutlined} />`} aria-label="Back to containers"
+            style=${{ marginTop: 2 }} />
+          <div style=${{ flex: 1, minWidth: 240 }}>
+            <div className="title">
+              <${StateDot} state=${state} size=${9} />
+              ${CTR.name}
+              ${CTR.compose && html`<${Pill} tone="teal">${CTR.compose.project}/${CTR.compose.service}<//>`}
+              ${running && html`<${Pill} tone="green">healthy<//>`}
+            </div>
+            <div className="sub">
+              <${Mono}>${CTR.image}<//>
+              <span className="dim">·</span>
+              <span className="copyable mono" onClick=${() => onCopy(CTR.id, 'Container ID')}>
+                ${CTR.shortId}<${CopyOutlined} />
+              </span>
+              <span className="dim">·</span>
+              <span className="mono dim">${running ? `up ${CTR.uptime}` : state === 'paused' ? 'paused' : 'exited (0) 2 minutes ago'}</span>
+            </div>
+          </div>
+
+          <div className="toolbar">
+            ${running
+              ? html`<${Button} icon=${html`<${PauseCircleOutlined} />`} onClick=${() => { setState('paused'); message.info('Container paused'); }}>Pause<//>`
+              : paused
+                ? html`<${Button} icon=${html`<${PlayCircleOutlined} />`} onClick=${() => { setState('running'); message.success('Container unpaused'); }}>Unpause<//>`
+                : html`<${Button} type="primary" icon=${html`<${PlayCircleOutlined} />`} onClick=${() => { setState('running'); message.success('Container started'); }}>Start<//>`}
+            <${Button} icon=${html`<${ReloadOutlined} />`} disabled=${!running && !paused}
+              onClick=${() => { setState('running'); message.success('Container restarted'); }}>Restart<//>
+            <${Button} danger icon=${html`<${PoweroffOutlined} />`} disabled=${!running && !paused}
+              onClick=${() => { setState('exited'); message.warning('Container stopped'); }}>Stop<//>
+            <${Dropdown} menu=${{ items: moreItems }} trigger=${['click']} placement="bottomRight">
+              <${Button} icon=${html`<${MoreOutlined} />`} aria-label="More actions" />
+            <//>
+          </div>
+        </div>
+
+        <div className="stats">
+          <div className="stat"><div className="k">CPU</div><div className="v">${stats.cpu}<small>/ 1.50 cpus</small></div></div>
+          <div className="stat"><div className="k">Memory</div><div className="v">${stats.mem}<small>${stats.memPct} of 512 MB</small></div></div>
+          <div className="stat"><div className="k">Network I/O</div><div className="v">${stats.net}</div></div>
+          <div className="stat"><div className="k">Block I/O</div><div className="v">${stats.block}</div></div>
+          <div className="stat"><div className="k">PIDs</div><div className="v">${stats.pids}<small>/ 256</small></div></div>
+          <div className="stat"><div className="k">Restarts</div><div className="v">${CTR.restarts}<small>${CTR.restartPolicy}</small></div></div>
+        </div>
+
+        <${Tabs} activeKey=${tab} onChange=${setTab} items=${tabs.map(t => ({ key: t.key, label: t.label }))}
+          style=${{ marginBottom: -1 }} />
+      </div>
+
+      <div className="page">
+        ${tabs.find(t => t.key === tab).children}
+      </div>
+    </div>`;
+}
+
+/* ---------- shell ---------- */
+const NAV = [
+  { key: 'containers', label: 'Containers', hint: '7', icon: ContainerOutlined },
+  { key: 'images', label: 'Images', hint: '6', icon: PictureOutlined },
+  { key: 'volumes', label: 'Volumes', hint: '5', icon: HddOutlined },
+  { key: 'prefs', label: 'Preferences', hint: '', icon: SettingOutlined },
+];
+
+function Shell() {
+  return html`
+    <div className="app">
+      <aside className="side">
+        <div className="brand"><${Glyph} />Container GUI</div>
+        ${NAV.map(n => html`
+          <div key=${n.key} className=${'nav-item' + (n.key === 'containers' ? ' active' : '')}>
+            <${n.icon} style=${{ fontSize: 14, color: n.key === 'containers' ? '#e4f222' : '#62666d' }} />
+            <span style=${{ flex: 1 }}>${n.label}</span>
+            ${n.hint && html`<span className="mono dim">${n.hint}</span>`}
+          </div>`)}
+        <div className="side-foot">
+          <span className="mono">desktop-linux</span>
+          <span style=${{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <span style=${{ width: 6, height: 6, borderRadius: 99, background: '#27a644' }}></span>
+            <span className="mono">7ms</span>
+          </span>
+        </div>
+      </aside>
+
+      <main className="main">
+        <${ContainerDetail} />
+      </main>
+    </div>`;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(
+  html`<${ConfigProvider} theme=${themeCfg}><${AntApp}><${Shell} /><//><//>`
+);
+</script>
+</body>
+</html>

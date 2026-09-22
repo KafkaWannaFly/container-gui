@@ -168,3 +168,4 @@ rustc-ice-*.txt
 #.idea/
 
 plans/*
+.playwright-mcp
