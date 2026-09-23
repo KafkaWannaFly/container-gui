@@ -11,10 +11,16 @@ import {
   ContainerStatsSchema,
   type ContainerSummary,
   ContainerSummarySchema,
+  type DirListing,
+  DirListingSchema,
   type DockerContext,
   DockerContextSchema,
   type DockerStatus,
   DockerStatusSchema,
+  type FileContent,
+  FileContentSchema,
+  type FsChange,
+  FsChangeSchema,
   type ImageInspect,
   ImageInspectSchema,
   type ImageItem,
@@ -144,6 +150,23 @@ export function saveContainerLogs(id: string, filename: string): Promise<string>
 }
 
 /* -------------------------------- files ------------------------------- */
+
+export function listContainerDir(id: string, path: string, limit?: number): Promise<DirListing> {
+  return call("list_container_dir", { id, path, limit: limit ?? null }, DirListingSchema);
+}
+
+export function readContainerFile(id: string, path: string, maxBytes?: number): Promise<FileContent> {
+  return call("read_container_file", { id, path, maxBytes: maxBytes ?? null }, FileContentSchema);
+}
+
+export function containerChanges(id: string): Promise<FsChange[]> {
+  return call("container_changes", { id }, z.array(FsChangeSchema));
+}
+
+/** Save a file — or a directory as .tar — into Downloads; resolves to the path. */
+export function saveContainerPath(id: string, path: string, asArchive: boolean): Promise<string> {
+  return call("save_container_path", { id, path, asArchive }, z.string());
+}
 
 /** Write text into the user's Downloads folder; resolves to the path. */
 export function saveTextToDownloads(filename: string, contents: string): Promise<string> {

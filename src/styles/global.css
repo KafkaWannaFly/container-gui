@@ -786,3 +786,214 @@ pre.logs .dim {
   align-items: center;
   gap: 6px;
 }
+
+/* ---------- files ---------- */
+.fs {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  height: calc(100vh - 390px);
+  min-height: 420px;
+  background: var(--void);
+  border: 0.5px solid var(--graphite);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.fs-tree {
+  border-right: 0.5px solid var(--graphite);
+  overflow: hidden;
+  padding: 8px 6px;
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.fs-tree .ant-tree {
+  background: transparent;
+}
+
+.fs-tree .ant-tree-treenode {
+  width: 100%;
+}
+
+.fs-tree .ant-tree-node-content-wrapper {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.fs-tree .ant-tree-iconEle {
+  flex: 0 0 auto;
+}
+
+.fs-tree .ant-tree-title {
+  flex: 1;
+  min-width: 0;
+}
+
+.fs-tree .ant-tree-node-selected .fs-name .mono {
+  color: var(--paper) !important;
+}
+
+.fs-tnode {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.fs-tnode .fs-name {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.fs-tnode .fs-name .mono {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fs-tnode .fs-act {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--graphite);
+}
+
+.fs-act {
+  opacity: 0;
+}
+
+.fs-body tr:hover .fs-act,
+.fs-body tr:focus-within .fs-act,
+.fs-act.ant-dropdown-open,
+.fs-tree .ant-tree-treenode:hover .fs-act,
+.fs-tree .ant-tree-treenode:focus-within .fs-act {
+  opacity: 1;
+}
+
+.fs-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.fs-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px 6px 12px;
+  min-height: 44px;
+  border-bottom: 0.5px solid var(--graphite);
+  flex-wrap: wrap;
+}
+
+.fs-meta {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 6px 12px;
+  border-bottom: 0.5px solid var(--graphite);
+  color: var(--ash);
+  flex-wrap: wrap;
+}
+
+.fs-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.fs-body .ant-table-tbody .ant-table-row {
+  cursor: pointer;
+}
+
+.fs-body .ant-table-row:focus-visible {
+  outline: 1px solid var(--smoke);
+  outline-offset: -1px;
+}
+
+.fs-crumb {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  min-width: 0;
+  flex: 1;
+}
+
+.fs-crumb .seg {
+  padding: 1px 3px;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--fog);
+  background: none;
+  border: 0;
+  font: inherit;
+}
+
+.fs-crumb .seg:hover {
+  background: var(--obsidian);
+  color: var(--paper);
+}
+
+.fs-crumb .seg.cur {
+  color: var(--paper);
+  cursor: default;
+  background: transparent;
+}
+
+.fs-crumb .sep {
+  color: var(--smoke);
+}
+
+.fs-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.fs-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 99px;
+  flex: 0 0 auto;
+}
+
+.fs-dot.d-A {
+  background: var(--green);
+}
+
+.fs-dot.d-C {
+  background: var(--amber);
+}
+
+.fs-dot.d-D {
+  background: var(--coral);
+}
+
+.fs-empty {
+  height: 100%;
+  min-height: 220px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px;
+  text-align: center;
+}
+
+.fs-trunc {
+  padding: 6px 12px;
+  font-size: 12px;
+  color: var(--amber);
+  background: rgba(217, 164, 65, 0.06);
+  border-bottom: 0.5px solid var(--graphite);
+}
+
+.cl-block {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 8400px;
+}

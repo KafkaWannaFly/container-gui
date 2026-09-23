@@ -68,6 +68,7 @@ function LogRow({ line, opts }: { line: ParsedLine; opts: Options }) {
       {json ? (
         <>
           {/* A span, not a button: buttons are always inline-block and would break the line. */}
+          {/* biome-ignore lint/a11y/useSemanticElements: see above; role and key handling keep it accessible */}
           <span
             role="button"
             tabIndex={0}

@@ -1,4 +1,4 @@
-import { theme, type ThemeConfig } from "antd";
+import { type ThemeConfig, theme } from "antd";
 
 /**
  * Linear-inspired "midnight precision instrument" theme.
@@ -91,6 +91,16 @@ export const antdTheme: ThemeConfig = {
     },
     Divider: {
       colorSplit: "#23252a",
+    },
+    Tooltip: {
+      colorBgSpotlight: "#23252a",
+      colorTextLightSolid: "#e5e5e6",
+    },
+    Tree: {
+      nodeHoverBg: "#161718",
+      nodeSelectedBg: "#23252a",
+      titleHeight: 26,
+      indentSize: 14,
     },
   },
 };

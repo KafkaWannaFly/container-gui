@@ -130,6 +130,6 @@ export function historyText(
   const rows = layers.map((l, i) => [String(i + 1), formatTime(l.created), formatSize(l.size), l.createdBy]);
   const head = ["#", "CREATED", "SIZE", "CREATED BY"];
   const widths = [0, 1, 2].map((c) => Math.max(head[c].length, ...rows.map((r) => r[c].length)));
-  const line = (r: string[]) => [0, 1, 2].map((c) => r[c].padEnd(widths[c])).join("   ") + `   ${r[3]}`;
+  const line = (r: string[]) => `${[0, 1, 2].map((c) => r[c].padEnd(widths[c])).join("   ")}   ${r[3]}`;
   return `${[line(head), ...rows.map(line)].join("\n")}\n`;
 }

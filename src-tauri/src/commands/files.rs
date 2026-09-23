@@ -1,8 +1,17 @@
 use std::path::{Path, PathBuf};
 
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Manager, State};
 
+use crate::AppState;
 use crate::error::{AppError, AppResult};
+use crate::models::dto::{DirListingDto, FileContentDto, FsChangeDto};
+use crate::services::files_service;
+
+/// Entries per listing by default; the UI can ask for more.
+const DEFAULT_LIST_LIMIT: usize = 1_000;
+const MAX_LIST_LIMIT: usize = 20_000;
+/// Preview cap: large files are downloaded, not rendered.
+const DEFAULT_PREVIEW_BYTES: u64 = 1024 * 1024;
 
 /// Pick a free path in the user's Downloads folder: `name`, then
 /// `name (1)`, `name (2)`, … so an earlier export is never overwritten.
@@ -59,6 +68,70 @@ pub async fn save_text_to_downloads(
         .await
         .map_err(|err| AppError::Message(format!("Could not write {}: {err}", path.display())))?;
     Ok(path.display().to_string())
+}
+
+/// List one directory (running containers only — it runs `find`/`stat`).
+#[tauri::command]
+pub async fn list_container_dir(
+    state: State<'_, AppState>,
+    id: String,
+    path: String,
+    limit: Option<usize>,
+) -> AppResult<DirListingDto> {
+    let client = state.manager.required_client().await?;
+    let limit = limit.unwrap_or(DEFAULT_LIST_LIMIT).clamp(1, MAX_LIST_LIMIT);
+    files_service::list_dir(&client, &id, &path, limit).await
+}
+
+/// Read up to `max_bytes` of a path; works on stopped containers too.
+#[tauri::command]
+pub async fn read_container_file(
+    state: State<'_, AppState>,
+    id: String,
+    path: String,
+    max_bytes: Option<u64>,
+) -> AppResult<FileContentDto> {
+    let client = state.manager.required_client().await?;
+    let max = max_bytes.unwrap_or(DEFAULT_PREVIEW_BYTES);
+    files_service::read_file(&client, &id, &path, max).await
+}
+
+#[tauri::command]
+pub async fn container_changes(
+    state: State<'_, AppState>,
+    id: String,
+) -> AppResult<Vec<FsChangeDto>> {
+    let client = state.manager.required_client().await?;
+    files_service::changes(&client, &id).await
+}
+
+/// Save a file (or a directory as .tar) into Downloads; returns the path.
+#[tauri::command]
+pub async fn save_container_path(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    id: String,
+    path: String,
+    as_archive: bool,
+) -> AppResult<String> {
+    let client = state.manager.required_client().await?;
+    let base = path
+        .trim_end_matches('/')
+        .rsplit('/')
+        .next()
+        .filter(|n| !n.is_empty())
+        .unwrap_or("root");
+    let name = if as_archive {
+        format!("{base}.tar")
+    } else {
+        base.to_string()
+    };
+    let dest = downloads_target(&app, &name)?;
+    if let Err(err) = files_service::save_path(&client, &id, &path, &dest, as_archive).await {
+        let _ = tokio::fs::remove_file(&dest).await;
+        return Err(err);
+    }
+    Ok(dest.display().to_string())
 }
 
 #[cfg(test)]

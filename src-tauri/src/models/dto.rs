@@ -116,6 +116,53 @@ fn default_true() -> bool {
     true
 }
 
+/// One directory entry. `kind`: dir | file | link | char | block | fifo |
+/// socket | other. `mtime` is unix seconds.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FsEntryDto {
+    pub name: String,
+    pub kind: String,
+    pub size: u64,
+    pub mode: String,
+    pub owner: String,
+    pub mtime: i64,
+    pub target: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DirListingDto {
+    pub path: String,
+    pub entries: Vec<FsEntryDto>,
+    /// More entries exist than the requested limit.
+    pub truncated: bool,
+}
+
+/// Preview of one path. `content` is set for text files only, cut at the
+/// requested byte limit (`truncated`).
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FileContentDto {
+    pub path: String,
+    pub kind: String,
+    pub size: u64,
+    pub mode: String,
+    pub mtime: i64,
+    pub link_target: Option<String>,
+    pub content: Option<String>,
+    pub binary: bool,
+    pub truncated: bool,
+}
+
+/// A path that differs from the image: `A`dded, `C`hanged or `D`eleted.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FsChangeDto {
+    pub path: String,
+    pub kind: String,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LayerHistoryItemDto {

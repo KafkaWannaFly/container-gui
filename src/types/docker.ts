@@ -314,3 +314,42 @@ export function portLabel(port: PortMapping): string {
 export function shortId(id: string): string {
   return id.replace(/^sha256:/, "").slice(0, 12);
 }
+
+/* ------------------------------ filesystem ----------------------------- */
+
+export const FsEntrySchema = z.object({
+  name: z.string(),
+  kind: z.enum(["dir", "file", "link", "char", "block", "fifo", "socket", "other"]),
+  size: z.number(),
+  mode: z.string(),
+  owner: z.string(),
+  mtime: z.number(),
+  target: z.string().nullable(),
+});
+export type FsEntry = z.infer<typeof FsEntrySchema>;
+
+export const DirListingSchema = z.object({
+  path: z.string(),
+  entries: z.array(FsEntrySchema),
+  truncated: z.boolean(),
+});
+export type DirListing = z.infer<typeof DirListingSchema>;
+
+export const FileContentSchema = z.object({
+  path: z.string(),
+  kind: z.string(),
+  size: z.number(),
+  mode: z.string(),
+  mtime: z.number(),
+  linkTarget: z.string().nullable(),
+  content: z.string().nullable(),
+  binary: z.boolean(),
+  truncated: z.boolean(),
+});
+export type FileContent = z.infer<typeof FileContentSchema>;
+
+export const FsChangeSchema = z.object({
+  path: z.string(),
+  kind: z.enum(["A", "C", "D"]),
+});
+export type FsChange = z.infer<typeof FsChangeSchema>;

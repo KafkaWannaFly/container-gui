@@ -9,6 +9,8 @@ export type TabProps = {
   ctr: ContainerInspect;
   image: ImageInspect | undefined;
   onCopy: (text: string, what: string) => void;
+  /** Switch to another tab (e.g. Files → Logs for /dev/stdout). */
+  onOpenTab: (key: string) => void;
 };
 
 export function containerName(ctr: ContainerInspect): string {
