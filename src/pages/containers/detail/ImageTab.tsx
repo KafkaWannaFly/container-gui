@@ -8,10 +8,10 @@ import CodeView from "../../../components/CodeView";
 import { CollapseAllButton, Section, useSections } from "../../../components/Section";
 import { Mono, Pill } from "../../../components/ui";
 import { usePersistentState } from "../../../hooks/usePersistentState";
-import { useSaveToDownloads } from "../../../hooks/useSaveToDownloads";
+import { useSaveFile } from "../../../hooks/useSaveFile";
 import { localTime } from "../../../lib/format";
 import { queryKeys } from "../../../lib/queryClient";
-import { imageHistory, saveTextToDownloads } from "../../../services/tauriApi";
+import { imageHistory, saveTextToFile } from "../../../services/tauriApi";
 import { formatBytes, type LayerHistoryItem, shortId } from "../../../types/docker";
 import { baseBoundary, historyText, oldestFirst, reconstructDockerfile, toInstruction } from "./dockerfile";
 import { platformOf, type TabProps } from "./model";
@@ -30,7 +30,7 @@ export default function ImageTab({ ctr, image, onCopy }: TabProps) {
   const [view, setView] = usePersistentState("image.view", View, "dockerfile");
   const [layersStyle, setLayersStyle] = usePersistentState("image.layers", LayersStyle, "table");
   const [expanded, setExpanded] = useState<string[]>([]);
-  const save = useSaveToDownloads();
+  const save = useSaveFile();
 
   const ref = ctr.Image ?? "";
   const name = ctr.Config?.Image ?? shortId(ref);
@@ -217,12 +217,12 @@ export default function ImageTab({ ctr, image, onCopy }: TabProps) {
                   onClick={() => onCopy(text, view === "dockerfile" ? "Dockerfile" : "Layer history")}
                 />
               </Tooltip>
-              <Tooltip title={`Save to Downloads as ${saveName}`}>
+              <Tooltip title={`Save ${saveName}`}>
                 <Button
-                  aria-label="Save to Downloads"
+                  aria-label="Save"
                   icon={<DownloadOutlined />}
                   disabled={!text}
-                  onClick={() => void save(() => saveTextToDownloads(saveName, text))}
+                  onClick={() => void save(saveName, (dest) => saveTextToFile(dest, text))}
                 />
               </Tooltip>
             </>

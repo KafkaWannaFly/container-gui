@@ -78,19 +78,19 @@ pub async fn stream_container_stats(
     Ok(())
 }
 
-/// Write the container's full log (both streams, with timestamps) into
-/// Downloads without routing it through the webview. Returns the path.
+/// Write the container's full log (both streams, with timestamps) to the path
+/// the user chose in the save dialog, without routing it through the webview.
+/// Returns the path.
 #[tauri::command]
 pub async fn save_container_logs(
-    app: tauri::AppHandle,
     state: State<'_, AppState>,
     id: String,
-    filename: String,
+    dest: String,
 ) -> AppResult<String> {
     let client = state.manager.required_client().await?;
-    let path = crate::commands::files::downloads_target(&app, &filename)?;
-    container_service::write_logs(&client, &id, &path).await?;
-    Ok(path.display().to_string())
+    let dest = std::path::PathBuf::from(dest);
+    container_service::write_logs(&client, &id, &dest).await?;
+    Ok(dest.display().to_string())
 }
 
 /// Cancel any log, stats or exec stream by the id its caller registered.

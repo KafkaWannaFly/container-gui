@@ -48,6 +48,7 @@ fn log_plugin() -> tauri::plugin::TauriPlugin<tauri::Wry> {
 pub fn run() {
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .plugin(log_plugin());
 
     // Debug-only UI automation bridge for agents (`tauri-pilot`). The plugin
@@ -84,7 +85,7 @@ pub fn run() {
             commands::containers::stream_container_stats,
             commands::containers::stop_stream,
             commands::containers::save_container_logs,
-            commands::files::save_text_to_downloads,
+            commands::files::save_text_to_file,
             commands::files::list_container_dir,
             commands::files::read_container_file,
             commands::files::container_changes,

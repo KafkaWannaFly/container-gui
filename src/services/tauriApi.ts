@@ -149,9 +149,9 @@ export function streamContainerStats(id: string, onSample: (stats: ContainerLive
   return openStream("stream_container_stats", { id }, "onStats", ContainerLiveStatsSchema, onSample);
 }
 
-/** Write the full container log into Downloads; resolves to the path. */
-export function saveContainerLogs(id: string, filename: string): Promise<string> {
-  return call("save_container_logs", { id, filename }, z.string());
+/** Write the full container log to `dest`; resolves to the path. */
+export function saveContainerLogs(id: string, dest: string): Promise<string> {
+  return call("save_container_logs", { id, dest }, z.string());
 }
 
 /* -------------------------------- files ------------------------------- */
@@ -168,14 +168,14 @@ export function containerChanges(id: string): Promise<FsChange[]> {
   return call("container_changes", { id }, z.array(FsChangeSchema));
 }
 
-/** Save a file — or a directory as .tar — into Downloads; resolves to the path. */
-export function saveContainerPath(id: string, path: string, asArchive: boolean): Promise<string> {
-  return call("save_container_path", { id, path, asArchive }, z.string());
+/** Save a file — or a directory as .tar — to `dest`; resolves to the path. */
+export function saveContainerPath(id: string, path: string, asArchive: boolean, dest: string): Promise<string> {
+  return call("save_container_path", { id, path, asArchive, dest }, z.string());
 }
 
-/** Write text into the user's Downloads folder; resolves to the path. */
-export function saveTextToDownloads(filename: string, contents: string): Promise<string> {
-  return call("save_text_to_downloads", { filename, contents }, z.string());
+/** Write text to a path the user picked; resolves to the path. */
+export function saveTextToFile(dest: string, contents: string): Promise<string> {
+  return call("save_text_to_file", { dest, contents }, z.string());
 }
 
 /* -------------------------------- images ------------------------------ */

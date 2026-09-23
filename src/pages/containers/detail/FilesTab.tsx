@@ -35,7 +35,7 @@ import { z } from "zod";
 import CodeView, { detectLanguage } from "../../../components/CodeView";
 import { Mono, Pill } from "../../../components/ui";
 import { usePersistentState } from "../../../hooks/usePersistentState";
-import { useSaveToDownloads } from "../../../hooks/useSaveToDownloads";
+import { useSaveFile } from "../../../hooks/useSaveFile";
 import {
   containerChanges,
   listContainerDir,
@@ -173,7 +173,7 @@ export default function FilesTab({ ctr, onCopy, onOpenTab }: TabProps) {
   const [revealed, setRevealed] = useState(false);
   const [treeRef, treeHeight] = useHeight<HTMLDivElement>();
   const [bodyRef, bodyHeight] = useHeight<HTMLDivElement>();
-  const save = useSaveToDownloads();
+  const save = useSaveFile();
 
   const load = useCallback(
     async (path: string, limit = PAGE) => {
@@ -289,7 +289,8 @@ export default function FilesTab({ ctr, onCopy, onOpenTab }: TabProps) {
         target = result.path;
         archive = result.kind === "dir";
       }
-      await save(() => saveContainerPath(id, target, archive));
+      const base = target.split("/").filter(Boolean).pop() ?? "download";
+      await save(archive ? `${base}.tar` : base, (dest) => saveContainerPath(id, target, archive, dest));
     };
     return (
       // biome-ignore lint/a11y/noStaticElementInteractions: stops row activation; the button inside is the control
@@ -420,7 +421,9 @@ export default function FilesTab({ ctr, onCopy, onOpenTab }: TabProps) {
   }, [cwd, open]);
 
   const downloadOpened = () => {
-    if (data?.kind === "content") void save(() => saveContainerPath(id, data.path, false));
+    if (data?.kind !== "content") return;
+    const base = data.path.split("/").filter(Boolean).pop() ?? "download";
+    void save(base, (dest) => saveContainerPath(id, data.path, false, dest));
   };
 
   const cols = [

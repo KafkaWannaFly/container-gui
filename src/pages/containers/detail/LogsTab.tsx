@@ -10,7 +10,7 @@ import { Alert, Button, Dropdown, Input, Select, Tooltip } from "antd";
 import { format } from "date-fns";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
-import { useSaveToDownloads } from "../../../hooks/useSaveToDownloads";
+import { useSaveFile } from "../../../hooks/useSaveFile";
 import { saveContainerLogs, streamContainerLogs } from "../../../services/tauriApi";
 import { LEVEL_RANK, type Level, type ParsedLine, parseLine } from "./logParse";
 import { containerName, type TabProps } from "./model";
@@ -111,7 +111,7 @@ export default function LogsTab({ ctr }: TabProps) {
   const [version, setVersion] = useState(0);
   const buffer = useRef<ParsedLine[]>([]);
   const listRef = useRef<VirtuosoHandle>(null);
-  const save = useSaveToDownloads();
+  const save = useSaveFile();
 
   // Restart the stream when the container (re)starts so new output shows up.
   const startedAt = ctr.State?.StartedAt;
@@ -287,11 +287,13 @@ export default function LogsTab({ ctr }: TabProps) {
         <Tooltip title="Clear — hides the current lines from this view. Container logs are not deleted.">
           <Button aria-label="Clear" icon={<ClearOutlined />} onClick={clear} disabled={!visible.length} />
         </Tooltip>
-        <Tooltip title="Download the full log (all lines, both streams) to Downloads.">
+        <Tooltip title="Save the full log (all lines, both streams).">
           <Button
             aria-label="Download"
             icon={<DownloadOutlined />}
-            onClick={() => void save(() => saveContainerLogs(id, `${containerName(ctr)}-${stamp}.log`))}
+            onClick={() =>
+              void save(`${containerName(ctr)}-${stamp}.log`, (dest) => saveContainerLogs(id, dest))
+            }
           />
         </Tooltip>
       </div>
