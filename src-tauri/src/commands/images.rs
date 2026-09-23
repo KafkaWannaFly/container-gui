@@ -37,6 +37,16 @@ pub async fn image_history(
     image_service::image_history(&client, &image).await
 }
 
+/// Raw image inspect JSON (config, digests, platform).
+#[tauri::command]
+pub async fn inspect_image(
+    state: State<'_, AppState>,
+    image: String,
+) -> AppResult<serde_json::Value> {
+    let client = state.manager.required_client().await?;
+    image_service::inspect_image(&client, &image).await
+}
+
 #[tauri::command]
 pub async fn tag_image(
     state: State<'_, AppState>,

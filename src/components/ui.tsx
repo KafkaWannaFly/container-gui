@@ -1,6 +1,6 @@
-import type { ReactNode } from "react";
-import { Button, Dropdown, Tooltip, type MenuProps } from "antd";
 import { MoreOutlined } from "@ant-design/icons";
+import { Button, Dropdown, type MenuProps, Tooltip } from "antd";
+import type { ReactNode } from "react";
 import whale from "../assets/whale.png";
 
 export const STATE_COLORS: Record<string, string> = {
@@ -12,7 +12,7 @@ export const STATE_COLORS: Record<string, string> = {
   restarting: "var(--amber)",
 };
 
-export function StateDot({ state }: { state: string }) {
+export function StateDot({ state, size = 10 }: { state: string; size?: number }) {
   const color = STATE_COLORS[state] ?? "var(--fog)";
   const label = state ? state.charAt(0).toUpperCase() + state.slice(1) : "Unknown";
   return (
@@ -20,8 +20,9 @@ export function StateDot({ state }: { state: string }) {
       <span
         style={{
           display: "inline-block",
-          width: 10,
-          height: 10,
+          width: size,
+          height: size,
+          flex: "0 0 auto",
           borderRadius: 99,
           background: color,
           boxShadow: `0 0 0 3px ${color}22`,
@@ -55,6 +56,7 @@ export function StateTag({ state }: { state: string }) {
 const PILL_TONES: Record<string, [string, string]> = {
   green: ["rgba(39,166,68,.13)", "var(--green)"],
   coral: ["rgba(235,87,87,.12)", "var(--coral)"],
+  amber: ["rgba(217,164,65,.14)", "var(--amber)"],
   violet: ["rgba(99,102,241,.16)", "#8b93ff"],
   lav: ["rgba(139,92,246,.16)", "#b79bff"],
   teal: ["rgba(2,184,204,.13)", "var(--teal)"],

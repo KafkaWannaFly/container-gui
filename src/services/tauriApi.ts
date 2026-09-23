@@ -1,30 +1,35 @@
 import { Channel, invoke } from "@tauri-apps/api/core";
 import { z } from "zod";
 import {
-  ConnectionConfigSchema,
-  ContainerInspectSchema,
-  ContainerStatsSchema,
-  ContainerSummarySchema,
-  DockerContextSchema,
-  DockerStatusSchema,
-  ImageItemSchema,
-  LayerHistoryItemSchema,
-  LogChunkSchema,
-  SystemInfoSchema,
-  VolumeItemSchema,
-  ImagePullProgressSchema,
   type ConnectionConfig,
+  ConnectionConfigSchema,
   type ContainerInspect,
+  ContainerInspectSchema,
+  type ContainerLiveStats,
+  ContainerLiveStatsSchema,
   type ContainerStats,
+  ContainerStatsSchema,
   type ContainerSummary,
+  ContainerSummarySchema,
   type DockerContext,
+  DockerContextSchema,
   type DockerStatus,
+  DockerStatusSchema,
+  type ImageInspect,
+  ImageInspectSchema,
   type ImageItem,
+  ImageItemSchema,
   type ImagePullProgress,
+  ImagePullProgressSchema,
   type LayerHistoryItem,
-  type LogChunk,
+  LayerHistoryItemSchema,
+  LogEventSchema,
+  type LogLine,
+  type LogStreamOptions,
   type SystemInfo,
+  SystemInfoSchema,
   type VolumeItem,
+  VolumeItemSchema,
 } from "../types/docker";
 
 /**
@@ -70,45 +75,79 @@ export function inspectContainer(id: string): Promise<ContainerInspect> {
   return call("inspect_container", { id }, ContainerInspectSchema);
 }
 
-export type ContainerActionKind =
-  | "start"
-  | "stop"
-  | "restart"
-  | "kill"
-  | "pause"
-  | "unpause"
-  | "remove";
+export type ContainerActionKind = "start" | "stop" | "restart" | "kill" | "pause" | "unpause" | "remove";
 
 export function containerAction(id: string, action: ContainerActionKind): Promise<void> {
   return callVoid("container_action", { id, action });
 }
 
 /**
- * Stream logs into `onChunk`. Returns a disposer that cancels the
- * backend stream — call it on unmount.
+ * Open a backend stream keyed by a fresh stream id. Messages are validated
+ * with `schema`; the returned disposer cancels the backend task, so two
+ * views on the same container never cancel each other.
  */
-export function streamContainerLogs(
-  id: string,
-  tail: number,
-  onChunk: (chunk: LogChunk) => void,
-  onEnd?: () => void,
+function openStream<T>(
+  cmd: string,
+  args: Record<string, unknown>,
+  channelArg: string,
+  schema: z.ZodType<T>,
+  onMessage: (message: T) => void,
+  onError?: (err: Error) => void,
 ): () => void {
+  const streamId = crypto.randomUUID();
   const channel = new Channel<unknown>();
   let active = true;
   channel.onmessage = (raw) => {
     if (!active) return;
-    const parsed = LogChunkSchema.safeParse(raw);
-    if (parsed.success) onChunk(parsed.data);
+    const parsed = schema.safeParse(raw);
+    if (parsed.success) onMessage(parsed.data);
   };
-  invoke("stream_container_logs", { id, tail, onChunk: channel })
-    .catch(() => undefined)
-    .finally(() => {
-      if (active) onEnd?.();
-    });
+  invoke(cmd, { ...args, streamId, [channelArg]: channel }).catch((err) => {
+    if (active) onError?.(toError(err));
+  });
   return () => {
     active = false;
-    void invoke("stop_container_logs", { id }).catch(() => undefined);
+    void invoke("stop_stream", { streamId }).catch(() => undefined);
   };
+}
+
+export type LogStreamHandlers = {
+  onLines: (lines: LogLine[]) => void;
+  /** Stream finished: container stopped, log ended, or it failed. */
+  onEnd?: (error: string | null) => void;
+};
+
+/** Stream log line batches. Returns a disposer — call it on unmount. */
+export function streamContainerLogs(
+  id: string,
+  options: LogStreamOptions,
+  { onLines, onEnd }: LogStreamHandlers,
+): () => void {
+  return openStream(
+    "stream_container_logs",
+    { id, options: { tail: options.tail, since: options.since ?? null, follow: options.follow ?? true } },
+    "onEvent",
+    LogEventSchema,
+    (event) => (event.kind === "lines" ? onLines(event.lines) : onEnd?.(event.error)),
+    (err) => onEnd?.(err.message),
+  );
+}
+
+/** Live stats samples (about one per second) for one container. */
+export function streamContainerStats(id: string, onSample: (stats: ContainerLiveStats) => void): () => void {
+  return openStream("stream_container_stats", { id }, "onStats", ContainerLiveStatsSchema, onSample);
+}
+
+/** Write the full container log into Downloads; resolves to the path. */
+export function saveContainerLogs(id: string, filename: string): Promise<string> {
+  return call("save_container_logs", { id, filename }, z.string());
+}
+
+/* -------------------------------- files ------------------------------- */
+
+/** Write text into the user's Downloads folder; resolves to the path. */
+export function saveTextToDownloads(filename: string, contents: string): Promise<string> {
+  return call("save_text_to_downloads", { filename, contents }, z.string());
 }
 
 /* -------------------------------- images ------------------------------ */
@@ -140,6 +179,10 @@ export function pullImage(
 
 export function imageHistory(ref: string): Promise<LayerHistoryItem[]> {
   return call("image_history", { image: ref }, z.array(LayerHistoryItemSchema));
+}
+
+export function inspectImage(ref: string): Promise<ImageInspect> {
+  return call("inspect_image", { image: ref }, ImageInspectSchema);
 }
 
 export function tagImage(id: string, repo: string, tag: string): Promise<void> {

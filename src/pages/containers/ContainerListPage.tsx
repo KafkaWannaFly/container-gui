@@ -1,17 +1,3 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  App,
-  Button,
-  Empty,
-  Input,
-  Popconfirm,
-  Segmented,
-  Spin,
-  Table,
-  Tooltip,
-  type TableColumnsType,
-} from "antd";
 import {
   CaretRightOutlined,
   DeleteOutlined,
@@ -24,20 +10,33 @@ import {
   StopOutlined,
   SyncOutlined,
 } from "@ant-design/icons";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  App,
+  Button,
+  Empty,
+  Input,
+  Popconfirm,
+  Segmented,
+  Spin,
+  Table,
+  type TableColumnsType,
+  Tooltip,
+} from "antd";
 import { formatDistanceToNow } from "date-fns";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { MetricCard, Mono, RowActions, StateDot } from "../../components/ui";
 import { queryKeys } from "../../lib/queryClient";
-import { containerAction, getSystemInfo, listContainerStats, listContainers } from "../../services/tauriApi";
 import type { ContainerActionKind } from "../../services/tauriApi";
+import { containerAction, getSystemInfo, listContainerStats, listContainers } from "../../services/tauriApi";
 import {
+  type ContainerStats,
+  type ContainerSummary,
   formatBytes,
   portLabel,
   shortId,
-  type ContainerStats,
-  type ContainerSummary,
 } from "../../types/docker";
-import ContainerInspectorDrawer from "./components/ContainerInspectorDrawer";
-import LiveLogModal from "./components/LiveLogModal";
 
 type ActionKind = ContainerActionKind;
 
@@ -70,8 +69,7 @@ export default function ContainerListPage() {
   const [search, setSearch] = useState("");
   const [state, setState] = useState("all");
   const [selected, setSelected] = useState<React.Key[]>([]);
-  const [inspectId, setInspectId] = useState<string | null>(null);
-  const [logTarget, setLogTarget] = useState<ContainerSummary | null>(null);
+  const navigate = useNavigate();
   const [expanded, setExpanded] = useState<React.Key[]>([]);
   const [pending, setPending] = useState<Record<string, ActionKind>>({});
   const seenGroups = useRef<Set<string>>(new Set());
@@ -263,7 +261,9 @@ export default function ContainerListPage() {
               {pending[row.id] ? <Spin size="small" /> : <StateDot state={row.state} />}
             </span>
             <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              <span style={{ color: "var(--paper)" }}>{row.names[0] ?? shortId(row.id)}</span>
+              <Link to={`/containers/${row.id}`} className="row-link">
+                {row.names[0] ?? shortId(row.id)}
+              </Link>
               <span className="mono">{row.image}</span>
               <span className="mono dim">{shortId(row.id)}</span>
             </div>
@@ -377,13 +377,13 @@ export default function ContainerListPage() {
                   key: "logs",
                   label: "View logs",
                   icon: <FileTextOutlined />,
-                  onClick: () => setLogTarget(row),
+                  onClick: () => navigate(`/containers/${row.id}?tab=logs`),
                 },
                 {
                   key: "inspect",
-                  label: "Inspect",
+                  label: "Details",
                   icon: <InfoCircleOutlined />,
-                  onClick: () => setInspectId(row.id),
+                  onClick: () => navigate(`/containers/${row.id}`),
                 },
               ],
               [
@@ -547,9 +547,6 @@ export default function ContainerListPage() {
           locale={{ emptyText: <Empty description="No containers" /> }}
         />
       </div>
-
-      <ContainerInspectorDrawer id={inspectId} onClose={() => setInspectId(null)} />
-      <LiveLogModal container={logTarget} onClose={() => setLogTarget(null)} />
     </div>
   );
 }

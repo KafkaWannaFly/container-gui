@@ -3,6 +3,7 @@
 
 use std::collections::HashMap;
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
 use bollard::Docker;
@@ -237,27 +238,56 @@ pub async fn collect_system_info(client: &Docker) -> AppResult<SystemInfoDto> {
     })
 }
 
-/// Tracks in-flight log and image-pull streams so unmounting a modal can
-/// cancel the backend task (Phase 5.3).
+/// Tracks in-flight streams so unmounting a view can cancel the backend
+/// task. Log/stats/exec streams are keyed by a caller-chosen stream id, so
+/// two views on the same container never cancel each other; pulls are
+/// keyed by image name because one image only pulls once at a time.
 #[derive(Default)]
 pub struct StreamRegistry {
-    logs: Mutex<HashMap<String, tokio::sync::oneshot::Sender<()>>>,
+    streams: Mutex<HashMap<String, (u64, tokio::sync::oneshot::Sender<()>)>>,
+    next_token: AtomicU64,
     pulls: Mutex<HashMap<String, tokio::sync::oneshot::Sender<()>>>,
 }
 
+/// Handle a stream task holds: select on `cancelled`, then pass the
+/// token back to [`StreamRegistry::finish`].
+pub struct StreamTicket {
+    pub token: u64,
+    pub cancelled: tokio::sync::oneshot::Receiver<()>,
+}
+
 impl StreamRegistry {
-    pub fn register_logs(&self, id: String, cancel: tokio::sync::oneshot::Sender<()>) {
-        self.logs.lock().unwrap().insert(id, cancel);
+    /// Register `stream_id`. Re-registering an id cancels the previous task.
+    pub fn register(&self, stream_id: String) -> StreamTicket {
+        let (cancel_tx, cancelled) = tokio::sync::oneshot::channel();
+        let token = self.next_token.fetch_add(1, Ordering::Relaxed);
+        if let Some((_, old)) = self
+            .streams
+            .lock()
+            .unwrap()
+            .insert(stream_id, (token, cancel_tx))
+        {
+            let _ = old.send(());
+        }
+        StreamTicket { token, cancelled }
     }
 
-    pub fn cancel_logs(&self, id: &str) {
-        if let Some(cancel) = self.logs.lock().unwrap().remove(id) {
+    pub fn cancel(&self, stream_id: &str) {
+        if let Some((_, cancel)) = self.streams.lock().unwrap().remove(stream_id) {
             let _ = cancel.send(());
         }
     }
 
-    pub fn finish_logs(&self, id: &str) {
-        self.logs.lock().unwrap().remove(id);
+    /// Drop the entry once the task ends, unless a newer task re-registered
+    /// the same id in the meantime.
+    pub fn finish(&self, stream_id: &str, token: u64) {
+        let mut streams = self.streams.lock().unwrap();
+        if streams
+            .get(stream_id)
+            .is_some_and(|(owner, _)| *owner == token)
+        {
+            streams.remove(stream_id);
+        }
     }
 
     pub fn register_pull(&self, image: String, cancel: tokio::sync::oneshot::Sender<()>) {

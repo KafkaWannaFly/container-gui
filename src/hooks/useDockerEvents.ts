@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
-import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { useQueryClient } from "@tanstack/react-query";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { App } from "antd";
-import { DockerEventSchema, DockerStatusSchema } from "../types/docker";
+import { useEffect, useState } from "react";
 import { queryKeys } from "../lib/queryClient";
+import { DockerEventSchema, DockerStatusSchema } from "../types/docker";
 
 /**
  * Bridges the backend Docker event stream into React Query cache
@@ -29,6 +29,9 @@ export function useDockerEvents() {
           switch (parsed.data.resourceType) {
             case "container":
               void queryClient.invalidateQueries({ queryKey: ["containers"] });
+              void queryClient.invalidateQueries({
+                queryKey: queryKeys.containerInspect(parsed.data.actorId),
+              });
               void queryClient.invalidateQueries({ queryKey: queryKeys.system() });
               break;
             case "volume":

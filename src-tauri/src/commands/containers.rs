@@ -2,7 +2,9 @@ use tauri::State;
 
 use crate::AppState;
 use crate::error::AppResult;
-use crate::models::dto::{ContainerStatsDto, ContainerSummaryDto, LogChunkDto};
+use crate::models::dto::{
+    ContainerLiveStatsDto, ContainerStatsDto, ContainerSummaryDto, LogEventDto, LogStreamOptions,
+};
 use crate::services::container_service::{self, ContainerListFilter};
 
 #[tauri::command]
@@ -48,16 +50,52 @@ pub async fn container_action(
 pub async fn stream_container_logs(
     state: State<'_, AppState>,
     id: String,
-    tail: u64,
-    on_chunk: tauri::ipc::Channel<LogChunkDto>,
+    stream_id: String,
+    options: LogStreamOptions,
+    on_event: tauri::ipc::Channel<LogEventDto>,
 ) -> AppResult<()> {
     let client = state.manager.required_client().await?;
-    container_service::spawn_log_stream(client, state.streams.clone(), id, tail, on_chunk);
+    container_service::spawn_log_stream(
+        client,
+        state.streams.clone(),
+        id,
+        stream_id,
+        options,
+        on_event,
+    );
     Ok(())
 }
 
 #[tauri::command]
-pub async fn stop_container_logs(state: State<'_, AppState>, id: String) -> AppResult<()> {
-    state.streams.cancel_logs(&id);
+pub async fn stream_container_stats(
+    state: State<'_, AppState>,
+    id: String,
+    stream_id: String,
+    on_stats: tauri::ipc::Channel<ContainerLiveStatsDto>,
+) -> AppResult<()> {
+    let client = state.manager.required_client().await?;
+    container_service::spawn_stats_stream(client, state.streams.clone(), id, stream_id, on_stats);
+    Ok(())
+}
+
+/// Write the container's full log (both streams, with timestamps) into
+/// Downloads without routing it through the webview. Returns the path.
+#[tauri::command]
+pub async fn save_container_logs(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+    id: String,
+    filename: String,
+) -> AppResult<String> {
+    let client = state.manager.required_client().await?;
+    let path = crate::commands::files::downloads_target(&app, &filename)?;
+    container_service::write_logs(&client, &id, &path).await?;
+    Ok(path.display().to_string())
+}
+
+/// Cancel any log, stats or exec stream by the id its caller registered.
+#[tauri::command]
+pub async fn stop_stream(state: State<'_, AppState>, stream_id: String) -> AppResult<()> {
+    state.streams.cancel(&stream_id);
     Ok(())
 }

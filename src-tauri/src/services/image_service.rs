@@ -45,6 +45,12 @@ pub async fn image_history(client: &Docker, image: &str) -> AppResult<Vec<LayerH
         .collect())
 }
 
+/// Raw inspect payload, passed through like container inspect.
+pub async fn inspect_image(client: &Docker, image: &str) -> AppResult<serde_json::Value> {
+    let response = client.inspect_image(image).await?;
+    Ok(serde_json::to_value(response)?)
+}
+
 pub async fn tag_image(client: &Docker, id: &str, repo: &str, tag: &str) -> AppResult<()> {
     let options = TagImageOptionsBuilder::new().repo(repo).tag(tag).build();
     client.tag_image(id, Some(options)).await?;

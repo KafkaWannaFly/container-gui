@@ -37,6 +37,21 @@ pub struct ContainerStatsDto {
     pub memory_limit: i64,
 }
 
+/// One sample from the live stats stream of a single container.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ContainerLiveStatsDto {
+    pub cpu_percent: f64,
+    pub online_cpus: u32,
+    pub memory_usage: i64,
+    pub memory_limit: i64,
+    pub net_rx: u64,
+    pub net_tx: u64,
+    pub block_read: u64,
+    pub block_write: u64,
+    pub pids: u64,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VolumeItemDto {
@@ -68,11 +83,37 @@ pub struct ImagePullProgressDto {
     pub percent: f64,
 }
 
-#[derive(Debug, Clone, Serialize)]
+/// One complete log line. `ts` is Docker's RFC 3339 timestamp prefix,
+/// empty when the engine did not send one.
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-pub struct LogChunkDto {
+pub struct LogLineDto {
     pub stream: String,
-    pub message: String,
+    pub ts: String,
+    pub text: String,
+}
+
+/// Messages on a log stream channel: batches of lines, then one `end`.
+#[derive(Debug, Clone, Serialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum LogEventDto {
+    Lines { lines: Vec<LogLineDto> },
+    End { error: Option<String> },
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LogStreamOptions {
+    /// Last N lines; `None` streams the whole log.
+    pub tail: Option<u64>,
+    /// Unix seconds; only lines at or after this time.
+    pub since: Option<i64>,
+    #[serde(default = "default_true")]
+    pub follow: bool,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 #[derive(Debug, Clone, Serialize)]
