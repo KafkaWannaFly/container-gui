@@ -4,6 +4,7 @@ import { Button, Descriptions, type DescriptionsProps, Empty, Segmented, Spin, T
 import { format } from "date-fns";
 import { useMemo, useState } from "react";
 import { z } from "zod";
+import CodeView from "../../../components/CodeView";
 import { CollapseAllButton, Section, useSections } from "../../../components/Section";
 import { Mono, Pill } from "../../../components/ui";
 import { usePersistentState } from "../../../hooks/usePersistentState";
@@ -12,14 +13,7 @@ import { localTime } from "../../../lib/format";
 import { queryKeys } from "../../../lib/queryClient";
 import { imageHistory, saveTextToDownloads } from "../../../services/tauriApi";
 import { formatBytes, type LayerHistoryItem, shortId } from "../../../types/docker";
-import {
-  baseBoundary,
-  historyText,
-  oldestFirst,
-  reconstructDockerfile,
-  toInstruction,
-  tokenizeDockerLine,
-} from "./dockerfile";
+import { baseBoundary, historyText, oldestFirst, reconstructDockerfile, toInstruction } from "./dockerfile";
 import { platformOf, type TabProps } from "./model";
 
 const IMAGE_SECTIONS = ["summary", "build"] as const;
@@ -30,35 +24,6 @@ const LayersStyle = z.enum(["table", "raw"]);
 
 const size = (n: number) => (n ? formatBytes(n) : "0 B");
 const time = (unix: number) => format(new Date(unix * 1000), "yyyy-MM-dd HH:mm");
-
-/** Numbered, highlighted, horizontally scrollable code block. */
-function CodeLines({ text, highlight }: { text: string; highlight?: boolean }) {
-  const lines = text.replace(/\n$/, "").split("\n");
-  return (
-    <div className="code-lines">
-      {lines.map((line, i) => (
-        // biome-ignore lint/suspicious/noArrayIndexKey: lines are positional
-        <div key={i} className="cl">
-          <span className="n">{i + 1}</span>
-          <span className="t">
-            {highlight
-              ? tokenizeDockerLine(line).map((tok, j) =>
-                  tok.t === "text" ? (
-                    tok.s
-                  ) : (
-                    // biome-ignore lint/suspicious/noArrayIndexKey: tokens are positional
-                    <span key={j} className={`tk-${tok.t}`}>
-                      {tok.s}
-                    </span>
-                  ),
-                )
-              : line || " "}
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-}
 
 export default function ImageTab({ ctr, image, onCopy }: TabProps) {
   const { section, allClosed, toggleAll } = useSections("image.sections", IMAGE_SECTIONS);
@@ -272,11 +237,11 @@ export default function ImageTab({ ctr, image, onCopy }: TabProps) {
           <Empty description={history.error?.message ?? "No layer history available"} />
         ) : view === "dockerfile" ? (
           <div className="df-view">
-            <CodeLines text={dockerfile} highlight />
+            <CodeView value={dockerfile} language="dockerfile" />
           </div>
         ) : layersStyle === "raw" ? (
           <div className="df-view">
-            <CodeLines text={raw} />
+            <CodeView value={raw} language={null} />
           </div>
         ) : (
           <Table<LayerHistoryItem>

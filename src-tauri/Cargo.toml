@@ -28,6 +28,8 @@ bon = "3.10"
 tap = "1.0"
 variantly = "0.4"
 futures-util = "0.3"
+astral-tokio-tar = "0.7.0"
+tokio-util = { version = "0.7.19", features = ["io"] }
 
 [dev-dependencies]
 tokio = { version = "1.53", features = ["full", "test-util"] }

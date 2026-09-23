@@ -14,6 +14,7 @@ use docker::state::{DockerSessionManager, StreamRegistry};
 pub struct AppState {
     pub manager: Arc<DockerSessionManager>,
     pub streams: Arc<StreamRegistry>,
+    pub execs: Arc<services::exec_service::ExecRegistry>,
 }
 
 /// Configure application logging. Dev builds write to `<project>/logs` (easy
@@ -62,6 +63,7 @@ pub fn run() {
             app.manage(AppState {
                 manager: manager.clone(),
                 streams,
+                execs: Arc::default(),
             });
 
             // Connect first, then start the event worker so it subscribes
@@ -87,6 +89,10 @@ pub fn run() {
             commands::files::read_container_file,
             commands::files::container_changes,
             commands::files::save_container_path,
+            commands::exec::exec_probe,
+            commands::exec::exec_start,
+            commands::exec::exec_input,
+            commands::exec::exec_resize,
             commands::images::list_images,
             commands::images::pull_image,
             commands::images::cancel_pull,

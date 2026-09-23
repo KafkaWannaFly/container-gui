@@ -8,7 +8,8 @@ import {
 } from "@ant-design/icons";
 import { Alert, Button, Dropdown, Input, Select, Tooltip } from "antd";
 import { format } from "date-fns";
-import { memo, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 import { useSaveToDownloads } from "../../../hooks/useSaveToDownloads";
 import { saveContainerLogs, streamContainerLogs } from "../../../services/tauriApi";
 import { LEVEL_RANK, type Level, type ParsedLine, parseLine } from "./logParse";
@@ -17,9 +18,6 @@ import { containerName, type TabProps } from "./model";
 /** Lines kept in memory; the oldest are dropped in chunks past this. */
 const MAX_LINES = 50_000;
 const DROP_CHUNK = 5_000;
-/** Lines per memoized block; only the newest block re-renders as lines arrive. */
-const BLOCK = 200;
-
 const LOCAL_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
 const TZ_OFFSET = format(new Date(), "xxx");
 
@@ -99,28 +97,6 @@ function LogRow({ line, opts }: { line: ParsedLine; opts: Options }) {
   );
 }
 
-/**
- * A fixed run of lines. Lines never change once received, so a block with
- * the same first line and length renders the same output.
- */
-const LogBlock = memo(
-  function LogBlock({ lines, opts }: { lines: ParsedLine[]; opts: Options }) {
-    return (
-      <div className="lg-block">
-        {lines.map((line) => (
-          <LogRow key={line.seq} line={line} opts={opts} />
-        ))}
-      </div>
-    );
-  },
-  (a, b) =>
-    a.lines.length === b.lines.length &&
-    a.lines[0]?.seq === b.lines[0]?.seq &&
-    a.opts.timestamps === b.opts.timestamps &&
-    a.opts.pretty === b.opts.pretty &&
-    a.opts.q === b.opts.q,
-);
-
 export default function LogsTab({ ctr }: TabProps) {
   const id = ctr.Id;
   const [q, setQ] = useState("");
@@ -134,7 +110,7 @@ export default function LogsTab({ ctr }: TabProps) {
   const [ended, setEnded] = useState<{ error: string | null } | null>(null);
   const [version, setVersion] = useState(0);
   const buffer = useRef<ParsedLine[]>([]);
-  const boxRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<VirtuosoHandle>(null);
   const save = useSaveToDownloads();
 
   // Restart the stream when the container (re)starts so new output shows up.
@@ -192,25 +168,10 @@ export default function LogsTab({ ctr }: TabProps) {
   const hidden = buffer.current.length - visible.length;
   const hasJson = useMemo(() => rows.some((line) => line.json), [rows]);
 
-  const blocks = useMemo(() => {
-    const out: ParsedLine[][] = [];
-    for (let i = 0; i < rows.length; i += BLOCK) out.push(rows.slice(i, i + BLOCK));
-    return out;
-  }, [rows]);
-
-  // Stick to the bottom while following.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: re-run whenever rows change
+  // Turning Follow back on jumps to the newest line.
   useEffect(() => {
-    const box = boxRef.current;
-    if (follow && box) box.scrollTop = box.scrollHeight;
-  }, [rows, follow, wrap]);
-
-  const onScroll = () => {
-    const box = boxRef.current;
-    if (!box) return;
-    const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 24;
-    if (atBottom !== follow) setFollow(atBottom);
-  };
+    if (follow) listRef.current?.scrollToIndex({ index: "LAST" });
+  }, [follow]);
 
   const clear = () => {
     const last = buffer.current[buffer.current.length - 1]?.sortKey ?? "";
@@ -347,13 +308,7 @@ export default function LogsTab({ ctr }: TabProps) {
         />
       ) : null}
 
-      <div
-        className={`logs log-view${wrap ? "" : " nowrap"}`}
-        ref={boxRef}
-        onScroll={onScroll}
-        role="log"
-        aria-live="off"
-      >
+      <div className={`log-view${wrap ? "" : " nowrap"}`} role="log" aria-live="off">
         {hidden > 0 ? (
           <div className="dim lg-hidden">
             {hidden} earlier line{hidden === 1 ? "" : "s"} hidden by Clear ·{" "}
@@ -371,7 +326,16 @@ export default function LogsTab({ ctr }: TabProps) {
                 : "Waiting for output…"}
           </span>
         ) : (
-          blocks.map((block) => <LogBlock key={block[0].seq} lines={block} opts={opts} />)
+          <Virtuoso
+            ref={listRef}
+            className="lg-list"
+            data={rows}
+            computeItemKey={(_, line) => line.seq}
+            initialTopMostItemIndex={rows.length - 1}
+            followOutput={follow ? "auto" : false}
+            atBottomStateChange={setFollow}
+            itemContent={(_, line) => <LogRow line={line} opts={opts} />}
+          />
         )}
       </div>
 

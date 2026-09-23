@@ -17,6 +17,11 @@ import {
   DockerContextSchema,
   type DockerStatus,
   DockerStatusSchema,
+  type ExecEvent,
+  ExecEventSchema,
+  type ExecProbe,
+  ExecProbeSchema,
+  type ExecStartOptions,
   type FileContent,
   FileContentSchema,
   type FsChange,
@@ -99,8 +104,8 @@ function openStream<T>(
   schema: z.ZodType<T>,
   onMessage: (message: T) => void,
   onError?: (err: Error) => void,
+  streamId: string = crypto.randomUUID(),
 ): () => void {
-  const streamId = crypto.randomUUID();
   const channel = new Channel<unknown>();
   let active = true;
   channel.onmessage = (raw) => {
@@ -256,4 +261,44 @@ export function testConnection(config: ConnectionConfig): Promise<DockerStatus> 
 export function switchDockerEndpoint(config: ConnectionConfig): Promise<DockerStatus> {
   const parsed = ConnectionConfigSchema.parse(config);
   return call("switch_docker_endpoint", { config: parsed }, DockerStatusSchema);
+}
+
+/* --------------------------------- exec -------------------------------- */
+
+export function execProbe(id: string): Promise<ExecProbe> {
+  return call("exec_probe", { id }, ExecProbeSchema);
+}
+
+export type ExecSession = {
+  write: (data: string) => void;
+  resize: (cols: number, rows: number) => void;
+  close: () => void;
+};
+
+/** Start an interactive exec session; `onEvent` gets output, then one exit. */
+export function startExec(
+  id: string,
+  options: ExecStartOptions,
+  onEvent: (event: ExecEvent) => void,
+): ExecSession {
+  const streamId = crypto.randomUUID();
+  const close = openStream(
+    "exec_start",
+    { id, options: { env: [], tty: false, cols: 0, rows: 0, ...options } },
+    "onEvent",
+    ExecEventSchema,
+    onEvent,
+    (err) => onEvent({ kind: "exit", code: null, error: err.message }),
+    streamId,
+  );
+  // Commands run concurrently on the backend, so keystrokes sent as
+  // separate invokes can overtake each other. Chain them to keep order.
+  let queue: Promise<unknown> = Promise.resolve();
+  return {
+    write: (data) => {
+      queue = queue.then(() => invoke("exec_input", { streamId, data })).catch(() => undefined);
+    },
+    resize: (cols, rows) => void invoke("exec_resize", { streamId, cols, rows }).catch(() => undefined),
+    close,
+  };
 }

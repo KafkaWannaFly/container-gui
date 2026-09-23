@@ -18,7 +18,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { App, Button, Dropdown, type MenuProps, Result, Spin, Tabs, Tooltip } from "antd";
 import { formatDistanceToNow } from "date-fns";
-import { type ReactNode, useEffect, useState } from "react";
+import { lazy, type ReactNode, Suspense, useEffect, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Mono, Pill, StateDot } from "../../../components/ui";
 import { compactDuration, isZeroTime } from "../../../lib/format";
@@ -32,10 +32,14 @@ import {
 } from "../../../services/tauriApi";
 import { type ContainerInspect, type ContainerLiveStats, formatBytes, shortId } from "../../../types/docker";
 import EnvTab from "./EnvTab";
-import FilesTab from "./FilesTab";
-import ImageTab from "./ImageTab";
 import InfoTab from "./InfoTab";
 import LogsTab from "./LogsTab";
+
+// Heavy tabs (xterm, CodeMirror) load on first open.
+const ExecTab = lazy(() => import("./ExecTab"));
+const FilesTab = lazy(() => import("./FilesTab"));
+const ImageTab = lazy(() => import("./ImageTab"));
+
 import { composeOf, containerName, cpuLimit, pidsLimit, type TabProps } from "./model";
 
 const TAB_KEYS = ["info", "image", "env", "logs", "files", "exec"] as const;
@@ -269,7 +273,7 @@ export default function ContainerDetailPage() {
     { key: "env", icon: <SettingOutlined />, label: "Environment", render: () => <EnvTab {...tabProps} /> },
     { key: "logs", icon: <FileTextOutlined />, label: "Logs", render: () => <LogsTab {...tabProps} /> },
     { key: "files", icon: <FolderOutlined />, label: "Files", render: () => <FilesTab {...tabProps} /> },
-    { key: "exec", icon: <CodeOutlined />, label: "Exec", render: () => null },
+    { key: "exec", icon: <CodeOutlined />, label: "Exec", render: () => <ExecTab {...tabProps} /> },
   ];
 
   return (
@@ -388,7 +392,11 @@ export default function ContainerDetailPage() {
         </div>
       </div>
 
-      <div className="page detail-body">{tabs.find((t) => t.key === tab)?.render()}</div>
+      <div className="page detail-body">
+        <Suspense fallback={<Spin style={{ marginTop: 40 }} />}>
+          {tabs.find((t) => t.key === tab)?.render()}
+        </Suspense>
+      </div>
     </div>
   );
 }

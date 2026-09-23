@@ -10,8 +10,10 @@ use bollard::container::LogOutput;
 use bollard::exec::{CreateExecOptions, StartExecOptions, StartExecResults};
 use bollard::models::ChangeType;
 use bollard::query_parameters::DownloadFromContainerOptionsBuilder;
-use futures_util::{Stream, StreamExt};
-use tokio::io::AsyncWriteExt;
+use futures_util::StreamExt;
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWriteExt};
+use tokio_tar::{Archive, EntryType};
+use tokio_util::io::StreamReader;
 
 use crate::error::{AppError, AppResult};
 use crate::models::dto::{DirListingDto, FileContentDto, FsChangeDto, FsEntryDto};
@@ -194,142 +196,25 @@ pub async fn changes(client: &Docker, id: &str) -> AppResult<Vec<FsChangeDto>> {
         .collect())
 }
 
-/* ------------------------------ tar reading ------------------------------ */
+/* ------------------------------ archive ------------------------------ */
 
-/// First real entry of a tar stream (extended headers already applied).
-struct TarEntry {
-    typeflag: u8,
-    size: u64,
-    mode: u32,
-    mtime: i64,
-    link: String,
-}
-
-/// Minimal streaming tar reader: enough to pull the single entry the
-/// archive endpoint returns for a file path, without buffering it whole.
-struct TarReader<S> {
-    inner: S,
-    buf: Vec<u8>,
-}
-
-fn octal(field: &[u8]) -> u64 {
-    // GNU base-256 for values that overflow the octal field.
-    if field.first().is_some_and(|b| b & 0x80 != 0) {
-        return field[1..]
-            .iter()
-            .fold(0u64, |acc, b| (acc << 8) | u64::from(*b));
-    }
-    let text: String = field
-        .iter()
-        .take_while(|b| **b != 0)
-        .map(|b| *b as char)
-        .collect();
-    u64::from_str_radix(text.trim(), 8).unwrap_or(0)
-}
-
-fn cstr(field: &[u8]) -> String {
-    let end = field.iter().position(|b| *b == 0).unwrap_or(field.len());
-    String::from_utf8_lossy(&field[..end]).to_string()
-}
-
-impl<S, B> TarReader<S>
-where
-    S: Stream<Item = Result<B, bollard::errors::Error>> + Unpin,
-    B: AsRef<[u8]>,
-{
-    fn new(inner: S) -> Self {
-        Self {
-            inner,
-            buf: Vec::new(),
-        }
-    }
-
-    /// Ensure `n` bytes are buffered; false at end of stream.
-    async fn fill(&mut self, n: usize) -> AppResult<bool> {
-        while self.buf.len() < n {
-            match self.inner.next().await {
-                Some(chunk) => self.buf.extend_from_slice(chunk?.as_ref()),
-                None => return Ok(false),
-            }
-        }
-        Ok(true)
-    }
-
-    async fn take(&mut self, n: usize) -> AppResult<Vec<u8>> {
-        if !self.fill(n).await? {
-            return Err(AppError::Message("archive ended early".into()));
-        }
-        Ok(self.buf.drain(..n).collect())
-    }
-
-    async fn first_entry(&mut self) -> AppResult<TarEntry> {
-        let mut pax_size = None;
-        let mut long_link = None;
-        loop {
-            let header = self.take(512).await?;
-            if header.iter().all(|b| *b == 0) {
-                return Err(AppError::Message("archive is empty".into()));
-            }
-            let size = octal(&header[124..136]);
-            let typeflag = header[156];
-            match typeflag {
-                // PAX extended / global headers: `len key=value\n` records.
-                b'x' | b'g' | b'L' | b'K' => {
-                    let data = self.take(size.div_ceil(512) as usize * 512).await?;
-                    let data = &data[..size as usize];
-                    if typeflag == b'K' {
-                        long_link = Some(cstr(data));
-                    }
-                    if typeflag == b'x' {
-                        for record in String::from_utf8_lossy(data).lines() {
-                            let Some((_, kv)) = record.split_once(' ') else {
-                                continue;
-                            };
-                            match kv.split_once('=') {
-                                Some(("size", v)) => pax_size = v.parse().ok(),
-                                Some(("linkpath", v)) => long_link = Some(v.to_string()),
-                                _ => {}
-                            }
-                        }
-                    }
-                }
-                _ => {
-                    return Ok(TarEntry {
-                        typeflag,
-                        size: pax_size.unwrap_or(size),
-                        mode: octal(&header[100..108]) as u32,
-                        mtime: octal(&header[136..148]) as i64,
-                        link: long_link.unwrap_or_else(|| cstr(&header[157..257])),
-                    });
-                }
-            }
-        }
-    }
-
-    /// Next piece of the current entry's data; `None` once `left` is spent.
-    async fn next_chunk(&mut self, left: &mut u64) -> AppResult<Option<Vec<u8>>> {
-        if *left == 0 {
-            return Ok(None);
-        }
-        if self.buf.is_empty() && !self.fill(1).await? {
-            return Err(AppError::Message("archive ended early".into()));
-        }
-        let n = (*left).min(self.buf.len() as u64) as usize;
-        *left -= n as u64;
-        Ok(Some(self.buf.drain(..n).collect()))
-    }
-}
-
-fn kind_of_typeflag(flag: u8) -> &'static str {
-    match flag {
-        b'0' | 0 | b'7' => "file",
-        b'1' => "hardlink",
-        b'2' => "link",
-        b'3' => "char",
-        b'4' => "block",
-        b'5' => "dir",
-        b'6' => "fifo",
-        _ => "other",
+fn kind_of_entry(kind: EntryType) -> &'static str {
+    if kind.is_file() || kind == EntryType::Continuous {
+        "file"
+    } else if kind.is_dir() {
+        "dir"
+    } else if kind.is_symlink() {
+        "link"
+    } else if kind.is_hard_link() {
+        "hardlink"
+    } else if kind.is_character_special() {
+        "char"
+    } else if kind.is_block_special() {
+        "block"
+    } else if kind.is_fifo() {
+        "fifo"
+    } else {
+        "other"
     }
 }
 
@@ -354,18 +239,22 @@ fn mode_string(mode: u32, kind: &str) -> String {
         .collect()
 }
 
-fn archive(
-    client: &Docker,
-    id: &str,
-    path: &str,
-) -> impl Stream<Item = Result<impl AsRef<[u8]>, bollard::errors::Error>> + Unpin {
+/// The archive endpoint as an `AsyncRead` tar stream.
+fn archive(client: &Docker, id: &str, path: &str) -> Archive<impl AsyncRead + Unpin> {
     let options = DownloadFromContainerOptionsBuilder::new()
         .path(path)
         .build();
-    client.download_from_container(id, Some(options)).boxed()
+    let body = client
+        .download_from_container(id, Some(options))
+        .map(|chunk| chunk.map_err(std::io::Error::other));
+    Archive::new(StreamReader::new(body.boxed()))
 }
 
-/// First `max_bytes` of a file. Binary is detected by a NUL byte in the
+fn tar_err(err: std::io::Error) -> AppError {
+    AppError::Message(format!("Could not read archive: {err}"))
+}
+
+/// First `max_bytes` of a path. Binary is detected by a NUL byte in the
 /// first 8 KiB, the same heuristic git and grep use.
 pub async fn read_file(
     client: &Docker,
@@ -373,31 +262,43 @@ pub async fn read_file(
     path: &str,
     max_bytes: u64,
 ) -> AppResult<FileContentDto> {
-    let mut reader = TarReader::new(archive(client, id, path));
-    let entry = reader.first_entry().await?;
-    let kind = kind_of_typeflag(entry.typeflag);
+    let mut archive = archive(client, id, path);
+    let mut entries = archive.entries().map_err(tar_err)?;
+    let entry = entries
+        .next()
+        .await
+        .ok_or_else(|| AppError::Message("archive is empty".into()))?
+        .map_err(tar_err)?;
+    let header = entry.header();
+    let kind = kind_of_entry(header.entry_type());
+    let size = entry.effective_size();
     let mut dto = FileContentDto {
         path: path.to_string(),
         kind: kind.to_string(),
-        size: entry.size,
-        mode: mode_string(entry.mode, kind),
-        mtime: entry.mtime,
-        link_target: (kind == "link").then(|| entry.link.clone()),
+        size,
+        mode: mode_string(header.mode().unwrap_or(0), kind),
+        mtime: header.mtime().unwrap_or(0) as i64,
+        link_target: entry
+            .link_name()
+            .ok()
+            .flatten()
+            .map(|p| p.to_string_lossy().replace('\\', "/")),
         content: None,
         binary: false,
-        truncated: entry.size > max_bytes,
+        truncated: size > max_bytes,
     };
     if kind != "file" {
         return Ok(dto);
     }
     let mut data = Vec::new();
-    let mut left = entry.size.min(max_bytes);
-    while let Some(chunk) = reader.next_chunk(&mut left).await? {
-        data.extend_from_slice(&chunk);
-    }
+    entry
+        .take(max_bytes)
+        .read_to_end(&mut data)
+        .await
+        .map_err(tar_err)?;
     dto.binary = data.iter().take(8192).any(|b| *b == 0);
     if !dto.binary {
-        dto.content = Some(String::from_utf8_lossy(&data).to_string());
+        dto.content = Some(String::from_utf8_lossy(&data).into_owned());
     }
     Ok(dto)
 }
@@ -414,23 +315,32 @@ pub async fn save_path(
     let io_err = |err: std::io::Error| {
         AppError::Message(format!("Could not write {}: {err}", dest.display()))
     };
-    let file = tokio::fs::File::create(dest).await.map_err(io_err)?;
-    let mut out = tokio::io::BufWriter::new(file);
-    let mut stream = archive(client, id, path);
+    let mut out = tokio::fs::File::create(dest).await.map_err(io_err)?;
     if as_archive {
-        while let Some(chunk) = stream.next().await {
-            out.write_all(chunk?.as_ref()).await.map_err(io_err)?;
-        }
+        let options = DownloadFromContainerOptionsBuilder::new()
+            .path(path)
+            .build();
+        let body = client
+            .download_from_container(id, Some(options))
+            .map(|chunk| chunk.map_err(std::io::Error::other));
+        let mut reader = StreamReader::new(body.boxed());
+        tokio::io::copy(&mut reader, &mut out)
+            .await
+            .map_err(io_err)?;
     } else {
-        let mut reader = TarReader::new(stream);
-        let entry = reader.first_entry().await?;
-        if kind_of_typeflag(entry.typeflag) != "file" {
+        let mut archive = archive(client, id, path);
+        let mut entries = archive.entries().map_err(tar_err)?;
+        let mut entry = entries
+            .next()
+            .await
+            .ok_or_else(|| AppError::Message("archive is empty".into()))?
+            .map_err(tar_err)?;
+        if kind_of_entry(entry.header().entry_type()) != "file" {
             return Err(AppError::Message(format!("{path} is not a regular file")));
         }
-        let mut left = entry.size;
-        while let Some(chunk) = reader.next_chunk(&mut left).await? {
-            out.write_all(&chunk).await.map_err(io_err)?;
-        }
+        tokio::io::copy(&mut entry, &mut out)
+            .await
+            .map_err(io_err)?;
     }
     out.flush().await.map_err(io_err)?;
     Ok(())
@@ -439,74 +349,6 @@ pub async fn save_path(
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    fn header(name: &str, size: u64, typeflag: u8, link: &str) -> Vec<u8> {
-        let mut h = vec![0u8; 512];
-        h[..name.len()].copy_from_slice(name.as_bytes());
-        h[100..107].copy_from_slice(b"0000644");
-        h[124..135].copy_from_slice(format!("{size:011o}").as_bytes());
-        h[136..147].copy_from_slice(b"14677712345");
-        h[156] = typeflag;
-        h[157..157 + link.len()].copy_from_slice(link.as_bytes());
-        h
-    }
-
-    fn padded(data: &[u8]) -> Vec<u8> {
-        let mut v = data.to_vec();
-        v.resize(data.len().div_ceil(512) * 512, 0);
-        v
-    }
-
-    /// Split into uneven chunks so reads straddle chunk boundaries.
-    fn stream_of(
-        bytes: Vec<u8>,
-    ) -> impl Stream<Item = Result<Vec<u8>, bollard::errors::Error>> + Unpin {
-        let chunks: Vec<_> = bytes.chunks(300).map(|c| Ok(c.to_vec())).collect();
-        futures_util::stream::iter(chunks)
-    }
-
-    #[tokio::test]
-    async fn reads_first_file_across_chunks() {
-        let body = b"hello tar\n".repeat(100);
-        let mut tar = header("hello.txt", body.len() as u64, b'0', "");
-        tar.extend(padded(&body));
-        tar.extend(vec![0u8; 1024]);
-
-        let mut reader = TarReader::new(stream_of(tar));
-        let entry = reader.first_entry().await.unwrap();
-        assert_eq!(entry.size, body.len() as u64);
-        assert_eq!(entry.mode, 0o644);
-        let mut left = entry.size;
-        let mut data = Vec::new();
-        while let Some(chunk) = reader.next_chunk(&mut left).await.unwrap() {
-            data.extend(chunk);
-        }
-        assert_eq!(data, body);
-    }
-
-    #[tokio::test]
-    async fn applies_pax_size_and_link() {
-        let pax = b"20 linkpath=/a/long\n12 size=42\n";
-        let mut tar = header("PaxHeader", pax.len() as u64, b'x', "");
-        tar.extend(padded(pax));
-        tar.extend(header("sh", 0, b'2', "busybox"));
-
-        let mut reader = TarReader::new(stream_of(tar));
-        let entry = reader.first_entry().await.unwrap();
-        assert_eq!(kind_of_typeflag(entry.typeflag), "link");
-        assert_eq!(entry.link, "/a/long");
-        assert_eq!(entry.size, 42);
-    }
-
-    #[test]
-    fn octal_handles_padding_and_base256() {
-        assert_eq!(octal(b"00000000644\0"), 0o644);
-        assert_eq!(octal(b"  777 \0"), 0o777);
-        let mut big = [0u8; 12];
-        big[0] = 0x80;
-        big[11] = 5;
-        assert_eq!(octal(&big), 5);
-    }
 
     #[test]
     fn mode_string_matches_ls() {

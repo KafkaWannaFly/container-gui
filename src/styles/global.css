@@ -526,10 +526,20 @@ pre.logs .dim {
   word-break: normal;
 }
 
-/* Off-screen blocks skip layout and paint entirely. */
-.lg-block {
-  content-visibility: auto;
-  contain-intrinsic-size: auto 4200px;
+.log-view {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.lg-list {
+  flex: 1;
+  min-height: 0;
+}
+
+.log-view.nowrap .lg-row {
+  width: max-content;
+  min-width: 100%;
 }
 
 .lg-ts {
@@ -553,7 +563,6 @@ pre.logs .dim {
   width: 46px;
 }
 
-/* No negative margin: .lg-block's content-visibility clips paint to its box. */
 .lg-row {
   padding-left: 8px;
 }
@@ -678,93 +687,14 @@ pre.logs .dim {
   color: var(--lime);
 }
 
-/* ---------- code blocks (Dockerfile, history, file viewer) ---------- */
+/* ---------- code views (CodeMirror) ---------- */
 .df-view {
   background: var(--void);
   border: 0.5px solid var(--graphite);
   border-radius: 8px;
   height: calc(100vh - 330px);
   min-height: 360px;
-  overflow: auto;
-}
-
-.code-lines {
-  width: max-content;
-  min-width: 100%;
-  padding: 10px 0;
-  color: var(--mist);
-  font-family: var(--font-mono);
-  font-size: 12px;
-  line-height: 1.75;
-  letter-spacing: -0.013em;
-}
-
-.cl {
-  display: flex;
-}
-
-.cl:hover .t {
-  background: rgba(255, 255, 255, 0.02);
-}
-
-.cl .n {
-  flex: 0 0 52px;
-  position: sticky;
-  left: 0;
-  background: var(--void);
-  padding-right: 14px;
-  text-align: right;
-  color: var(--smoke);
-  user-select: none;
-}
-
-.cl .t {
-  flex: 1;
-  min-width: 0;
-  padding-right: 16px;
-  white-space: pre;
-}
-
-.code-lines.wrap {
-  width: auto;
-}
-
-.code-lines.wrap .t {
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-.tk-kw {
-  color: var(--paper);
-  font-weight: 500;
-}
-
-.tk-comment {
-  color: var(--ash);
-}
-
-.tk-string {
-  color: #9fd9a8;
-}
-
-.tk-flag {
-  color: #b79bff;
-}
-
-.tk-var {
-  color: var(--teal);
-}
-
-.tk-op {
-  color: var(--fog);
-}
-
-.tk-num {
-  color: #e6b673;
-}
-
-.tk-key {
-  color: #8fb8ff;
+  overflow: hidden;
 }
 
 .ins-cell {
@@ -993,7 +923,120 @@ pre.logs .dim {
   border-bottom: 0.5px solid var(--graphite);
 }
 
-.cl-block {
-  content-visibility: auto;
-  contain-intrinsic-size: auto 8400px;
+.fs-code {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.fs-code-body {
+  flex: 1;
+  min-height: 0;
+}
+
+/* ---------- exec ---------- */
+.exec-wrap {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  height: calc(100vh - 430px);
+  min-height: 320px;
+}
+
+.exec-wrap.with-sheet {
+  grid-template-columns: minmax(0, 1fr) 300px;
+}
+
+.term-host {
+  background: var(--void);
+  border: 0.5px solid var(--graphite);
+  border-radius: 8px;
+  padding: 8px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.term-host .xterm {
+  height: 100%;
+}
+
+.sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  border: 0.5px solid var(--graphite);
+  border-radius: 8px;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.sheet-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.sheet-group + .sheet-group {
+  margin-top: 12px;
+}
+
+.sheet-title {
+  font-size: 11px;
+  color: var(--ash);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 4px 4px 6px;
+}
+
+.sheet-item {
+  padding: 5px 6px;
+  border-radius: 6px;
+}
+
+.sheet-item:hover {
+  background: var(--obsidian);
+}
+
+.sheet-cmd {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--bone);
+  min-height: 24px;
+}
+
+.sheet-cmd .mono {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sheet-actions {
+  display: inline-flex;
+  opacity: 0;
+}
+
+.sheet-item:hover .sheet-actions,
+.sheet-item:focus-within .sheet-actions {
+  opacity: 1;
+}
+
+.sheet-desc {
+  font-size: 12px;
+  color: var(--fog);
+  margin-top: 1px;
+}
+
+/* CodeMirror: fill the frame and sit on the app canvas, not the theme's grey. */
+.fs-code-body .cm-theme,
+.df-view .cm-theme {
+  height: 100%;
+}
+
+.cm-editor,
+.cm-editor .cm-gutters {
+  background-color: var(--void) !important;
 }

@@ -155,6 +155,46 @@ pub struct FileContentDto {
     pub truncated: bool,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExecStartOptions {
+    pub cmd: Vec<String>,
+    pub user: Option<String>,
+    pub working_dir: Option<String>,
+    #[serde(default)]
+    pub env: Vec<String>,
+    #[serde(default)]
+    pub tty: bool,
+    #[serde(default)]
+    pub cols: u16,
+    #[serde(default)]
+    pub rows: u16,
+}
+
+/// Messages on an exec session channel: output chunks, then one `exit`.
+#[derive(Debug, Clone, Serialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum ExecEventDto {
+    Output {
+        stream: String,
+        data: String,
+    },
+    Exit {
+        code: Option<i64>,
+        error: Option<String>,
+    },
+}
+
+#[derive(Debug, Clone, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExecProbeDto {
+    pub shells: Vec<String>,
+    pub users: Vec<String>,
+    pub os_id: String,
+    pub os_name: String,
+    pub hostname: String,
+}
+
 /// A path that differs from the image: `A`dded, `C`hanged or `D`eleted.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]

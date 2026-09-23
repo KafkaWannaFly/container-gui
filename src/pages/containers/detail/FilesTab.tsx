@@ -30,8 +30,9 @@ import {
   type TreeDataNode,
 } from "antd";
 import { format } from "date-fns";
-import { Fragment, memo, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
+import CodeView, { detectLanguage } from "../../../components/CodeView";
 import { Mono, Pill } from "../../../components/ui";
 import { usePersistentState } from "../../../hooks/usePersistentState";
 import { useSaveToDownloads } from "../../../hooks/useSaveToDownloads";
@@ -53,14 +54,10 @@ import {
   type Special,
   sortEntries,
 } from "./fsPath";
-import { detectLang, type Lang, tokenizeLine } from "./highlight";
 import { containerName, type TabProps } from "./model";
 
 const PAGE = 1_000;
 const MAX_PAGE = 20_000;
-/** Above this, render plain text: highlighting a huge file costs seconds. */
-const HIGHLIGHT_MAX = 256 * 1024;
-const LINE_BLOCK = 400;
 const MOUNT_TONE: Record<string, string> = { bind: "lav", tmpfs: "amber", volume: "teal" };
 
 type DirState = {
@@ -160,41 +157,6 @@ function FsNote({
     </div>
   );
 }
-
-const CodeBlock = memo(function CodeBlock({
-  lines,
-  start,
-  lang,
-}: {
-  lines: string[];
-  start: number;
-  lang: Lang;
-}) {
-  return (
-    <div className="cl-block">
-      {lines.map((line, i) => (
-        // biome-ignore lint/suspicious/noArrayIndexKey: line numbers are the identity here
-        <div key={start + i} className="cl">
-          <span className="n">{start + i + 1}</span>
-          <span className="t">
-            {line === ""
-              ? " "
-              : tokenizeLine(line, lang).map((tok, j) =>
-                  tok.t === "text" ? (
-                    tok.s
-                  ) : (
-                    // biome-ignore lint/suspicious/noArrayIndexKey: tokens are positional
-                    <span key={j} className={`tk-${tok.t}`}>
-                      {tok.s}
-                    </span>
-                  ),
-                )}
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-});
 
 export default function FilesTab({ ctr, onCopy, onOpenTab }: TabProps) {
   const { message } = App.useApp();
@@ -445,16 +407,10 @@ export default function FilesTab({ ctr, onCopy, onOpenTab }: TabProps) {
   const file = data?.kind === "content" ? data.file : null;
   const linked = data && data.chain.length > 0 ? data : null;
   const lines = useMemo(() => (file?.content ? file.content.replace(/\n$/, "").split("\n") : []), [file]);
-  const lang: Lang = useMemo(
-    () => (file && file.size <= HIGHLIGHT_MAX ? detectLang(data?.path ?? "", lines[0] ?? "") : "plain"),
-    [file, data?.path, lines],
+  const lang = useMemo(
+    () => (file?.content ? detectLanguage(data?.path ?? "", file.content) : null),
+    [file, data?.path],
   );
-  const blocks = useMemo(() => {
-    const out: { start: number; lines: string[] }[] = [];
-    for (let i = 0; i < lines.length; i += LINE_BLOCK)
-      out.push({ start: i, lines: lines.slice(i, i + LINE_BLOCK) });
-    return out;
-  }, [lines]);
   const masked = !!file?.content && isSensitive(data?.path ?? "") && !revealed;
 
   // Scroll back to the top when switching what's shown.
@@ -711,7 +667,7 @@ export default function FilesTab({ ctr, onCopy, onOpenTab }: TabProps) {
       );
     }
     return (
-      <>
+      <div className="fs-code">
         {f.truncated ? (
           <div className="fs-trunc">
             Showing the first {formatBytes(f.content.length)} of {formatBytes(f.size)}.
@@ -720,12 +676,10 @@ export default function FilesTab({ ctr, onCopy, onOpenTab }: TabProps) {
             </Button>
           </div>
         ) : null}
-        <div className={`code-lines${wrap ? " wrap" : ""}`}>
-          {blocks.map((b) => (
-            <CodeBlock key={`${data.path}:${b.start}`} lines={b.lines} start={b.start} lang={lang} />
-          ))}
+        <div className="fs-code-body">
+          <CodeView value={f.content} language={lang} wrap={wrap} />
         </div>
-      </>
+      </div>
     );
   };
 
@@ -873,7 +827,7 @@ export default function FilesTab({ ctr, onCopy, onOpenTab }: TabProps) {
               {file.mtime ? (
                 <span>modified {format(new Date(file.mtime * 1000), "yyyy-MM-dd HH:mm")}</span>
               ) : null}
-              {lang !== "plain" ? <span>{lang}</span> : null}
+              {lang ? <span>{lang}</span> : null}
               {changeMap.get(data?.path ?? "") ? (
                 <DiffPill kind={changeMap.get(data?.path ?? "") as FsChange["kind"]} />
               ) : null}

@@ -88,39 +88,6 @@ export function reconstructDockerfile(image: string, layers: LayerHistoryItem[],
   ].join("\n")}\n`;
 }
 
-export type Token = { t: "kw" | "comment" | "string" | "flag" | "var" | "op" | "text"; s: string };
-
-const DOCKER_TOKEN =
-  /("(?:[^"\\]|\\.)*"|'[^']*'|--[\w-]+(?:=\S*)?|\$\{[^}]*\}|\$\w+|&&|\|\||\\$|\s+|[^\s"'$&|\\]+|.)/g;
-
-/** Tokenize one Dockerfile line for highlighting. */
-export function tokenizeDockerLine(line: string): Token[] {
-  if (/^\s*#/.test(line)) return [{ t: "comment", s: line }];
-  const tokens: Token[] = [];
-  const kw = /^([A-Z]+)(?=\s|$)/.exec(line);
-  let rest = line;
-  if (kw) {
-    tokens.push({ t: "kw", s: kw[1] });
-    rest = line.slice(kw[1].length);
-  }
-  for (const [s] of rest.matchAll(DOCKER_TOKEN)) {
-    const t: Token["t"] =
-      s.startsWith('"') || s.startsWith("'")
-        ? "string"
-        : s.startsWith("--")
-          ? "flag"
-          : s.startsWith("$")
-            ? "var"
-            : s === "&&" || s === "||" || s === "\\"
-              ? "op"
-              : "text";
-    const last = tokens[tokens.length - 1];
-    if (t === "text" && last?.t === "text") last.s += s;
-    else tokens.push({ t, s });
-  }
-  return tokens;
-}
-
 /** `docker history`-style plain text, oldest first, nothing truncated. */
 export function historyText(
   layers: LayerHistoryItem[],

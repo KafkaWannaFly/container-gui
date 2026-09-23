@@ -353,3 +353,30 @@ export const FsChangeSchema = z.object({
   kind: z.enum(["A", "C", "D"]),
 });
 export type FsChange = z.infer<typeof FsChangeSchema>;
+
+/* --------------------------------- exec -------------------------------- */
+
+export const ExecEventSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("output"), stream: z.enum(["stdout", "stderr"]), data: z.string() }),
+  z.object({ kind: z.literal("exit"), code: z.number().nullable(), error: z.string().nullable() }),
+]);
+export type ExecEvent = z.infer<typeof ExecEventSchema>;
+
+export const ExecProbeSchema = z.object({
+  shells: z.array(z.string()),
+  users: z.array(z.string()),
+  osId: z.string(),
+  osName: z.string(),
+  hostname: z.string(),
+});
+export type ExecProbe = z.infer<typeof ExecProbeSchema>;
+
+export type ExecStartOptions = {
+  cmd: string[];
+  user?: string;
+  workingDir?: string;
+  env?: string[];
+  tty?: boolean;
+  cols?: number;
+  rows?: number;
+};
