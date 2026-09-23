@@ -32,6 +32,7 @@ import {
 } from "../../../services/tauriApi";
 import { type ContainerInspect, type ContainerLiveStats, formatBytes, shortId } from "../../../types/docker";
 import EnvTab from "./EnvTab";
+import ImageTab from "./ImageTab";
 import InfoTab from "./InfoTab";
 import LogsTab from "./LogsTab";
 import { composeOf, containerName, cpuLimit, pidsLimit, type TabProps } from "./model";
@@ -263,7 +264,7 @@ export default function ContainerDetailPage() {
   const tabProps: TabProps = { ctr, image: image.data, onCopy };
   const tabs: { key: TabKey; icon: ReactNode; label: string; render: () => ReactNode }[] = [
     { key: "info", icon: <InfoCircleOutlined />, label: "Info", render: () => <InfoTab {...tabProps} /> },
-    { key: "image", icon: <BlockOutlined />, label: "Image", render: () => null },
+    { key: "image", icon: <BlockOutlined />, label: "Image", render: () => <ImageTab {...tabProps} /> },
     { key: "env", icon: <SettingOutlined />, label: "Environment", render: () => <EnvTab {...tabProps} /> },
     { key: "logs", icon: <FileTextOutlined />, label: "Logs", render: () => <LogsTab {...tabProps} /> },
     { key: "files", icon: <FolderOutlined />, label: "Files", render: () => null },

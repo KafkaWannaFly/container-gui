@@ -677,3 +677,112 @@ pre.logs .dim {
 .row-link:hover {
   color: var(--lime);
 }
+
+/* ---------- code blocks (Dockerfile, history, file viewer) ---------- */
+.df-view {
+  background: var(--void);
+  border: 0.5px solid var(--graphite);
+  border-radius: 8px;
+  height: calc(100vh - 330px);
+  min-height: 360px;
+  overflow: auto;
+}
+
+.code-lines {
+  width: max-content;
+  min-width: 100%;
+  padding: 10px 0;
+  color: var(--mist);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.75;
+  letter-spacing: -0.013em;
+}
+
+.cl {
+  display: flex;
+}
+
+.cl:hover .t {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.cl .n {
+  flex: 0 0 52px;
+  position: sticky;
+  left: 0;
+  background: var(--void);
+  padding-right: 14px;
+  text-align: right;
+  color: var(--smoke);
+  user-select: none;
+}
+
+.cl .t {
+  flex: 1;
+  min-width: 0;
+  padding-right: 16px;
+  white-space: pre;
+}
+
+.code-lines.wrap {
+  width: auto;
+}
+
+.code-lines.wrap .t {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.tk-kw {
+  color: var(--paper);
+  font-weight: 500;
+}
+
+.tk-comment {
+  color: var(--ash);
+}
+
+.tk-string {
+  color: #9fd9a8;
+}
+
+.tk-flag {
+  color: #b79bff;
+}
+
+.tk-var {
+  color: var(--teal);
+}
+
+.tk-op {
+  color: var(--fog);
+}
+
+.tk-num {
+  color: #e6b673;
+}
+
+.tk-key {
+  color: #8fb8ff;
+}
+
+.ins-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+}
+
+.ins-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.note {
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
