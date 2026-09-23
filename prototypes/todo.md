@@ -1,0 +1,21 @@
+# Container detail
+- Info: 
+	- Persist collapse state
+	- Think on arrow direction + Open
+- Image:
+	- Syntax highlight
+	- Expand/Collapse all
+	- Collapsable section
+	- Higher window for Dockerfile
+- Logs:
+	- Verify data shape of log
+	- Counting indicator
+	- JSON format?
+	- How's clear work?
+	- Scalable
+- Files:
+	- Syntax highlight?
+	- Scalable for big folder?
+- Exec:
+	- Command cheat sheet
+	- Inject profile?
