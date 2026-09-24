@@ -1,0 +1,8 @@
+# Store and check out text as LF on every OS, overriding core.autocrlf.
+* text=auto eol=lf
+
+# Binary assets: never touch.
+*.png binary
+*.ico binary
+*.icns binary
+*.woff2 binary

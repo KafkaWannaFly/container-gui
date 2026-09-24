@@ -37,6 +37,21 @@ pub struct ContainerStatsDto {
     pub memory_limit: i64,
 }
 
+/// One sample from the live stats stream of a single container.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ContainerLiveStatsDto {
+    pub cpu_percent: f64,
+    pub online_cpus: u32,
+    pub memory_usage: i64,
+    pub memory_limit: i64,
+    pub net_rx: u64,
+    pub net_tx: u64,
+    pub block_read: u64,
+    pub block_write: u64,
+    pub pids: u64,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VolumeItemDto {
@@ -68,11 +83,124 @@ pub struct ImagePullProgressDto {
     pub percent: f64,
 }
 
+/// One complete log line. `ts` is Docker's RFC 3339 timestamp prefix,
+/// empty when the engine did not send one.
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct LogLineDto {
+    pub stream: String,
+    pub ts: String,
+    pub text: String,
+}
+
+/// Messages on a log stream channel: batches of lines, then one `end`.
+#[derive(Debug, Clone, Serialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum LogEventDto {
+    Lines { lines: Vec<LogLineDto> },
+    End { error: Option<String> },
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LogStreamOptions {
+    /// Last N lines; `None` streams the whole log.
+    pub tail: Option<u64>,
+    /// Unix seconds; only lines at or after this time.
+    pub since: Option<i64>,
+    #[serde(default = "default_true")]
+    pub follow: bool,
+}
+
+fn default_true() -> bool {
+    true
+}
+
+/// One directory entry. `kind`: dir | file | link | char | block | fifo |
+/// socket | other. `mtime` is unix seconds.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct LogChunkDto {
-    pub stream: String,
-    pub message: String,
+pub struct FsEntryDto {
+    pub name: String,
+    pub kind: String,
+    pub size: u64,
+    pub mode: String,
+    pub owner: String,
+    pub mtime: i64,
+    pub target: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DirListingDto {
+    pub path: String,
+    pub entries: Vec<FsEntryDto>,
+    /// More entries exist than the requested limit.
+    pub truncated: bool,
+}
+
+/// Preview of one path. `content` is set for text files only, cut at the
+/// requested byte limit (`truncated`).
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FileContentDto {
+    pub path: String,
+    pub kind: String,
+    pub size: u64,
+    pub mode: String,
+    pub mtime: i64,
+    pub link_target: Option<String>,
+    pub content: Option<String>,
+    pub binary: bool,
+    pub truncated: bool,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExecStartOptions {
+    pub cmd: Vec<String>,
+    pub user: Option<String>,
+    pub working_dir: Option<String>,
+    #[serde(default)]
+    pub env: Vec<String>,
+    #[serde(default)]
+    pub tty: bool,
+    #[serde(default)]
+    pub cols: u16,
+    #[serde(default)]
+    pub rows: u16,
+}
+
+/// Messages on an exec session channel: output chunks, then one `exit`.
+#[derive(Debug, Clone, Serialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum ExecEventDto {
+    Output {
+        stream: String,
+        data: String,
+    },
+    Exit {
+        code: Option<i64>,
+        error: Option<String>,
+    },
+}
+
+#[derive(Debug, Clone, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExecProbeDto {
+    pub shells: Vec<String>,
+    pub users: Vec<String>,
+    pub os_id: String,
+    pub os_name: String,
+    pub hostname: String,
+}
+
+/// A path that differs from the image: `A`dded, `C`hanged or `D`eleted.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FsChangeDto {
+    pub path: String,
+    pub kind: String,
 }
 
 #[derive(Debug, Clone, Serialize)]

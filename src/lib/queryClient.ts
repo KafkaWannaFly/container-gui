@@ -16,6 +16,7 @@ export const queryKeys = {
   containerInspect: (id: string) => ["container-inspect", id] as const,
   images: () => ["images"] as const,
   imageHistory: (ref: string) => ["image-history", ref] as const,
+  imageInspect: (ref: string) => ["image-inspect", ref] as const,
   volumes: () => ["volumes"] as const,
   status: () => ["docker-status"] as const,
   system: () => ["system-info"] as const,

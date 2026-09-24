@@ -1,17 +1,3 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  App,
-  Button,
-  Empty,
-  Input,
-  Popconfirm,
-  Segmented,
-  Spin,
-  Table,
-  Tooltip,
-  type TableColumnsType,
-} from "antd";
 import {
   CaretRightOutlined,
   DeleteOutlined,
@@ -24,20 +10,36 @@ import {
   StopOutlined,
   SyncOutlined,
 } from "@ant-design/icons";
-import { formatDistanceToNow } from "date-fns";
-import { MetricCard, Mono, RowActions, StateDot } from "../../components/ui";
-import { queryKeys } from "../../lib/queryClient";
-import { containerAction, getSystemInfo, listContainerStats, listContainers } from "../../services/tauriApi";
-import type { ContainerActionKind } from "../../services/tauriApi";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import {
-  formatBytes,
-  portLabel,
-  shortId,
+  App,
+  Button,
+  Empty,
+  Input,
+  Popconfirm,
+  Segmented,
+  Spin,
+  Table,
+  type TableColumnsType,
+  Tooltip,
+} from "antd";
+import { formatDistanceToNow } from "date-fns";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { CopyButton, MetricCard, Mono, RowActions, StateDot } from "../../components/ui";
+import { queryKeys } from "../../lib/queryClient";
+import type { ContainerActionKind } from "../../services/tauriApi";
+import { containerAction, getSystemInfo, listContainerStats, listContainers } from "../../services/tauriApi";
+import {
   type ContainerStats,
   type ContainerSummary,
+  formatBytes,
+  type PortMapping,
+  portLabel,
+  portUrl,
+  shortId,
 } from "../../types/docker";
-import ContainerInspectorDrawer from "./components/ContainerInspectorDrawer";
-import LiveLogModal from "./components/LiveLogModal";
 
 type ActionKind = ContainerActionKind;
 
@@ -64,14 +66,22 @@ type Row = ContainerRow | ComposeGroupRow;
 
 const STATS_INTERVAL_MS = 2_000;
 
+/** Docker lists a binding once for IPv4 and once for IPv6; show it once. */
+function uniquePorts(ports: PortMapping[]): PortMapping[] {
+  return ports.filter(
+    (port) =>
+      port.ip !== "::" ||
+      !ports.some((p) => p.ip === "0.0.0.0" && p.publicPort === port.publicPort && p.type === port.type),
+  );
+}
+
 export default function ContainerListPage() {
   const { modal, message } = App.useApp();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [state, setState] = useState("all");
   const [selected, setSelected] = useState<React.Key[]>([]);
-  const [inspectId, setInspectId] = useState<string | null>(null);
-  const [logTarget, setLogTarget] = useState<ContainerSummary | null>(null);
+  const navigate = useNavigate();
   const [expanded, setExpanded] = useState<React.Key[]>([]);
   const [pending, setPending] = useState<Record<string, ActionKind>>({});
   const seenGroups = useRef<Set<string>>(new Set());
@@ -223,7 +233,7 @@ export default function ContainerListPage() {
 
   const runBatch = (action: ActionKind) => {
     const ids = eligibleIds(action);
-    ids.forEach((id) => runAction(id, action));
+    for (const id of ids) runAction(id, action);
     // Remove drops the rows; other actions keep the selection for follow-ups.
     if (action === "remove") setSelected([]);
   };
@@ -263,7 +273,9 @@ export default function ContainerListPage() {
               {pending[row.id] ? <Spin size="small" /> : <StateDot state={row.state} />}
             </span>
             <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              <span style={{ color: "var(--paper)" }}>{row.names[0] ?? shortId(row.id)}</span>
+              <Link to={`/containers/${row.id}`} className="row-link">
+                {row.names[0] ?? shortId(row.id)}
+              </Link>
               <span className="mono">{row.image}</span>
               <span className="mono dim">{shortId(row.id)}</span>
             </div>
@@ -298,15 +310,32 @@ export default function ContainerListPage() {
       render: (_, row) =>
         row.kind === "group" ? (
           <span className="mono dim">
-            {row.children.reduce((sum, child) => sum + child.ports.length, 0)} port mappings
+            {row.children.reduce((sum, child) => sum + uniquePorts(child.ports).length, 0)} port mappings
           </span>
         ) : row.ports.length ? (
           <div style={{ display: "flex", flexDirection: "column" }}>
-            {row.ports.map((port) => (
-              <span key={portLabel(port)} className="mono dim">
-                {portLabel(port)}
-              </span>
-            ))}
+            {uniquePorts(row.ports).map((port) => {
+              if (!port.publicPort || port.type !== "tcp") {
+                return (
+                  <span key={portLabel(port)} className="mono dim">
+                    {portLabel(port)}
+                  </span>
+                );
+              }
+              const url = portUrl(port.publicPort, port.privatePort);
+              return (
+                <span key={portLabel(port)} className="mono dim port-row">
+                  <Tooltip title={`Open ${url} in the browser`}>
+                    <button type="button" className="port-link" onClick={() => void openUrl(url)}>
+                      localhost:{port.publicPort}
+                    </button>
+                  </Tooltip>
+                  {" → "}
+                  {port.privatePort}/{port.type}
+                  <CopyButton text={url} what="URL" />
+                </span>
+              );
+            })}
           </div>
         ) : (
           <span className="dim">—</span>
@@ -377,13 +406,13 @@ export default function ContainerListPage() {
                   key: "logs",
                   label: "View logs",
                   icon: <FileTextOutlined />,
-                  onClick: () => setLogTarget(row),
+                  onClick: () => navigate(`/containers/${row.id}?tab=logs`),
                 },
                 {
                   key: "inspect",
-                  label: "Inspect",
+                  label: "Details",
                   icon: <InfoCircleOutlined />,
-                  onClick: () => setInspectId(row.id),
+                  onClick: () => navigate(`/containers/${row.id}`),
                 },
               ],
               [
@@ -547,9 +576,6 @@ export default function ContainerListPage() {
           locale={{ emptyText: <Empty description="No containers" /> }}
         />
       </div>
-
-      <ContainerInspectorDrawer id={inspectId} onClose={() => setInspectId(null)} />
-      <LiveLogModal container={logTarget} onClose={() => setLogTarget(null)} />
     </div>
   );
 }

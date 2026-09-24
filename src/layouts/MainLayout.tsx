@@ -1,18 +1,18 @@
-import { useMemo } from "react";
-import { NavLink, Outlet, useLocation } from "react-router-dom";
+import {
+  BlockOutlined,
+  CodeSandboxOutlined,
+  HddOutlined,
+  ReloadOutlined,
+  SettingOutlined,
+} from "@ant-design/icons";
 import { useQuery } from "@tanstack/react-query";
 import { Button, Result, Spin } from "antd";
-import {
-  CodeSandboxOutlined,
-  BlockOutlined,
-  HddOutlined,
-  SettingOutlined,
-  ReloadOutlined,
-} from "@ant-design/icons";
+import { useMemo } from "react";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { Glyph } from "../components/ui";
+import { useDockerEvents } from "../hooks/useDockerEvents";
 import { queryKeys } from "../lib/queryClient";
 import { getDockerStatus } from "../services/tauriApi";
-import { useDockerEvents } from "../hooks/useDockerEvents";
 
 const NAV = [
   { key: "/containers", label: "Containers", icon: CodeSandboxOutlined },
@@ -62,7 +62,9 @@ export default function MainLayout() {
   });
 
   const standby = isError || (status != null && status.state === "standby");
-  const title = TITLES[location.pathname] ?? "Container GUI";
+  // Detail routes (/containers/:id) keep their section's title.
+  const section = `/${location.pathname.split("/")[1] ?? ""}`;
+  const title = TITLES[section] ?? "Container GUI";
 
   const nav = useMemo(
     () =>

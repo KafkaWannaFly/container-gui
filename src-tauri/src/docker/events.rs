@@ -57,7 +57,13 @@ pub fn spawn(app: AppHandle, manager: Arc<DockerSessionManager>) {
                         match item {
                             Some(Ok(message)) => {
                                 backoff = Duration::from_secs(1);
-                                let _ = app.emit("docker://event", map_event(message));
+                                let event = map_event(message);
+                                // Exec sessions (the Files and Exec tabs run many)
+                                // don't change container state; forwarding them
+                                // would refetch every container query per command.
+                                if !event.action.starts_with("exec_") {
+                                    let _ = app.emit("docker://event", event);
+                                }
                             }
                             Some(Err(_)) | None => {
                                 disconnected = true;

@@ -1,30 +1,46 @@
 import { Channel, invoke } from "@tauri-apps/api/core";
 import { z } from "zod";
 import {
-  ConnectionConfigSchema,
-  ContainerInspectSchema,
-  ContainerStatsSchema,
-  ContainerSummarySchema,
-  DockerContextSchema,
-  DockerStatusSchema,
-  ImageItemSchema,
-  LayerHistoryItemSchema,
-  LogChunkSchema,
-  SystemInfoSchema,
-  VolumeItemSchema,
-  ImagePullProgressSchema,
   type ConnectionConfig,
+  ConnectionConfigSchema,
   type ContainerInspect,
+  ContainerInspectSchema,
+  type ContainerLiveStats,
+  ContainerLiveStatsSchema,
   type ContainerStats,
+  ContainerStatsSchema,
   type ContainerSummary,
+  ContainerSummarySchema,
+  type DirListing,
+  DirListingSchema,
   type DockerContext,
+  DockerContextSchema,
   type DockerStatus,
+  DockerStatusSchema,
+  type ExecEvent,
+  ExecEventSchema,
+  type ExecProbe,
+  ExecProbeSchema,
+  type ExecStartOptions,
+  type FileContent,
+  FileContentSchema,
+  type FsChange,
+  FsChangeSchema,
+  type ImageInspect,
+  ImageInspectSchema,
   type ImageItem,
+  ImageItemSchema,
   type ImagePullProgress,
+  ImagePullProgressSchema,
   type LayerHistoryItem,
-  type LogChunk,
+  LayerHistoryItemSchema,
+  LogEventSchema,
+  type LogLine,
+  type LogStreamOptions,
   type SystemInfo,
+  SystemInfoSchema,
   type VolumeItem,
+  VolumeItemSchema,
 } from "../types/docker";
 
 /**
@@ -70,45 +86,101 @@ export function inspectContainer(id: string): Promise<ContainerInspect> {
   return call("inspect_container", { id }, ContainerInspectSchema);
 }
 
-export type ContainerActionKind =
-  | "start"
-  | "stop"
-  | "restart"
-  | "kill"
-  | "pause"
-  | "unpause"
-  | "remove";
+export type ContainerActionKind = "start" | "stop" | "restart" | "kill" | "pause" | "unpause" | "remove";
 
 export function containerAction(id: string, action: ContainerActionKind): Promise<void> {
   return callVoid("container_action", { id, action });
 }
 
 /**
- * Stream logs into `onChunk`. Returns a disposer that cancels the
- * backend stream — call it on unmount.
+ * Open a backend stream keyed by a fresh stream id. Messages are validated
+ * with `schema`; the returned disposer cancels the backend task, so two
+ * views on the same container never cancel each other.
  */
-export function streamContainerLogs(
-  id: string,
-  tail: number,
-  onChunk: (chunk: LogChunk) => void,
-  onEnd?: () => void,
+function openStream<T>(
+  cmd: string,
+  args: Record<string, unknown>,
+  channelArg: string,
+  schema: z.ZodType<T>,
+  onMessage: (message: T) => void,
+  onError?: (err: Error) => void,
+  streamId: string = crypto.randomUUID(),
 ): () => void {
   const channel = new Channel<unknown>();
   let active = true;
   channel.onmessage = (raw) => {
     if (!active) return;
-    const parsed = LogChunkSchema.safeParse(raw);
-    if (parsed.success) onChunk(parsed.data);
+    const parsed = schema.safeParse(raw);
+    if (parsed.success) onMessage(parsed.data);
   };
-  invoke("stream_container_logs", { id, tail, onChunk: channel })
-    .catch(() => undefined)
-    .finally(() => {
-      if (active) onEnd?.();
-    });
+  invoke(cmd, { ...args, streamId, [channelArg]: channel }).catch((err) => {
+    if (active) onError?.(toError(err));
+  });
   return () => {
     active = false;
-    void invoke("stop_container_logs", { id }).catch(() => undefined);
+    void invoke("stop_stream", { streamId }).catch(() => undefined);
   };
+}
+
+export type LogStreamHandlers = {
+  onLines: (lines: LogLine[]) => void;
+  /** Stream finished: container stopped, log ended, or it failed. */
+  onEnd?: (error: string | null) => void;
+};
+
+/** Stream log line batches. Returns a disposer — call it on unmount. */
+export function streamContainerLogs(
+  id: string,
+  options: LogStreamOptions,
+  { onLines, onEnd }: LogStreamHandlers,
+): () => void {
+  return openStream(
+    "stream_container_logs",
+    { id, options: { tail: options.tail, since: options.since ?? null, follow: options.follow ?? true } },
+    "onEvent",
+    LogEventSchema,
+    (event) => (event.kind === "lines" ? onLines(event.lines) : onEnd?.(event.error)),
+    (err) => onEnd?.(err.message),
+  );
+}
+
+/** Live stats samples (about one per second) for one container. */
+export function streamContainerStats(id: string, onSample: (stats: ContainerLiveStats) => void): () => void {
+  return openStream("stream_container_stats", { id }, "onStats", ContainerLiveStatsSchema, onSample);
+}
+
+/** Write the full container log to `dest`; resolves to the path. */
+export function saveContainerLogs(id: string, dest: string): Promise<string> {
+  return call("save_container_logs", { id, dest }, z.string());
+}
+
+/* -------------------------------- files ------------------------------- */
+
+export function listContainerDir(id: string, path: string, limit?: number): Promise<DirListing> {
+  return call("list_container_dir", { id, path, limit: limit ?? null }, DirListingSchema);
+}
+
+export function readContainerFile(id: string, path: string, maxBytes?: number): Promise<FileContent> {
+  return call("read_container_file", { id, path, maxBytes: maxBytes ?? null }, FileContentSchema);
+}
+
+export function containerChanges(id: string): Promise<FsChange[]> {
+  return call("container_changes", { id }, z.array(FsChangeSchema));
+}
+
+/** Save a file — or a directory as .tar — to `dest`; resolves to the path. */
+export function saveContainerPath(
+  id: string,
+  path: string,
+  asArchive: boolean,
+  dest: string,
+): Promise<string> {
+  return call("save_container_path", { id, path, asArchive, dest }, z.string());
+}
+
+/** Write text to a path the user picked; resolves to the path. */
+export function saveTextToFile(dest: string, contents: string): Promise<string> {
+  return call("save_text_to_file", { dest, contents }, z.string());
 }
 
 /* -------------------------------- images ------------------------------ */
@@ -140,6 +212,10 @@ export function pullImage(
 
 export function imageHistory(ref: string): Promise<LayerHistoryItem[]> {
   return call("image_history", { image: ref }, z.array(LayerHistoryItemSchema));
+}
+
+export function inspectImage(ref: string): Promise<ImageInspect> {
+  return call("inspect_image", { image: ref }, ImageInspectSchema);
 }
 
 export function tagImage(id: string, repo: string, tag: string): Promise<void> {
@@ -190,4 +266,44 @@ export function testConnection(config: ConnectionConfig): Promise<DockerStatus> 
 export function switchDockerEndpoint(config: ConnectionConfig): Promise<DockerStatus> {
   const parsed = ConnectionConfigSchema.parse(config);
   return call("switch_docker_endpoint", { config: parsed }, DockerStatusSchema);
+}
+
+/* --------------------------------- exec -------------------------------- */
+
+export function execProbe(id: string): Promise<ExecProbe> {
+  return call("exec_probe", { id }, ExecProbeSchema);
+}
+
+export type ExecSession = {
+  write: (data: string) => void;
+  resize: (cols: number, rows: number) => void;
+  close: () => void;
+};
+
+/** Start an interactive exec session; `onEvent` gets output, then one exit. */
+export function startExec(
+  id: string,
+  options: ExecStartOptions,
+  onEvent: (event: ExecEvent) => void,
+): ExecSession {
+  const streamId = crypto.randomUUID();
+  const close = openStream(
+    "exec_start",
+    { id, options: { env: [], tty: false, cols: 0, rows: 0, ...options } },
+    "onEvent",
+    ExecEventSchema,
+    onEvent,
+    (err) => onEvent({ kind: "exit", code: null, error: err.message }),
+    streamId,
+  );
+  // Commands run concurrently on the backend, so keystrokes sent as
+  // separate invokes can overtake each other. Chain them to keep order.
+  let queue: Promise<unknown> = Promise.resolve();
+  return {
+    write: (data) => {
+      queue = queue.then(() => invoke("exec_input", { streamId, data })).catch(() => undefined);
+    },
+    resize: (cols, rows) => void invoke("exec_resize", { streamId, cols, rows }).catch(() => undefined),
+    close,
+  };
 }

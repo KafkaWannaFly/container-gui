@@ -2,7 +2,7 @@
 
 use bollard::Docker;
 use bollard::container::LogOutput;
-use bollard::models::ContainerSummaryStateEnum;
+use bollard::models::{ContainerStatsResponse, ContainerSummaryStateEnum};
 use bollard::query_parameters::{
     KillContainerOptionsBuilder, ListContainersOptionsBuilder, LogsOptionsBuilder,
     RemoveContainerOptionsBuilder, RestartContainerOptionsBuilder, StatsOptionsBuilder,
@@ -10,12 +10,15 @@ use bollard::query_parameters::{
 };
 use futures_util::StreamExt;
 use serde_json::Value;
+use std::time::Duration;
 use tauri::ipc::Channel;
-use tokio::sync::oneshot;
 
-use crate::docker::state::StreamRegistry;
+use crate::docker::state::{StreamRegistry, StreamTicket};
 use crate::error::{AppError, AppResult};
-use crate::models::dto::{ContainerStatsDto, ContainerSummaryDto, LogChunkDto, PortMappingDto};
+use crate::models::dto::{
+    ContainerLiveStatsDto, ContainerStatsDto, ContainerSummaryDto, LogEventDto, LogLineDto,
+    LogStreamOptions, PortMappingDto,
+};
 
 const LABEL_COMPOSE_PROJECT: &str = "com.docker.compose.project";
 const LABEL_COMPOSE_SERVICE: &str = "com.docker.compose.service";
@@ -114,6 +117,23 @@ async fn container_stats(client: &Docker, id: &str) -> AppResult<ContainerStatsD
         .transpose()?
         .ok_or_else(|| AppError::Message(format!("No stats returned for container {id}")))?;
 
+    let usage = usage_of(&response);
+    Ok(ContainerStatsDto {
+        id: id.to_string(),
+        cpu_percent: usage.cpu_percent,
+        memory_usage: usage.memory_usage,
+        memory_limit: usage.memory_limit,
+    })
+}
+
+struct Usage {
+    cpu_percent: f64,
+    online_cpus: u32,
+    memory_usage: i64,
+    memory_limit: i64,
+}
+
+fn usage_of(response: &ContainerStatsResponse) -> Usage {
     let cpu = response.cpu_stats.as_ref();
     let prev = response.precpu_stats.as_ref();
     let cpu_total = cpu
@@ -127,25 +147,108 @@ async fn container_stats(client: &Docker, id: &str) -> AppResult<ContainerStatsD
     let online_cpus = cpu
         .and_then(|stats| stats.online_cpus)
         .or_else(|| prev.and_then(|stats| stats.online_cpus))
-        .unwrap_or(1) as f64;
+        .unwrap_or(1);
 
     let memory = response.memory_stats.as_ref();
 
-    Ok(ContainerStatsDto {
-        id: id.to_string(),
+    Usage {
         cpu_percent: cpu_percent(
             cpu_total,
             prev_total,
             system_total,
             prev_system,
-            online_cpus,
+            online_cpus as f64,
         ),
+        online_cpus,
         memory_usage: resident_memory(
             memory.and_then(|stats| stats.usage).unwrap_or(0),
             memory.and_then(|stats| stats.stats.as_ref()),
         ),
         memory_limit: memory.and_then(|stats| stats.limit).unwrap_or(0) as i64,
-    })
+    }
+}
+
+/// Full sample for the detail header: usage plus cumulative network and
+/// block I/O, summed across interfaces and devices.
+fn live_stats_of(response: &ContainerStatsResponse) -> ContainerLiveStatsDto {
+    let usage = usage_of(response);
+    let (net_rx, net_tx) = response
+        .networks
+        .iter()
+        .flat_map(|networks| networks.values())
+        .fold((0, 0), |(rx, tx), net| {
+            (
+                rx + net.rx_bytes.unwrap_or(0),
+                tx + net.tx_bytes.unwrap_or(0),
+            )
+        });
+    let (block_read, block_write) = response
+        .blkio_stats
+        .as_ref()
+        .and_then(|blkio| blkio.io_service_bytes_recursive.as_ref())
+        .into_iter()
+        .flatten()
+        .fold((0, 0), |(read, write), entry| {
+            let value = entry.value.unwrap_or(0);
+            match entry.op.as_deref() {
+                Some(op) if op.eq_ignore_ascii_case("read") => (read + value, write),
+                Some(op) if op.eq_ignore_ascii_case("write") => (read, write + value),
+                _ => (read, write),
+            }
+        });
+    ContainerLiveStatsDto {
+        cpu_percent: usage.cpu_percent,
+        online_cpus: usage.online_cpus,
+        memory_usage: usage.memory_usage,
+        memory_limit: usage.memory_limit,
+        net_rx,
+        net_tx,
+        block_read,
+        block_write,
+        pids: response
+            .pids_stats
+            .as_ref()
+            .and_then(|pids| pids.current)
+            .unwrap_or(0),
+    }
+}
+
+/// Stream stats samples (about one per second) for one container until
+/// it stops, the channel closes, or the registry cancels `stream_id`.
+pub fn spawn_stats_stream(
+    client: Docker,
+    registry: std::sync::Arc<StreamRegistry>,
+    id: String,
+    stream_id: String,
+    channel: Channel<ContainerLiveStatsDto>,
+) {
+    let StreamTicket {
+        token,
+        mut cancelled,
+    } = registry.register(stream_id.clone());
+
+    tauri::async_runtime::spawn(async move {
+        let options = StatsOptionsBuilder::new().stream(true).build();
+        let mut stream = client.stats(&id, Some(options)).boxed();
+        loop {
+            tokio::select! {
+                _ = &mut cancelled => break,
+                item = stream.next() => match item {
+                    Some(Ok(response)) => {
+                        if channel.send(live_stats_of(&response)).is_err() {
+                            break;
+                        }
+                    }
+                    Some(Err(err)) => {
+                        log::warn!("[stats] stream for container {id} failed: {err}");
+                        break;
+                    }
+                    None => break,
+                },
+            }
+        }
+        registry.finish(&stream_id, token);
+    });
 }
 
 /// `docker stats` CPU formula: share of one core, scaled by core count.
@@ -249,63 +352,213 @@ pub async fn execute_action(client: &Docker, id: &str, action: ContainerAction) 
     Ok(())
 }
 
-/// Spawn a follow-logs task that pushes chunks into `channel` until the
-/// container stops, the stream errors, or the registry cancels it.
+const LOG_BATCH_INTERVAL: Duration = Duration::from_millis(50);
+const LOG_BATCH_MAX: usize = 2_000;
+
+/// Reassembles whole lines from Docker's chunked output. Chunks are not
+/// line-aligned, so each stream keeps its unterminated tail until the next
+/// chunk (or the end of the stream) completes it.
+#[derive(Default)]
+struct LineSplitter {
+    stdout: String,
+    stderr: String,
+}
+
+impl LineSplitter {
+    fn push(&mut self, stream: &'static str, text: &str, out: &mut Vec<LogLineDto>) {
+        let buf = if stream == "stderr" {
+            &mut self.stderr
+        } else {
+            &mut self.stdout
+        };
+        // Docker splits entries over 16 KiB and stamps every piece; drop the
+        // repeated stamp so the rejoined line (often JSON) stays intact.
+        let text = match text.split_once(' ') {
+            Some((head, rest)) if !buf.is_empty() && looks_like_timestamp(head) => rest,
+            _ => text,
+        };
+        buf.push_str(text);
+        while let Some(pos) = buf.find('\n') {
+            let line: String = buf.drain(..=pos).collect();
+            out.push(parse_log_line(stream, &line));
+        }
+    }
+
+    fn flush(&mut self, out: &mut Vec<LogLineDto>) {
+        for (stream, buf) in [("stdout", &mut self.stdout), ("stderr", &mut self.stderr)] {
+            if !buf.is_empty() {
+                out.push(parse_log_line(stream, buf));
+                buf.clear();
+            }
+        }
+    }
+}
+
+/// Split Docker's `timestamps=true` prefix (`2026-09-23T08:12:03.123456789Z `)
+/// from the message.
+fn parse_log_line(stream: &str, line: &str) -> LogLineDto {
+    let line = line.trim_end_matches(['\n', '\r']);
+    let (ts, text) = match line.split_once(' ') {
+        Some((head, rest)) if looks_like_timestamp(head) => (head, rest),
+        _ if looks_like_timestamp(line) => (line, ""),
+        _ => ("", line),
+    };
+    LogLineDto {
+        stream: stream.to_string(),
+        ts: ts.to_string(),
+        text: text.to_string(),
+    }
+}
+
+fn looks_like_timestamp(token: &str) -> bool {
+    let bytes = token.as_bytes();
+    bytes.len() >= 20
+        && bytes[4] == b'-'
+        && bytes[7] == b'-'
+        && bytes[10] == b'T'
+        && bytes[..4].iter().all(u8::is_ascii_digit)
+}
+
+/// Dump the whole log to `path`, streaming chunk by chunk so a large log
+/// never sits in memory.
+pub async fn write_logs(client: &Docker, id: &str, path: &std::path::Path) -> AppResult<()> {
+    use tokio::io::AsyncWriteExt;
+
+    let file = tokio::fs::File::create(path)
+        .await
+        .map_err(|err| AppError::Message(format!("Could not create {}: {err}", path.display())))?;
+    let mut out = tokio::io::BufWriter::new(file);
+    let options = LogsOptionsBuilder::new()
+        .follow(false)
+        .stdout(true)
+        .stderr(true)
+        .timestamps(true)
+        .tail("all")
+        .build();
+    let mut stream = client.logs(id, Some(options)).boxed();
+    let io_err =
+        |err: std::io::Error| AppError::Message(format!("Could not write log file: {err}"));
+    // Same reassembly as the live view, so split long lines come out whole.
+    let mut splitter = LineSplitter::default();
+    let mut lines = Vec::new();
+    let mut done = false;
+    while !done {
+        match stream.next().await.transpose()? {
+            Some(LogOutput::StdErr { message }) => {
+                splitter.push("stderr", &String::from_utf8_lossy(&message), &mut lines)
+            }
+            Some(LogOutput::StdOut { message } | LogOutput::Console { message }) => {
+                splitter.push("stdout", &String::from_utf8_lossy(&message), &mut lines)
+            }
+            Some(LogOutput::StdIn { .. }) => continue,
+            None => {
+                splitter.flush(&mut lines);
+                done = true;
+            }
+        }
+        for line in lines.drain(..) {
+            let text = if line.ts.is_empty() {
+                format!("{}\n", line.text)
+            } else {
+                format!("{} {}\n", line.ts, line.text)
+            };
+            out.write_all(text.as_bytes()).await.map_err(io_err)?;
+        }
+    }
+    out.flush().await.map_err(io_err)?;
+    Ok(())
+}
+
+/// Spawn a logs task that sends line batches into `channel` until the
+/// container stops, the stream errors, or the registry cancels `stream_id`.
+/// Always finishes with one `End` event.
 pub fn spawn_log_stream(
     client: Docker,
     registry: std::sync::Arc<StreamRegistry>,
     id: String,
-    tail: u64,
-    channel: Channel<LogChunkDto>,
+    stream_id: String,
+    options: LogStreamOptions,
+    channel: Channel<LogEventDto>,
 ) {
-    let (cancel_tx, mut cancel_rx) = oneshot::channel::<()>();
-    registry.register_logs(id.clone(), cancel_tx);
+    let StreamTicket {
+        token,
+        mut cancelled,
+    } = registry.register(stream_id.clone());
 
     tauri::async_runtime::spawn(async move {
-        let options = LogsOptionsBuilder::new()
-            .follow(true)
+        let tail = options
+            .tail
+            .map(|tail| tail.to_string())
+            .unwrap_or_else(|| "all".to_string());
+        let mut builder = LogsOptionsBuilder::new()
+            .follow(options.follow)
             .stdout(true)
             .stderr(true)
-            .tail(&tail.to_string())
-            .build();
-        let mut stream = client.logs(&id, Some(options)).boxed();
-
+            .timestamps(true)
+            .tail(&tail);
+        if let Some(since) = options.since {
+            builder = builder.since(since as i32);
+        }
+        let mut stream = client.logs(&id, Some(builder.build())).boxed();
         log::info!("[logs] streaming container {id} (tail {tail})");
+
+        let mut splitter = LineSplitter::default();
+        let mut batch = Vec::new();
+        let mut ticker = tokio::time::interval(LOG_BATCH_INTERVAL);
+        ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+        let mut error = None;
+        let mut open = true;
 
         loop {
             tokio::select! {
-                _ = &mut cancel_rx => break,
-                item = stream.next() => {
-                    match item {
-                        Some(Ok(output)) => {
-                            let chunk = match output {
-                                LogOutput::StdOut { message } => Some(("stdout", message)),
-                                LogOutput::StdErr { message } => Some(("stderr", message)),
-                                LogOutput::Console { message } => Some(("stdout", message)),
-                                LogOutput::StdIn { .. } => None,
-                            };
-                            if let Some((stream, message)) = chunk {
-                                let text = String::from_utf8_lossy(&message).to_string();
-                                if channel
-                                    .send(LogChunkDto { stream: stream.to_string(), message: text })
-                                    .is_err()
-                                {
-                                    break;
-                                }
-                            }
-                        }
-                        Some(Err(err)) => {
-                            log::error!("[logs] stream for container {id} failed: {err}");
-                            break;
-                        }
-                        None => break,
+                _ = &mut cancelled => {
+                    open = false;
+                    break;
+                }
+                _ = ticker.tick() => {
+                    if !batch.is_empty()
+                        && channel.send(LogEventDto::Lines { lines: std::mem::take(&mut batch) }).is_err()
+                    {
+                        open = false;
+                        break;
                     }
                 }
+                item = stream.next() => match item {
+                    Some(Ok(output)) => {
+                        let (name, message) = match output {
+                            LogOutput::StdErr { message } => ("stderr", message),
+                            LogOutput::StdOut { message } | LogOutput::Console { message } => {
+                                ("stdout", message)
+                            }
+                            LogOutput::StdIn { .. } => continue,
+                        };
+                        splitter.push(name, &String::from_utf8_lossy(&message), &mut batch);
+                        if batch.len() >= LOG_BATCH_MAX
+                            && channel.send(LogEventDto::Lines { lines: std::mem::take(&mut batch) }).is_err()
+                        {
+                            open = false;
+                            break;
+                        }
+                    }
+                    Some(Err(err)) => {
+                        log::error!("[logs] stream for container {id} failed: {err}");
+                        error = Some(err.to_string());
+                        break;
+                    }
+                    None => break,
+                },
             }
         }
 
+        if open {
+            splitter.flush(&mut batch);
+            if !batch.is_empty() {
+                let _ = channel.send(LogEventDto::Lines { lines: batch });
+            }
+            let _ = channel.send(LogEventDto::End { error });
+        }
         log::debug!("[logs] stream for container {id} ended");
-        registry.finish_logs(&id);
+        registry.finish(&stream_id, token);
     });
 }
 
@@ -365,6 +618,53 @@ mod tests {
             );
             assert!(stat.cpu_percent >= 0.0);
         }
+    }
+
+    #[test]
+    fn splitter_joins_partial_chunks_per_stream() {
+        let mut splitter = LineSplitter::default();
+        let mut out = Vec::new();
+        splitter.push("stdout", "2026-09-23T08:00:00.1Z hel", &mut out);
+        splitter.push("stderr", "2026-09-23T08:00:00.2Z oops\n", &mut out);
+        splitter.push(
+            "stdout",
+            "lo\r\n2026-09-23T08:00:00.3Z second\n2026-09-23T08:00:00.4Z tail",
+            &mut out,
+        );
+        assert_eq!(
+            out.iter()
+                .map(|l| (l.stream.as_str(), l.text.as_str()))
+                .collect::<Vec<_>>(),
+            vec![
+                ("stderr", "oops"),
+                ("stdout", "hello"),
+                ("stdout", "second")
+            ]
+        );
+        assert_eq!(out[1].ts, "2026-09-23T08:00:00.1Z");
+        splitter.flush(&mut out);
+        assert_eq!(out[3].text, "tail");
+        assert_eq!(out.len(), 4);
+    }
+
+    #[test]
+    fn splitter_drops_stamps_on_split_long_lines() {
+        let mut splitter = LineSplitter::default();
+        let mut out = Vec::new();
+        splitter.push("stdout", "2026-09-23T08:00:00.1Z {\"a\":\"xx", &mut out);
+        splitter.push("stdout", "2026-09-23T08:00:00.1Z yy\"}\n", &mut out);
+        assert_eq!(out.len(), 1);
+        assert_eq!(out[0].text, "{\"a\":\"xxyy\"}");
+    }
+
+    #[test]
+    fn log_line_without_timestamp_keeps_text() {
+        let line = parse_log_line("stdout", "plain message here\n");
+        assert_eq!(line.ts, "");
+        assert_eq!(line.text, "plain message here");
+        let empty = parse_log_line("stdout", "2026-09-23T08:00:00.123456789Z\n");
+        assert_eq!(empty.ts, "2026-09-23T08:00:00.123456789Z");
+        assert_eq!(empty.text, "");
     }
 
     #[test]

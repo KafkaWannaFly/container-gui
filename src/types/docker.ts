@@ -62,11 +62,39 @@ export const ImagePullProgressSchema = z.object({
 });
 export type ImagePullProgress = z.infer<typeof ImagePullProgressSchema>;
 
-export const LogChunkSchema = z.object({
-  stream: z.enum(["stdout", "stderr"]),
-  message: z.string(),
+export const ContainerLiveStatsSchema = z.object({
+  cpuPercent: z.number(),
+  onlineCpus: z.number(),
+  memoryUsage: z.number(),
+  memoryLimit: z.number(),
+  netRx: z.number(),
+  netTx: z.number(),
+  blockRead: z.number(),
+  blockWrite: z.number(),
+  pids: z.number(),
 });
-export type LogChunk = z.infer<typeof LogChunkSchema>;
+export type ContainerLiveStats = z.infer<typeof ContainerLiveStatsSchema>;
+
+export const LogLineSchema = z.object({
+  stream: z.enum(["stdout", "stderr"]),
+  ts: z.string(),
+  text: z.string(),
+});
+export type LogLine = z.infer<typeof LogLineSchema>;
+
+export const LogEventSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("lines"), lines: z.array(LogLineSchema) }),
+  z.object({ kind: z.literal("end"), error: z.string().nullable() }),
+]);
+export type LogEvent = z.infer<typeof LogEventSchema>;
+
+export type LogStreamOptions = {
+  /** Last N lines; null streams the whole log. */
+  tail: number | null;
+  /** Unix seconds. */
+  since?: number | null;
+  follow?: boolean;
+};
 
 export const LayerHistoryItemSchema = z.object({
   id: z.string(),
@@ -134,10 +162,36 @@ export type SystemInfo = z.infer<typeof SystemInfoSchema>;
  * let the rest through untouched — the Docker inspect schema is huge and
  * changes across engine versions.
  */
+const HealthcheckSchema = z.looseObject({
+  Test: z.array(z.string()).nullish(),
+  /** Nanoseconds. */
+  Interval: z.number().nullish(),
+  Timeout: z.number().nullish(),
+  Retries: z.number().nullish(),
+});
+
+const PortBindingSchema = z.looseObject({
+  HostIp: z.string().nullish(),
+  HostPort: z.string().nullish(),
+});
+
+const EndpointSchema = z.looseObject({
+  IPAddress: z.string().nullish(),
+  IPPrefixLen: z.number().nullish(),
+  Gateway: z.string().nullish(),
+  MacAddress: z.string().nullish(),
+  Aliases: z.array(z.string()).nullish(),
+  DNSNames: z.array(z.string()).nullish(),
+});
+export type NetworkEndpoint = z.infer<typeof EndpointSchema>;
+
 export const ContainerInspectSchema = z.looseObject({
   Id: z.string(),
   Name: z.string().optional(),
   Created: z.string().optional(),
+  Image: z.string().optional(),
+  Platform: z.string().nullish(),
+  RestartCount: z.number().nullish(),
   State: z
     .looseObject({
       Status: z.string().optional(),
@@ -146,28 +200,55 @@ export const ContainerInspectSchema = z.looseObject({
       StartedAt: z.string().optional(),
       FinishedAt: z.string().optional(),
       ExitCode: z.number().optional(),
+      Health: z
+        .looseObject({
+          Status: z.string().nullish(),
+          FailingStreak: z.number().nullish(),
+          Log: z
+            .array(
+              z.looseObject({
+                Start: z.string().nullish(),
+                End: z.string().nullish(),
+                ExitCode: z.number().nullish(),
+                Output: z.string().nullish(),
+              }),
+            )
+            .nullish(),
+        })
+        .nullish(),
     })
     .optional(),
   Config: z
     .looseObject({
       Image: z.string().optional(),
       Hostname: z.string().optional(),
+      User: z.string().nullish(),
+      WorkingDir: z.string().nullish(),
+      Tty: z.boolean().nullish(),
       Env: z.array(z.string()).nullish(),
       Cmd: z.array(z.string()).nullish(),
       Entrypoint: z.array(z.string()).nullish(),
       Labels: z.record(z.string(), z.string()).nullish(),
+      Healthcheck: HealthcheckSchema.nullish(),
     })
     .optional(),
   HostConfig: z
     .looseObject({
       NetworkMode: z.string().optional(),
       RestartPolicy: z.looseObject({ Name: z.string().optional() }).optional(),
+      NanoCpus: z.number().nullish(),
+      CpuQuota: z.number().nullish(),
+      CpuPeriod: z.number().nullish(),
+      Memory: z.number().nullish(),
+      PidsLimit: z.number().nullish(),
+      ReadonlyRootfs: z.boolean().nullish(),
+      LogConfig: z.looseObject({ Type: z.string().nullish() }).nullish(),
     })
     .optional(),
   NetworkSettings: z
     .looseObject({
-      Networks: z.record(z.string(), z.any()).optional(),
-      Ports: z.record(z.string(), z.any()).nullish(),
+      Networks: z.record(z.string(), EndpointSchema).nullish(),
+      Ports: z.record(z.string(), z.array(PortBindingSchema).nullable()).nullish(),
     })
     .optional(),
   Mounts: z
@@ -184,6 +265,25 @@ export const ContainerInspectSchema = z.looseObject({
     .optional(),
 });
 export type ContainerInspect = z.infer<typeof ContainerInspectSchema>;
+
+/** Raw image inspect payload; same loose approach as containers. */
+export const ImageInspectSchema = z.looseObject({
+  Id: z.string(),
+  RepoTags: z.array(z.string()).nullish(),
+  RepoDigests: z.array(z.string()).nullish(),
+  Created: z.string().nullish(),
+  Os: z.string().nullish(),
+  Architecture: z.string().nullish(),
+  Variant: z.string().nullish(),
+  Size: z.number().nullish(),
+  Config: z
+    .looseObject({
+      Env: z.array(z.string()).nullish(),
+      Labels: z.record(z.string(), z.string()).nullish(),
+    })
+    .nullish(),
+});
+export type ImageInspect = z.infer<typeof ImageInspectSchema>;
 
 /* ------------------------------------------------------------------ *
  * Display helpers
@@ -211,6 +311,78 @@ export function portLabel(port: PortMapping): string {
   return `${port.privatePort}/${proto}`;
 }
 
+/** Browser URL for a published TCP port; https when the container side is a TLS port. */
+export function portUrl(hostPort: number | string, containerPort: number | string): string {
+  const scheme = String(containerPort) === "443" || String(containerPort) === "8443" ? "https" : "http";
+  return `${scheme}://localhost:${hostPort}`;
+}
+
 export function shortId(id: string): string {
   return id.replace(/^sha256:/, "").slice(0, 12);
 }
+
+/* ------------------------------ filesystem ----------------------------- */
+
+export const FsEntrySchema = z.object({
+  name: z.string(),
+  kind: z.enum(["dir", "file", "link", "char", "block", "fifo", "socket", "other"]),
+  size: z.number(),
+  mode: z.string(),
+  owner: z.string(),
+  mtime: z.number(),
+  target: z.string().nullable(),
+});
+export type FsEntry = z.infer<typeof FsEntrySchema>;
+
+export const DirListingSchema = z.object({
+  path: z.string(),
+  entries: z.array(FsEntrySchema),
+  truncated: z.boolean(),
+});
+export type DirListing = z.infer<typeof DirListingSchema>;
+
+export const FileContentSchema = z.object({
+  path: z.string(),
+  kind: z.string(),
+  size: z.number(),
+  mode: z.string(),
+  mtime: z.number(),
+  linkTarget: z.string().nullable(),
+  content: z.string().nullable(),
+  binary: z.boolean(),
+  truncated: z.boolean(),
+});
+export type FileContent = z.infer<typeof FileContentSchema>;
+
+export const FsChangeSchema = z.object({
+  path: z.string(),
+  kind: z.enum(["A", "C", "D"]),
+});
+export type FsChange = z.infer<typeof FsChangeSchema>;
+
+/* --------------------------------- exec -------------------------------- */
+
+export const ExecEventSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("output"), stream: z.enum(["stdout", "stderr"]), data: z.string() }),
+  z.object({ kind: z.literal("exit"), code: z.number().nullable(), error: z.string().nullable() }),
+]);
+export type ExecEvent = z.infer<typeof ExecEventSchema>;
+
+export const ExecProbeSchema = z.object({
+  shells: z.array(z.string()),
+  users: z.array(z.string()),
+  osId: z.string(),
+  osName: z.string(),
+  hostname: z.string(),
+});
+export type ExecProbe = z.infer<typeof ExecProbeSchema>;
+
+export type ExecStartOptions = {
+  cmd: string[];
+  user?: string;
+  workingDir?: string;
+  env?: string[];
+  tty?: boolean;
+  cols?: number;
+  rows?: number;
+};
