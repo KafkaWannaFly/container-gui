@@ -1,1 +1,16 @@
+# Follows the official Rust Style Guide (rustfmt defaults); only stable options,
+# so `cargo fmt` works on the stable toolchain without warnings.
+# Reference: https://rust-lang.github.io/rustfmt/
+
+# Pin both so bare `rustfmt` (IDE format-on-save) matches `cargo fmt`, which
+# otherwise infers the style edition from Cargo.toml while rustfmt defaults to 2015.
+edition = "2024"
+style_edition = "2024"
+
+# Matches .gitattributes / .editorconfig (LF everywhere).
 newline_style = "Unix"
+
+# Rewrite `Foo { x: x }` -> `Foo { x }` and `try!(e)` -> `e?`
+# (same as clippy's redundant_field_names / the 2018+ idiom).
+use_field_init_shorthand = true
+use_try_shorthand = true
