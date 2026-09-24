@@ -169,7 +169,12 @@ export function containerChanges(id: string): Promise<FsChange[]> {
 }
 
 /** Save a file — or a directory as .tar — to `dest`; resolves to the path. */
-export function saveContainerPath(id: string, path: string, asArchive: boolean, dest: string): Promise<string> {
+export function saveContainerPath(
+  id: string,
+  path: string,
+  asArchive: boolean,
+  dest: string,
+): Promise<string> {
   return call("save_container_path", { id, path, asArchive, dest }, z.string());
 }
 

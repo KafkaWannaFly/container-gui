@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react";
+import { ClearOutlined, CopyOutlined, DeleteOutlined } from "@ant-design/icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { App, Button, Empty, Input, Popconfirm, Table, type TableColumnsType } from "antd";
-import { ClearOutlined, CopyOutlined, DeleteOutlined } from "@ant-design/icons";
+import { useMemo, useState } from "react";
 import { MetricCard, Mono, Pill, RowActions } from "../../components/ui";
 import { queryKeys } from "../../lib/queryClient";
 import { listVolumes, pruneVolumes, removeVolume } from "../../services/tauriApi";

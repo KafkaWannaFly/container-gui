@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { CloudDownloadOutlined } from "@ant-design/icons";
 import { useQueryClient } from "@tanstack/react-query";
 import { App, Button, Divider, Input, Modal, Progress } from "antd";
-import { CloudDownloadOutlined } from "@ant-design/icons";
+import { useEffect, useRef, useState } from "react";
 import { Mono } from "../../../components/ui";
 import { queryKeys } from "../../../lib/queryClient";
 import { pullImage } from "../../../services/tauriApi";

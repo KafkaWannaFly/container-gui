@@ -1,6 +1,3 @@
-import { useMemo, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { App, Button, Empty, Input, Popconfirm, Table, type TableColumnsType } from "antd";
 import {
   ClearOutlined,
   CloudDownloadOutlined,
@@ -8,13 +5,16 @@ import {
   HistoryOutlined,
   TagOutlined,
 } from "@ant-design/icons";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { App, Button, Empty, Input, Popconfirm, Table, type TableColumnsType } from "antd";
 import { formatDistanceToNow } from "date-fns";
+import { useMemo, useState } from "react";
 import { MetricCard, Mono, Pill, RowActions } from "../../components/ui";
 import { queryKeys } from "../../lib/queryClient";
 import { listImages, pruneImages, removeImage } from "../../services/tauriApi";
-import { formatBytes, shortId, type ImageItem } from "../../types/docker";
-import PullImageModal from "./components/PullImageModal";
+import { formatBytes, type ImageItem, shortId } from "../../types/docker";
 import LayerHistoryModal from "./components/LayerHistoryModal";
+import PullImageModal from "./components/PullImageModal";
 import TagImageModal from "./components/TagImageModal";
 
 interface Row extends ImageItem {

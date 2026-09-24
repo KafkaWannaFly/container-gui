@@ -1,6 +1,6 @@
+import { attachConsole, debug, error, info, trace, warn } from "@tauri-apps/plugin-log";
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { attachConsole, debug, error, info, trace, warn } from "@tauri-apps/plugin-log";
 import "antd/dist/reset.css";
 import "./styles/global.css";
 import App from "./App";

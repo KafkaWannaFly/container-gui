@@ -1,13 +1,13 @@
-import { useEffect, useState } from "react";
+import { ApiOutlined, LinkOutlined } from "@ant-design/icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { App, Button, Divider, Input, Select, Switch } from "antd";
-import { ApiOutlined, LinkOutlined } from "@ant-design/icons";
+import { useEffect, useState } from "react";
 import { queryKeys } from "../../lib/queryClient";
 import {
+  getDockerStatus,
   listDockerContexts,
   switchDockerEndpoint,
   testConnection,
-  getDockerStatus,
 } from "../../services/tauriApi";
 import type { ConnectionConfig, DockerStatus } from "../../types/docker";
 
