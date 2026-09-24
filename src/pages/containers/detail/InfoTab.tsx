@@ -3,9 +3,9 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { Button, Descriptions, type DescriptionsProps, Table } from "antd";
 import { formatDistanceToNow } from "date-fns";
 import { CollapseAllButton, Section, useSections } from "../../../components/Section";
-import { Mono, Pill, StateDot } from "../../../components/ui";
+import { CopyButton, Mono, Pill, StateDot } from "../../../components/ui";
 import { compactDuration, isZeroTime, localTime, nsDuration, shellJoin } from "../../../lib/format";
-import { formatBytes, type NetworkEndpoint, shortId } from "../../../types/docker";
+import { formatBytes, type NetworkEndpoint, portUrl, shortId } from "../../../types/docker";
 import { composeOf, cpuLimit, pidsLimit, platformOf, type TabProps } from "./model";
 
 const INFO_SECTIONS = ["general", "health", "limits", "ports", "mounts", "networks", "labels"] as const;
@@ -26,13 +26,12 @@ function portRows(ports: Record<string, { HostIp?: string | null; HostPort?: str
       const hostPort = binding.HostPort ?? "";
       // Docker lists IPv4 and IPv6 bindings separately; one URL is enough.
       if (ip === "::" && bindings.some((b) => b.HostIp === "0.0.0.0" && b.HostPort === hostPort)) continue;
-      const scheme = port === "443" || port === "8443" ? "https" : "http";
       rows.push({
         key: `${spec}-${ip}-${hostPort}`,
         host: ip.includes(":") ? `[${ip}]:${hostPort}` : `${ip}:${hostPort}`,
         container: spec,
         proto,
-        url: proto === "tcp" ? `${scheme}://localhost:${hostPort}` : null,
+        url: proto === "tcp" ? portUrl(hostPort, port) : null,
       });
     }
   }
@@ -282,14 +281,19 @@ export default function InfoTab({ ctr, image, onCopy }: TabProps) {
               align: "right",
               render: (_: unknown, row: PortRow) =>
                 row.url ? (
-                  <Button
-                    type="text"
-                    size="small"
-                    icon={<ExportOutlined />}
-                    onClick={() => void openUrl(row.url as string)}
-                  >
-                    Open
-                  </Button>
+                  <>
+                    <CopyButton text={row.url} what="URL" />
+                    <Button
+                      type="text"
+                      size="small"
+                      icon={<ExportOutlined />}
+                      onClick={() => void openUrl(row.url as string)}
+                    >
+                      Open
+                    </Button>
+                  </>
+                ) : row.host ? (
+                  <CopyButton text={row.host} what="Address" />
                 ) : null,
             },
           ]}

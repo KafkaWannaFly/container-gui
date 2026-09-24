@@ -1,4 +1,3 @@
-import { format } from "date-fns";
 import type { LogLine } from "../../../types/docker";
 
 export type Level = "debug" | "info" | "warn" | "error";
@@ -11,8 +10,8 @@ export type ParsedLine = {
   ts: string;
   /** `ts` padded to nanoseconds so plain string comparison orders lines. */
   sortKey: string;
-  /** Pre-formatted local time; formatting per render is too slow for big logs. */
-  local: string;
+  /** `ts` as epoch milliseconds; NaN when missing or unparsable. */
+  ms: number;
   stream: "stdout" | "stderr";
   level: Level;
   text: string;
@@ -82,15 +81,51 @@ function parseJson(text: string): NonNullable<ParsedLine["json"]> & { level: Lev
 }
 
 /** Docker sends nanoseconds; Date only keeps milliseconds. */
-function localTime(ts: string): string {
-  if (!ts) return "";
-  const date = new Date(ts.replace(/(\.\d{3})\d+/, "$1"));
-  return Number.isNaN(date.getTime()) ? ts : format(date, "yyyy-MM-dd HH:mm:ss.SSS");
+function epochMs(ts: string): number {
+  return ts ? new Date(ts.replace(/(\.\d{3})\d+/, "$1")).getTime() : Number.NaN;
+}
+
+const stampFormats = new Map<string, Intl.DateTimeFormat>();
+
+/**
+ * `yyyy-MM-dd HH:mm:ss.SSS` in `timeZone`. Formatters are cached; only
+ * visible rows are formatted, so this stays cheap for big logs.
+ */
+export function formatStamp(line: ParsedLine, timeZone: string): string {
+  if (Number.isNaN(line.ms)) return line.ts;
+  let fmt = stampFormats.get(timeZone);
+  if (!fmt) {
+    fmt = new Intl.DateTimeFormat("en-CA", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      fractionalSecondDigits: 3,
+      hourCycle: "h23",
+    });
+    stampFormats.set(timeZone, fmt);
+  }
+  const p: Record<string, string> = {};
+  for (const part of fmt.formatToParts(line.ms)) p[part.type] = part.value;
+  return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}:${p.second}.${p.fractionalSecond}`;
+}
+
+/** `+08:00` style offset of `timeZone` right now. */
+export function zoneOffset(timeZone: string): string {
+  const name =
+    new Intl.DateTimeFormat("en-US", { timeZone, timeZoneName: "longOffset" })
+      .formatToParts(new Date())
+      .find((part) => part.type === "timeZoneName")?.value ?? "";
+  // "GMT+08:00", or bare "GMT" for UTC.
+  return name.replace("GMT", "") || "+00:00";
 }
 
 /** Docker trims trailing zeros from the fraction, so pad before comparing. */
 export function sortKey(ts: string): string {
-  const match = /^(.*?)(?:.(d+))?Z$/.exec(ts);
+  const match = /^(.*?)(?:\.(\d+))?Z$/.exec(ts);
   return match ? `${match[1]}.${(match[2] ?? "").padEnd(9, "0")}Z` : ts;
 }
 
@@ -99,7 +134,7 @@ export function parseLine(line: LogLine, seq: number): ParsedLine {
     seq,
     ts: line.ts,
     sortKey: sortKey(line.ts),
-    local: localTime(line.ts),
+    ms: epochMs(line.ts),
     stream: line.stream,
     level: "info",
     text: line.text,

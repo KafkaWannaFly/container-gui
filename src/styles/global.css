@@ -537,6 +537,10 @@ pre.logs .dim {
   min-height: 0;
 }
 
+.lg-row {
+  padding-left: 8px;
+}
+
 .log-view.nowrap .lg-row {
   width: max-content;
   min-width: 100%;
@@ -563,13 +567,24 @@ pre.logs .dim {
   width: 46px;
 }
 
-.lg-row {
-  padding-left: 8px;
+/* No stderr styling: many apps log everything there, so only the level colors a line. */
+
+.lg-tz-menu .ant-dropdown-menu-sub {
+  max-height: min(420px, 60vh);
+  overflow-y: auto;
 }
 
-/* stderr: a quiet bar instead of a per-line badge — many apps log everything there. */
-.lg-row.stderr {
-  box-shadow: inset 2px 0 rgba(235, 87, 87, 0.45);
+.lg-menu-row {
+  display: inline-flex;
+  gap: 16px;
+  justify-content: space-between;
+  min-width: 150px;
+}
+
+/* Keeps unchecked zones aligned with the checked one. */
+.lg-nocheck {
+  display: inline-block;
+  width: 12px;
 }
 
 .lg-json {
@@ -679,6 +694,35 @@ pre.logs .dim {
   cursor: pointer;
 }
 
+.port-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.port-row .ant-btn {
+  opacity: 0.55;
+}
+
+.port-row .ant-btn:hover {
+  opacity: 1;
+}
+
+/* Published TCP ports: clickable, opens the browser. */
+.port-link {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: var(--teal);
+  cursor: pointer;
+}
+
+.port-link:hover {
+  text-decoration: underline;
+}
+
 .row-link {
   color: var(--paper);
 }
@@ -760,8 +804,34 @@ pre.logs .dim {
   min-width: 0;
 }
 
-.fs-tree .ant-tree-node-selected .fs-name .mono {
-  color: var(--paper) !important;
+.fs-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.fs-label {
+  color: var(--mist);
+}
+
+.fs-label.tree {
+  color: var(--fog);
+}
+
+.fs-tnode .fs-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fs-label.dir,
+.fs-tree .ant-tree-node-selected .fs-label {
+  color: var(--paper);
+}
+
+.fs-act {
+  opacity: 0;
 }
 
 .fs-tnode {
@@ -776,22 +846,12 @@ pre.logs .dim {
   overflow: hidden;
 }
 
-.fs-tnode .fs-name .mono {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .fs-tnode .fs-act {
   position: absolute;
   right: 0;
   top: 50%;
   transform: translateY(-50%);
   background: var(--graphite);
-}
-
-.fs-act {
-  opacity: 0;
 }
 
 .fs-body tr:hover .fs-act,
@@ -875,13 +935,6 @@ pre.logs .dim {
 
 .fs-crumb .sep {
   color: var(--smoke);
-}
-
-.fs-name {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
 }
 
 .fs-dot {
@@ -1030,13 +1083,8 @@ pre.logs .dim {
   margin-top: 1px;
 }
 
-/* CodeMirror: fill the frame and sit on the app canvas, not the theme's grey. */
+/* CodeMirror: fill the frame. Colors come from the CodeView theme. */
 .fs-code-body .cm-theme,
 .df-view .cm-theme {
   height: 100%;
-}
-
-.cm-editor,
-.cm-editor .cm-gutters {
-  background-color: var(--void) !important;
 }

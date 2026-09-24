@@ -11,7 +11,7 @@ import { shell } from "@codemirror/legacy-modes/mode/shell";
 import { toml } from "@codemirror/legacy-modes/mode/toml";
 import { html, xml } from "@codemirror/legacy-modes/mode/xml";
 import { yaml } from "@codemirror/legacy-modes/mode/yaml";
-import CodeMirror, { EditorState, EditorView } from "@uiw/react-codemirror";
+import CodeMirror, { EditorState, EditorView, Prec } from "@uiw/react-codemirror";
 import { useMemo } from "react";
 
 const MODES: Record<string, StreamParser<unknown>> = {
@@ -98,16 +98,20 @@ export default function CodeView({
   value,
   language,
   wrap = false,
+  lineNumbers = true,
   height = "100%",
 }: {
   value: string;
   language: string | null;
   wrap?: boolean;
+  /** Off when the text carries its own numbering. */
+  lineNumbers?: boolean;
   height?: string;
 }) {
   const extensions = useMemo(
     () => [
-      theme,
+      // Above the built-in dark theme, so our background and gutter colors win.
+      Prec.highest(theme),
       EditorState.readOnly.of(true),
       EditorView.editable.of(false),
       ...(language && MODES[language] ? [StreamLanguage.define(MODES[language])] : []),
@@ -121,7 +125,12 @@ export default function CodeView({
       theme="dark"
       height={height}
       extensions={extensions}
-      basicSetup={{ foldGutter: false, highlightActiveLine: false, highlightActiveLineGutter: false }}
+      basicSetup={{
+        lineNumbers,
+        foldGutter: false,
+        highlightActiveLine: false,
+        highlightActiveLineGutter: false,
+      }}
     />
   );
 }

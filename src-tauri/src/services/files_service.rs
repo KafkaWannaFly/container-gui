@@ -164,6 +164,10 @@ pub async fn list_dir(
         (limit + 1).to_string(),
     ];
     let out = run_exec(client, id, cmd).await?;
+    // 126/127: no usable `sh` (distroless, scratch or single-binary images).
+    if matches!(out.exit_code, Some(126 | 127)) {
+        return list_dir_archive(client, id, path, limit).await;
+    }
     if out.exit_code != Some(0) {
         let reason = if out.stderr.is_empty() {
             format!("listing failed (exit {:?})", out.exit_code)
@@ -252,6 +256,100 @@ fn archive(client: &Docker, id: &str, path: &str) -> Archive<impl AsyncRead + Un
 
 fn tar_err(err: std::io::Error) -> AppError {
     AppError::Message(format!("Could not read archive: {err}"))
+}
+
+/// Stop reading a listing archive past this; the rest is reported as truncated.
+const ARCHIVE_LIST_MAX_BYTES: u64 = 512 * 1024 * 1024;
+
+/// `name` relative to `base`, if it is a direct child. Archive names are
+/// `base/child` (`/`, `./` prefixes and trailing `/` vary by path).
+fn direct_child<'a>(base: &str, name: &'a str) -> Option<&'a str> {
+    let rest = if base.is_empty() {
+        name
+    } else {
+        name.strip_prefix(base)?.strip_prefix('/')?
+    };
+    (!rest.is_empty() && !rest.contains('/')).then_some(rest)
+}
+
+fn normalize_tar_name(raw: &[u8]) -> String {
+    let name = String::from_utf8_lossy(raw);
+    let name = name.trim_start_matches("./").trim_start_matches('/');
+    name.trim_end_matches('/').to_string()
+}
+
+/// Listing through the archive endpoint, for images without a shell. The
+/// whole subtree streams through, so it's slower than `find` but needs
+/// nothing inside the container.
+async fn list_dir_archive(
+    client: &Docker,
+    id: &str,
+    path: &str,
+    limit: usize,
+) -> AppResult<DirListingDto> {
+    let mut archive = archive(client, id, path);
+    let mut entries = archive.entries().map_err(tar_err)?;
+    let mut base: Option<String> = None;
+    let mut listed = Vec::new();
+    let mut truncated = false;
+    let mut read: u64 = 0;
+    let walk = async {
+        while let Some(entry) = entries.next().await {
+            let entry = entry.map_err(tar_err)?;
+            let name = normalize_tar_name(&entry.path_bytes().map_err(tar_err)?);
+            // The first entry is the directory itself.
+            let Some(base) = base.as_deref() else {
+                base = Some(name);
+                continue;
+            };
+            read += entry.effective_size() + 512;
+            if read > ARCHIVE_LIST_MAX_BYTES {
+                truncated = true;
+                break;
+            }
+            let Some(child) = direct_child(base, &name) else {
+                continue;
+            };
+            if listed.len() == limit {
+                truncated = true;
+                break;
+            }
+            let header = entry.header();
+            let kind = kind_of_entry(header.entry_type());
+            listed.push(FsEntryDto {
+                name: child.to_string(),
+                kind: kind.to_string(),
+                size: if kind == "file" { entry.effective_size() } else { 0 },
+                mode: mode_string(header.mode().unwrap_or(0), kind),
+                owner: match header.username() {
+                    Ok(Some(user)) if !user.is_empty() => user.to_string(),
+                    _ => match header.uid() {
+                        Ok(0) => "root".to_string(),
+                        Ok(uid) => uid.to_string(),
+                        Err(_) => String::new(),
+                    },
+                },
+                mtime: header.mtime().unwrap_or(0) as i64,
+                target: entry
+                    .link_name_bytes()
+                    .ok()
+                    .flatten()
+                    .map(|target| String::from_utf8_lossy(&target).into_owned()),
+            });
+        }
+        Ok::<_, AppError>(())
+    };
+    tokio::time::timeout(EXEC_TIMEOUT, walk)
+        .await
+        .map_err(|_| AppError::Message("listing timed out".into()))??;
+    if base.is_none() {
+        return Err(AppError::Message(format!("cannot open directory {path}")));
+    }
+    Ok(DirListingDto {
+        path: path.to_string(),
+        entries: listed,
+        truncated,
+    })
 }
 
 /// First `max_bytes` of a path. Binary is detected by a NUL byte in the
@@ -354,6 +452,17 @@ mod tests {
     fn mode_string_matches_ls() {
         assert_eq!(mode_string(0o755, "dir"), "drwxr-xr-x");
         assert_eq!(mode_string(0o640, "file"), "-rw-r-----");
+    }
+
+    #[test]
+    fn archive_names_match_direct_children() {
+        assert_eq!(normalize_tar_name(b"./"), "");
+        assert_eq!(normalize_tar_name(b"/etc/"), "etc");
+        assert_eq!(direct_child("", "etc"), Some("etc"));
+        assert_eq!(direct_child("", "etc/hosts"), None);
+        assert_eq!(direct_child("etc", "etc/hosts"), Some("hosts"));
+        assert_eq!(direct_child("etc", "etc/ssl/certs"), None);
+        assert_eq!(direct_child("etc", "etcetera/x"), None);
     }
 
     #[test]

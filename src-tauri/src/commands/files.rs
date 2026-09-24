@@ -23,7 +23,8 @@ pub async fn save_text_to_file(dest: String, contents: String) -> AppResult<Stri
     Ok(dest)
 }
 
-/// List one directory (running containers only — it runs `find`/`stat`).
+/// List one directory (running containers only). Uses `find`/`stat`, or the
+/// archive endpoint when the image has no shell.
 #[tauri::command]
 pub async fn list_container_dir(
     state: State<'_, AppState>,

@@ -339,10 +339,7 @@ export default function FilesTab({ ctr, onCopy, onOpenTab }: TabProps) {
     return (
       <span className="fs-name">
         {inTree ? null : <EntryIcon entry={entry} />}
-        <span
-          className="mono"
-          style={{ color: entry.kind === "dir" ? "var(--paper)" : inTree ? "var(--fog)" : "var(--mist)" }}
-        >
+        <span className={`mono fs-label${entry.kind === "dir" ? " dir" : inTree ? " tree" : ""}`}>
           {entry.name}
         </span>
         {!inTree && entry.kind === "link" && entry.target ? (

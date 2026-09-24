@@ -1,4 +1,5 @@
 import {
+  CheckOutlined,
   ClearOutlined,
   DownloadOutlined,
   DownOutlined,
@@ -6,20 +7,106 @@ import {
   SearchOutlined,
   VerticalAlignBottomOutlined,
 } from "@ant-design/icons";
-import { Alert, Button, Dropdown, Input, Select, Tooltip } from "antd";
+import { Alert, Button, Checkbox, Dropdown, Input, type MenuProps, Select, Tooltip } from "antd";
 import { format } from "date-fns";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
+import { z } from "zod";
+import { usePersistentState } from "../../../hooks/usePersistentState";
 import { useSaveFile } from "../../../hooks/useSaveFile";
 import { saveContainerLogs, streamContainerLogs } from "../../../services/tauriApi";
-import { LEVEL_RANK, type Level, type ParsedLine, parseLine } from "./logParse";
+import { formatStamp, LEVEL_RANK, type Level, type ParsedLine, parseLine, zoneOffset } from "./logParse";
 import { containerName, type TabProps } from "./model";
 
 /** Lines kept in memory; the oldest are dropped in chunks past this. */
 const MAX_LINES = 50_000;
 const DROP_CHUNK = 5_000;
 const LOCAL_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
-const TZ_OFFSET = format(new Date(), "xxx");
+
+/** "off", "local" (follows the OS setting) or an IANA zone name. */
+type Stamps = string;
+const TZ_PREFIX = "tz:";
+
+function resolveZone(stamps: Stamps): string | null {
+  if (stamps === "off") return null;
+  if (stamps === "local") return LOCAL_TZ;
+  try {
+    new Intl.DateTimeFormat("en", { timeZone: stamps });
+    return stamps;
+  } catch {
+    return LOCAL_TZ; // A stored zone this runtime doesn't know.
+  }
+}
+
+/** Every IANA zone with its current offset; built on first open of the menu. */
+/**
+ * One zone per common UTC offset, named by well-known cities. Cities in
+ * one entry share DST rules, so the offset shown is right for all of them.
+ */
+const ZONES: [tz: string, cities: string][] = [
+  ["Pacific/Pago_Pago", "Pago Pago"],
+  ["Pacific/Honolulu", "Honolulu"],
+  ["America/Anchorage", "Anchorage"],
+  ["America/Los_Angeles", "Los Angeles, Vancouver"],
+  ["America/Denver", "Denver, Calgary"],
+  ["America/Chicago", "Chicago, Dallas"],
+  ["America/New_York", "New York, Toronto"],
+  ["America/Halifax", "Halifax"],
+  ["America/Sao_Paulo", "São Paulo, Buenos Aires"],
+  ["Atlantic/South_Georgia", "South Georgia"],
+  ["Atlantic/Azores", "Azores"],
+  ["Europe/London", "London, Dublin, Lisbon"],
+  ["Europe/Paris", "Paris, Berlin, Rome"],
+  ["Europe/Athens", "Athens, Helsinki, Kyiv"],
+  ["Europe/Istanbul", "Istanbul, Moscow, Riyadh"],
+  ["Asia/Dubai", "Dubai, Baku"],
+  ["Asia/Karachi", "Karachi, Tashkent"],
+  ["Asia/Kolkata", "Mumbai, New Delhi"],
+  ["Asia/Dhaka", "Dhaka"],
+  ["Asia/Bangkok", "Bangkok, Jakarta, Ho Chi Minh City"],
+  ["Asia/Singapore", "Singapore, Beijing, Perth"],
+  ["Asia/Tokyo", "Tokyo, Seoul"],
+  ["Australia/Sydney", "Sydney, Melbourne"],
+  ["Pacific/Auckland", "Auckland"],
+];
+const CITIES = new Map(ZONES);
+
+/** " (local time)" or " (Tokyo, Seoul)" for the footer. */
+function zoneCities(stamps: Stamps, zone: string): string {
+  if (stamps === "local") return " (local time)";
+  const cities = CITIES.get(zone);
+  return cities ? ` (${cities})` : "";
+}
+
+/** `+05:30` → 330, for ordering zones by their current offset. */
+function offsetMinutes(offset: string): number {
+  const [h, m] = offset.slice(1).split(":").map(Number);
+  return (offset.startsWith("-") ? -1 : 1) * (h * 60 + m);
+}
+
+function zoneItems(selected: Stamps): NonNullable<MenuProps["items"]> {
+  const check = (key: Stamps) => (selected === key ? <CheckOutlined /> : <span className="lg-nocheck" />);
+  const zones = ZONES.map(([tz, cities]) => ({ tz, cities, offset: zoneOffset(tz) })).sort(
+    (a, b) => offsetMinutes(a.offset) - offsetMinutes(b.offset),
+  );
+  return [
+    { key: `${TZ_PREFIX}off`, icon: check("off"), label: "Hidden" },
+    {
+      key: `${TZ_PREFIX}local`,
+      icon: check("local"),
+      label: "Local time",
+      extra: `UTC${zoneOffset(LOCAL_TZ)}`,
+    },
+    { key: `${TZ_PREFIX}UTC`, icon: check("UTC"), label: "UTC", extra: "UTC+00:00" },
+    { type: "divider" },
+    ...zones.map(({ tz, cities, offset }) => ({
+      key: `${TZ_PREFIX}${tz}`,
+      icon: check(tz),
+      label: cities,
+      extra: `UTC${offset}`,
+    })),
+  ];
+}
 
 /**
  * Clear cut-offs per container (sort key of the last hidden line), kept
@@ -28,7 +115,7 @@ const TZ_OFFSET = format(new Date(), "xxx");
 const clearedAt = new Map<string, string>();
 
 type Filter = "all" | Level;
-type Options = { timestamps: boolean; pretty: boolean; q: string };
+type Options = { zone: string | null; pretty: boolean; q: string };
 
 function highlight(text: string, q: string): ReactNode {
   if (!q) return text;
@@ -53,13 +140,10 @@ function LogRow({ line, opts }: { line: ParsedLine; opts: Options }) {
   const [open, setOpen] = useState(false);
   const json = opts.pretty ? line.json : undefined;
   return (
-    <div
-      className={`lg-row lg-${line.level}${line.stream === "stderr" ? " stderr" : ""}`}
-      title={line.stream === "stderr" ? "stderr" : undefined}
-    >
-      {opts.timestamps && line.local ? (
+    <div className={`lg-row lg-${line.level}`} title={line.stream === "stderr" ? "stderr" : undefined}>
+      {opts.zone && line.ts ? (
         <span className="lg-ts" title={`${line.ts} (UTC)`}>
-          {line.local}{" "}
+          {formatStamp(line, opts.zone)}{" "}
         </span>
       ) : null}
       <span className="lg-lvl">{line.level.toUpperCase()}</span>
@@ -102,9 +186,10 @@ export default function LogsTab({ ctr }: TabProps) {
   const [q, setQ] = useState("");
   const [level, setLevel] = useState<Filter>("all");
   const [follow, setFollow] = useState(true);
-  const [timestamps, setTimestamps] = useState(true);
-  const [wrap, setWrap] = useState(true);
-  const [pretty, setPretty] = useState(true);
+  const [stamps, setStamps] = usePersistentState<Stamps>("logs.timestamps", z.string(), "local");
+  const [wrap, setWrap] = usePersistentState("logs.wrap", z.boolean(), true);
+  const [pretty, setPretty] = usePersistentState("logs.pretty", z.boolean(), true);
+  const [displayOpen, setDisplayOpen] = useState(false);
   const [tail, setTail] = useState("500");
   const [cutoff, setCutoff] = useState(() => clearedAt.get(id) ?? "");
   const [ended, setEnded] = useState<{ error: string | null } | null>(null);
@@ -183,16 +268,26 @@ export default function LogsTab({ ctr }: TabProps) {
     setCutoff("");
   };
 
-  const opts: Options = { timestamps, pretty, q };
-  const display = [timestamps && "timestamps", wrap && "wrap", pretty && "pretty"].filter(
-    Boolean,
-  ) as string[];
-  const displaySetters: Record<string, (on: boolean) => void> = {
-    timestamps: setTimestamps,
-    wrap: setWrap,
-    pretty: setPretty,
+  const zone = useMemo(() => resolveZone(stamps), [stamps]);
+  const opts: Options = { zone, pretty, q };
+  // Built lazily: formatting ~400 zone offsets is only worth it once the menu opens.
+  const zones = useMemo(() => (displayOpen ? zoneItems(stamps) : []), [displayOpen, stamps]);
+  const onDisplayClick: MenuProps["onClick"] = ({ key }) => {
+    if (key === "wrap") setWrap((on) => !on);
+    else if (key === "pretty") setPretty((on) => !on);
+    else if (key.startsWith(TZ_PREFIX)) {
+      setStamps(key.slice(TZ_PREFIX.length));
+      setDisplayOpen(false);
+    }
   };
-  const setDisplayOption = (key: string, on: boolean) => displaySetters[key]?.(on);
+  const stampsLabel =
+    zone === null
+      ? "Hidden"
+      : stamps === "local"
+        ? "Local"
+        : zone === "UTC"
+          ? "UTC"
+          : `UTC${zoneOffset(zone)}`;
   const toggleLevel = (next: Level) => setLevel((cur) => (cur === next ? "all" : next));
   const filtered = q || level !== "all";
   const running = !!ctr.State?.Running;
@@ -249,26 +344,43 @@ export default function LogsTab({ ctr }: TabProps) {
         <Dropdown
           trigger={["click"]}
           placement="bottomRight"
+          open={displayOpen}
+          // Stay open while toggling options; close on outside click or the button.
+          onOpenChange={(next, info) => {
+            if (info.source === "trigger") setDisplayOpen(next);
+          }}
           menu={{
-            selectable: true,
-            multiple: true,
-            selectedKeys: display,
-            onSelect: ({ key }) => setDisplayOption(key, true),
-            onDeselect: ({ key }) => setDisplayOption(key, false),
+            onClick: onDisplayClick,
             items: [
-              { key: "timestamps", label: "Timestamps", extra: LOCAL_TZ },
-              { key: "wrap", label: "Wrap lines" },
+              {
+                key: "timestamps",
+                label: (
+                  <span className="lg-menu-row">
+                    Timestamps <span className="dim">{stampsLabel}</span>
+                  </span>
+                ),
+                popupClassName: "lg-tz-menu",
+                children: zones,
+              },
+              { type: "divider" },
+              { key: "wrap", label: <Checkbox checked={wrap}>Wrap lines</Checkbox> },
               {
                 key: "pretty",
+                disabled: !hasJson,
                 label: (
                   <Tooltip
                     placement="left"
-                    title="Show JSON lines as level, message and fields. Click a line for the full object."
+                    title={
+                      hasJson
+                        ? "Show JSON lines as level, message and fields. Click a line for the full object."
+                        : "No JSON lines in this log."
+                    }
                   >
-                    <span style={{ display: "block" }}>Pretty JSON</span>
+                    <Checkbox checked={pretty && hasJson} disabled={!hasJson}>
+                      Pretty JSON
+                    </Checkbox>
                   </Tooltip>
                 ),
-                disabled: !hasJson,
               },
             ],
           }}
@@ -277,13 +389,21 @@ export default function LogsTab({ ctr }: TabProps) {
             Display <DownOutlined style={{ fontSize: 10 }} />
           </Button>
         </Dropdown>
-        <Button
-          icon={<VerticalAlignBottomOutlined />}
-          type={follow ? "primary" : "default"}
-          onClick={() => setFollow((f) => !f)}
+        <Tooltip
+          title={
+            follow
+              ? "Following: the view stays on the newest line as output arrives. Click or scroll up to pause."
+              : "Paused: click to jump to the newest line and keep up with new output."
+          }
         >
-          Follow
-        </Button>
+          <Button
+            icon={<VerticalAlignBottomOutlined />}
+            type={follow ? "primary" : "default"}
+            onClick={() => setFollow((f) => !f)}
+          >
+            Follow
+          </Button>
+        </Tooltip>
         <Tooltip title="Clear — hides the current lines from this view. Container logs are not deleted.">
           <Button aria-label="Clear" icon={<ClearOutlined />} onClick={clear} disabled={!visible.length} />
         </Tooltip>
@@ -344,7 +464,7 @@ export default function LogsTab({ ctr }: TabProps) {
       <div className="toolbar" style={{ marginTop: 10 }}>
         <span className="dim" style={{ fontSize: 12 }}>
           {rows.length} lines{filtered ? ` (filtered from ${visible.length})` : ""}
-          {timestamps ? ` · times in ${LOCAL_TZ} (UTC${TZ_OFFSET})` : ""}
+          {zone ? ` · times in UTC${zoneOffset(zone)}${zoneCities(stamps, zone)}` : ""}
           {buffer.current.length >= MAX_LINES - DROP_CHUNK ? ` · keeping the newest ${MAX_LINES} lines` : ""}
         </span>
         <span className="spacer" />

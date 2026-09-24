@@ -1,5 +1,5 @@
-import { MoreOutlined } from "@ant-design/icons";
-import { Button, Dropdown, type MenuProps, Tooltip } from "antd";
+import { CopyOutlined, MoreOutlined } from "@ant-design/icons";
+import { App, Button, Dropdown, type MenuProps, Tooltip } from "antd";
 import type { ReactNode } from "react";
 import whale from "../assets/whale.png";
 
@@ -85,6 +85,26 @@ export function Pill({
     >
       {children}
     </span>
+  );
+}
+
+export function CopyButton({ text, what }: { text: string; what: string }) {
+  const { message } = App.useApp();
+  return (
+    <Tooltip title={`Copy ${what.toLowerCase()}`}>
+      <Button
+        type="text"
+        size="small"
+        aria-label={`Copy ${what.toLowerCase()}`}
+        icon={<CopyOutlined />}
+        onClick={() =>
+          void navigator.clipboard.writeText(text).then(
+            () => message.success(`${what} copied`),
+            () => message.error("Clipboard unavailable"),
+          )
+        }
+      />
+    </Tooltip>
   );
 }
 

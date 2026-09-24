@@ -11,6 +11,7 @@ import {
   SyncOutlined,
 } from "@ant-design/icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   App,
   Button,
@@ -26,7 +27,7 @@ import {
 import { formatDistanceToNow } from "date-fns";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { MetricCard, Mono, RowActions, StateDot } from "../../components/ui";
+import { CopyButton, MetricCard, Mono, RowActions, StateDot } from "../../components/ui";
 import { queryKeys } from "../../lib/queryClient";
 import type { ContainerActionKind } from "../../services/tauriApi";
 import { containerAction, getSystemInfo, listContainerStats, listContainers } from "../../services/tauriApi";
@@ -34,7 +35,9 @@ import {
   type ContainerStats,
   type ContainerSummary,
   formatBytes,
+  type PortMapping,
   portLabel,
+  portUrl,
   shortId,
 } from "../../types/docker";
 
@@ -62,6 +65,15 @@ type ComposeGroupRow = { kind: "group"; key: string; project: string; children: 
 type Row = ContainerRow | ComposeGroupRow;
 
 const STATS_INTERVAL_MS = 2_000;
+
+/** Docker lists a binding once for IPv4 and once for IPv6; show it once. */
+function uniquePorts(ports: PortMapping[]): PortMapping[] {
+  return ports.filter(
+    (port) =>
+      port.ip !== "::" ||
+      !ports.some((p) => p.ip === "0.0.0.0" && p.publicPort === port.publicPort && p.type === port.type),
+  );
+}
 
 export default function ContainerListPage() {
   const { modal, message } = App.useApp();
@@ -221,7 +233,7 @@ export default function ContainerListPage() {
 
   const runBatch = (action: ActionKind) => {
     const ids = eligibleIds(action);
-    ids.forEach((id) => runAction(id, action));
+    for (const id of ids) runAction(id, action);
     // Remove drops the rows; other actions keep the selection for follow-ups.
     if (action === "remove") setSelected([]);
   };
@@ -298,15 +310,32 @@ export default function ContainerListPage() {
       render: (_, row) =>
         row.kind === "group" ? (
           <span className="mono dim">
-            {row.children.reduce((sum, child) => sum + child.ports.length, 0)} port mappings
+            {row.children.reduce((sum, child) => sum + uniquePorts(child.ports).length, 0)} port mappings
           </span>
         ) : row.ports.length ? (
           <div style={{ display: "flex", flexDirection: "column" }}>
-            {row.ports.map((port) => (
-              <span key={portLabel(port)} className="mono dim">
-                {portLabel(port)}
-              </span>
-            ))}
+            {uniquePorts(row.ports).map((port) => {
+              if (!port.publicPort || port.type !== "tcp") {
+                return (
+                  <span key={portLabel(port)} className="mono dim">
+                    {portLabel(port)}
+                  </span>
+                );
+              }
+              const url = portUrl(port.publicPort, port.privatePort);
+              return (
+                <span key={portLabel(port)} className="mono dim port-row">
+                  <Tooltip title={`Open ${url} in the browser`}>
+                    <button type="button" className="port-link" onClick={() => void openUrl(url)}>
+                      localhost:{port.publicPort}
+                    </button>
+                  </Tooltip>
+                  {" → "}
+                  {port.privatePort}/{port.type}
+                  <CopyButton text={url} what="URL" />
+                </span>
+              );
+            })}
           </div>
         ) : (
           <span className="dim">—</span>

@@ -1,6 +1,16 @@
 import { CopyOutlined, DownloadOutlined, InfoCircleOutlined } from "@ant-design/icons";
 import { useQuery } from "@tanstack/react-query";
-import { Button, Descriptions, type DescriptionsProps, Empty, Segmented, Spin, Table, Tooltip } from "antd";
+import {
+  Button,
+  Descriptions,
+  type DescriptionsProps,
+  Empty,
+  Segmented,
+  Spin,
+  Switch,
+  Table,
+  Tooltip,
+} from "antd";
 import { format } from "date-fns";
 import { useMemo, useState } from "react";
 import { z } from "zod";
@@ -29,6 +39,7 @@ export default function ImageTab({ ctr, image, onCopy }: TabProps) {
   const { section, allClosed, toggleAll } = useSections("image.sections", IMAGE_SECTIONS);
   const [view, setView] = usePersistentState("image.view", View, "dockerfile");
   const [layersStyle, setLayersStyle] = usePersistentState("image.layers", LayersStyle, "table");
+  const [wrap, setWrap] = usePersistentState("image.wrap", z.boolean(), false);
   const [expanded, setExpanded] = useState<string[]>([]);
   const save = useSaveFile();
 
@@ -209,6 +220,10 @@ export default function ImageTab({ ctr, image, onCopy }: TabProps) {
           <span className="spacer" />
           {view === "dockerfile" || layersStyle === "raw" ? (
             <>
+              <span className="switch-label" style={{ marginRight: 4 }}>
+                <Switch size="small" checked={wrap} onChange={setWrap} />
+                <span className="dim">Wrap</span>
+              </span>
               <Tooltip title="Copy">
                 <Button
                   aria-label="Copy"
@@ -237,11 +252,11 @@ export default function ImageTab({ ctr, image, onCopy }: TabProps) {
           <Empty description={history.error?.message ?? "No layer history available"} />
         ) : view === "dockerfile" ? (
           <div className="df-view">
-            <CodeView value={dockerfile} language="dockerfile" />
+            <CodeView value={dockerfile} language="dockerfile" wrap={wrap} />
           </div>
         ) : layersStyle === "raw" ? (
           <div className="df-view">
-            <CodeView value={raw} language={null} />
+            <CodeView value={raw} language={null} lineNumbers={false} wrap={wrap} />
           </div>
         ) : (
           <Table<LayerHistoryItem>

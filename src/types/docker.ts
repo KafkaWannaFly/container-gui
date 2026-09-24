@@ -311,6 +311,12 @@ export function portLabel(port: PortMapping): string {
   return `${port.privatePort}/${proto}`;
 }
 
+/** Browser URL for a published TCP port; https when the container side is a TLS port. */
+export function portUrl(hostPort: number | string, containerPort: number | string): string {
+  const scheme = String(containerPort) === "443" || String(containerPort) === "8443" ? "https" : "http";
+  return `${scheme}://localhost:${hostPort}`;
+}
+
 export function shortId(id: string): string {
   return id.replace(/^sha256:/, "").slice(0, 12);
 }
