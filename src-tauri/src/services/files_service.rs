@@ -319,7 +319,11 @@ async fn list_dir_archive(
             listed.push(FsEntryDto {
                 name: child.to_string(),
                 kind: kind.to_string(),
-                size: if kind == "file" { entry.effective_size() } else { 0 },
+                size: if kind == "file" {
+                    entry.effective_size()
+                } else {
+                    0
+                },
                 mode: mode_string(header.mode().unwrap_or(0), kind),
                 owner: match header.username() {
                     Ok(Some(user)) if !user.is_empty() => user.to_string(),
