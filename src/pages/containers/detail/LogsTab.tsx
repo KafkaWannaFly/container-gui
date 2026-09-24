@@ -386,7 +386,7 @@ export default function LogsTab({ ctr }: TabProps) {
           }}
         >
           <Button icon={<EyeOutlined />}>
-            Display <DownOutlined style={{ fontSize: 10 }} />
+            Display <DownOutlined style={{ fontSize: 12 }} />
           </Button>
         </Dropdown>
         <Tooltip

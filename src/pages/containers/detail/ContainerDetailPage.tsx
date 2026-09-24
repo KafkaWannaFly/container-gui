@@ -84,39 +84,64 @@ function HeaderStats({ ctr, stats }: { ctr: ContainerInspect; stats: ContainerLi
   const pids = pidsLimit(ctr);
   const memLimit = ctr.HostConfig?.Memory || stats?.memoryLimit || 0;
   const memPct = stats && memLimit ? ((stats.memoryUsage / memLimit) * 100).toFixed(1) : null;
-  const cells: { k: string; v: ReactNode; small?: ReactNode }[] = [
+  // cpuPercent is docker-stats style: 100% = one full core.
+  const cpuUsed = stats ? stats.cpuPercent / 100 : null;
+  const cpuCap = cores ?? stats?.onlineCpus ?? 0;
+  const cpuPct = cpuUsed !== null && cpuCap ? ((cpuUsed / cpuCap) * 100).toFixed(1) : null;
+  const cells: { k: string; v: ReactNode; small?: ReactNode; tip: string }[] = [
     {
       k: "CPU",
-      v: stats ? `${stats.cpuPercent.toFixed(1)}%` : "—",
-      small: cores ? `/ ${cores.toFixed(2)} cpus` : stats ? `/ ${stats.onlineCpus} cpus` : null,
+      v: cpuUsed !== null ? `${cpuUsed.toFixed(2)} cpus` : "—",
+      small: cpuPct ? `${cpuPct}% of ${cores ? cores.toFixed(2) : cpuCap} cpus` : null,
+      tip: cores
+        ? "CPU cores in use right now, out of the container's CPU limit."
+        : "CPU cores in use right now, out of all host cores (no CPU limit set).",
     },
     {
       k: "Memory",
       v: stats ? formatBytes(stats.memoryUsage) : "—",
       small: memPct ? `${memPct}% of ${formatBytes(memLimit)}` : null,
+      tip: ctr.HostConfig?.Memory
+        ? "Memory in use (excluding file cache), out of the container's memory limit."
+        : "Memory in use (excluding file cache), out of total host memory (no memory limit set).",
     },
-    { k: "Network I/O", v: stats ? `${formatBytes(stats.netRx)} / ${formatBytes(stats.netTx)}` : "— / —" },
+    {
+      k: "Network I/O",
+      v: stats ? `${formatBytes(stats.netRx)} / ${formatBytes(stats.netTx)}` : "— / —",
+      tip: "Total data received / sent over the network since the container started.",
+    },
     {
       k: "Block I/O",
       v: stats ? `${formatBytes(stats.blockRead)} / ${formatBytes(stats.blockWrite)}` : "— / —",
+      tip: "Total data read from / written to disk since the container started.",
     },
-    { k: "PIDs", v: stats ? stats.pids : "—", small: pids ? `/ ${pids}` : null },
+    {
+      k: "PIDs",
+      v: stats ? stats.pids : "—",
+      small: pids ? `/ ${pids}` : null,
+      tip: pids
+        ? "Processes and threads running inside the container, out of its PID limit."
+        : "Processes and threads running inside the container (no PID limit set).",
+    },
     {
       k: "Restarts",
       v: ctr.RestartCount ?? 0,
       small: ctr.HostConfig?.RestartPolicy?.Name || "no",
+      tip: "Times Docker has automatically restarted this container, and its restart policy.",
     },
   ];
   return (
     <div className="stats">
       {cells.map((cell) => (
-        <div className="stat" key={cell.k}>
-          <div className="k">{cell.k}</div>
-          <div className="v">
-            {cell.v}
-            {cell.small ? <small>{cell.small}</small> : null}
+        <Tooltip key={cell.k} title={cell.tip} mouseEnterDelay={0.3}>
+          <div className="stat">
+            <div className="k">{cell.k}</div>
+            <div className="v">
+              {cell.v}
+              {cell.small ? <small>{cell.small}</small> : null}
+            </div>
           </div>
-        </div>
+        </Tooltip>
       ))}
     </div>
   );

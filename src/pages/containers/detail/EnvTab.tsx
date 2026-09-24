@@ -94,7 +94,7 @@ export default function EnvTab({ ctr, image, onCopy }: TabProps) {
         <v.icon style={{ color: view === v.key ? "var(--lime)" : "var(--ash)", fontSize: 13 }} />
         <span className="nm">{v.label}</span>
         {view === v.key ? (
-          <CheckOutlined style={{ color: "var(--lime)", fontSize: 11 }} />
+          <CheckOutlined style={{ color: "var(--lime)", fontSize: 12 }} />
         ) : (
           <span style={{ width: 11 }} />
         )}
@@ -155,7 +155,7 @@ export default function EnvTab({ ctr, image, onCopy }: TabProps) {
         </Button>
         <Dropdown menu={{ items: viewItems }} trigger={["click"]} placement="bottomRight">
           <Button>
-            View as: {VIEWS.find((v) => v.key === view)?.label} <DownOutlined style={{ fontSize: 10 }} />
+            View as: {VIEWS.find((v) => v.key === view)?.label} <DownOutlined style={{ fontSize: 12 }} />
           </Button>
         </Dropdown>
       </div>
