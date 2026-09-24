@@ -28,12 +28,12 @@ dev:
 ## The last two share a compose project group (`com.docker.compose.project`).
 up:
 	docker run -d --name cgui-sample-bare alpine sleep infinity
-	docker compose up -d
+	docker compose -f test-data/compose.yaml up -d
 
 ## Remove the sample containers and volumes created by `up`.
 down:
 	-docker rm -f cgui-sample-bare
-	-docker compose down -v
+	-docker compose -f test-data/compose.yaml down -v
 
 ## Type-check/build the frontend and run backend tests in parallel.
 test:

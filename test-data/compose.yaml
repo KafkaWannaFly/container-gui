@@ -1,5 +1,7 @@
-# Sample compose group for `make up`. Project name = directory name,
-# so both services share the com.docker.compose.project label.
+# Sample compose group for `make up`. The project name is pinned so both
+# services share the com.docker.compose.project label regardless of folder.
+name: container-gui
+
 services:
   one-volume-one-port:
     image: nginx:alpine
