@@ -1,0 +1,1663 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Container GUI — Compose group detail</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300..700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/antd@5/dist/reset.css">
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/htm@3/dist/htm.umd.js"></script>
+<script src="https://unpkg.com/dayjs@1/dayjs.min.js"></script>
+<script src="https://unpkg.com/antd@5/dist/antd.min.js"></script>
+<script src="https://unpkg.com/@ant-design/icons@5/dist/index.umd.js"></script>
+<style>
+  :root{
+    --void:#08090a; --carbon:#0f1011; --obsidian:#161718; --graphite:#23252a; --smoke:#383b3f;
+    --ash:#62666d; --fog:#8a8f98; --mist:#d0d6e0; --bone:#e5e5e6; --paper:#fff;
+    --lime:#e4f222; --green:#27a644; --coral:#eb5757; --teal:#02b8cc; --violet:#6366f1; --lav:#8b5cf6;
+    --amber:#d9a441;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    background:var(--void); color:var(--mist);
+    font-family:'Inter',system-ui,-apple-system,sans-serif;
+    font-feature-settings:'cv01' 1,'ss03' 1,'zero' 1;
+    -webkit-font-smoothing:antialiased; font-size:14px;
+  }
+  .mono{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;letter-spacing:-.013em}
+  .app{display:flex;min-height:100vh}
+  .side{
+    width:224px;flex:0 0 224px;height:100vh;position:sticky;top:0;
+    background:var(--carbon);border-right:1px solid var(--graphite);
+    padding:14px 10px;display:flex;flex-direction:column;gap:2px;
+  }
+  .brand{display:flex;align-items:center;gap:9px;padding:6px 8px 14px;color:var(--paper);font-weight:510;font-size:15px;letter-spacing:-.011em}
+  .brand svg{display:block}
+  .nav-item{
+    display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:6px;
+    color:var(--mist);font-size:13px;cursor:pointer;border:1px solid transparent;user-select:none;
+  }
+  .nav-item:hover{background:var(--obsidian)}
+  .nav-item.active{background:var(--obsidian);border-color:var(--graphite);color:var(--paper)}
+  .side-foot{margin-top:auto;padding:10px 8px 2px;border-top:1px solid var(--graphite);color:var(--ash);display:flex;justify-content:space-between;align-items:center}
+  .main{flex:1;min-width:0;display:flex;flex-direction:column}
+
+  /* ---- detail header ---- */
+  .head{
+    position:sticky;top:0;z-index:5;background:var(--void);
+    border-bottom:1px solid var(--graphite);padding:16px 24px 0;
+  }
+  .crumbs{display:flex;align-items:center;gap:6px;color:var(--ash);font-size:12px;margin-bottom:10px}
+  .crumbs .link{cursor:pointer}
+  .crumbs .link:hover{color:var(--mist)}
+  .head-row{display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap}
+  .title{display:flex;align-items:center;gap:10px;font-size:20px;font-weight:510;color:var(--paper);letter-spacing:-.014em;white-space:nowrap;flex-wrap:wrap}
+  .sub{display:flex;align-items:center;gap:10px;margin-top:6px;flex-wrap:wrap}
+  .copyable{display:inline-flex;align-items:center;gap:6px;cursor:pointer;color:var(--ash)}
+  .copyable:hover{color:var(--mist)}
+  .stats{display:flex;gap:28px;flex-wrap:wrap;padding:14px 0 12px}
+  .stat .k{font-size:12px;color:var(--ash);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px}
+  .stat .v{font-size:15px;color:var(--bone);font-family:'JetBrains Mono',ui-monospace,monospace;letter-spacing:-.013em}
+  .stat .v small{font-size:12px;color:var(--ash);margin-left:5px}
+  .run-bar{display:flex;gap:2px;margin-top:6px}
+  .run-bar span{width:14px;height:4px;border-radius:2px}
+
+  /* ---- body ---- */
+  .page{padding:20px 24px 28px;max-width:1200px;width:100%;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+  .card{background:var(--carbon);border:1px solid var(--graphite);border-radius:12px;padding:16px}
+  .card-head{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+  .section-title{font-size:12px;color:var(--fog);text-transform:uppercase;letter-spacing:.06em;margin:0}
+  .sec-head{cursor:pointer;user-select:none;border-radius:4px}
+  .sec-head.closed{margin-bottom:0}
+  .sec-head:hover .section-title{color:var(--mist)}
+  .sec-head:focus-visible{outline:1px solid var(--smoke);outline-offset:4px}
+  .sec-chev{font-size:12px;color:var(--ash);transition:transform .15s}
+  .toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .toolbar .spacer{flex:1}
+  .muted{color:var(--fog)}
+  .dim{color:var(--ash)}
+  .fs12{font-size:12px}
+  .row-flex{display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap}
+
+  /* ---- dependency graph ---- */
+  .dag-wrap{overflow:auto;padding:4px 2px 2px}
+  .dag{position:relative;margin:0 auto}
+  .dag svg{position:absolute;inset:0;overflow:visible}
+  .dag-node{
+    position:absolute;display:flex;flex-direction:column;justify-content:center;gap:2px;
+    background:var(--obsidian);border:1px solid var(--graphite);border-radius:6px;padding:0 10px;cursor:pointer;
+    transition:border-color .12s, opacity .12s;
+  }
+  .dag-node:hover, .dag-node.on{border-color:var(--smoke)}
+  .dag-node.off{opacity:.45}
+  .dag-node .nm{display:flex;align-items:center;gap:8px;color:var(--paper);font-size:13px}
+  .dag-col-h{position:absolute;top:-2px;font-size:12px;color:var(--ash);text-transform:uppercase;letter-spacing:.06em}
+
+  /* ---- logs ---- */
+  pre.logs{
+    margin:0;background:var(--void);border:1px solid var(--graphite);border-radius:8px;
+    padding:12px 0;height:calc(100vh - 470px);min-height:320px;overflow:auto;color:var(--mist);
+    font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;line-height:1.75;letter-spacing:-.013em;
+  }
+  .lg-row{padding:0 12px;display:flex;gap:10px}
+  .lg-row > .msg{flex:1;min-width:0}
+  .lg-ts{color:var(--ash);cursor:pointer;flex:0 0 auto}
+  .lg-ts:hover{color:var(--mist);text-decoration:underline}
+  .lg-tag{flex:0 0 92px;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-left:2px solid;padding-left:8px}
+  .lg-tag:hover{text-decoration:underline}
+  .lg-lvl{flex:0 0 46px}
+  .lg-error{color:var(--coral)}
+  .lg-warn{color:var(--amber)}
+  .lg-info{color:var(--mist)}
+  .lg-debug{color:var(--ash)}
+  .lg-event{color:var(--fog);background:rgba(255,255,255,.025)}
+  .lg-event .msg{font-style:italic}
+  .lg-near{background:rgba(2,184,204,.07)}
+  .lg-anchor{background:rgba(2,184,204,.16)}
+  .hl{background:rgba(228,242,34,.22);color:var(--paper);border-radius:2px}
+  .lg-split{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(360px,1fr);gap:8px;overflow-x:auto;padding-bottom:4px}
+  .lg-col{display:flex;flex-direction:column;min-width:0;background:var(--void);border:1px solid var(--graphite);border-radius:8px;overflow:hidden}
+  .lg-col-h{display:flex;align-items:center;gap:8px;padding:4px 6px 4px 12px;border-bottom:1px solid var(--graphite);font-size:13px;white-space:nowrap}
+  .lg-col pre.logs{border:0;border-radius:0;height:calc(100vh - 506px)}
+  .lg-col-h .nm{overflow:hidden;text-overflow:ellipsis;min-width:0}
+  .lg-col-h .opts{display:inline-flex;gap:2px;flex:none}
+  .lg-col-h .opts .ant-btn{color:var(--ash)}
+  .lg-col-h .opts .ant-btn.on{color:var(--lime)}
+
+  /* ---- scaling, profiles, impact ---- */
+  .stepper{display:inline-flex;align-items:center;gap:2px;border:1px solid var(--graphite);border-radius:6px;padding:0 2px;margin-left:4px}
+  .stepper .mono{min-width:22px;text-align:center;color:var(--bone)}
+  .stepper .ant-btn{height:20px;width:20px;min-width:20px}
+  .inactive{margin-top:12px;padding-top:10px;border-top:1px dashed var(--graphite)}
+  .inactive-row{display:flex;align-items:center;gap:8px;padding:6px 12px;border-radius:6px}
+  .inactive-row:hover{background:var(--obsidian)}
+  .impact{border:1px solid var(--graphite);border-radius:6px;padding:4px 0}
+  .impact-row{display:flex;align-items:center;gap:8px;padding:4px 8px}
+  .chip{
+    display:inline-flex;align-items:center;gap:7px;height:26px;padding:0 10px;border-radius:9999px;cursor:pointer;
+    border:1px solid var(--graphite);background:rgba(255,255,255,.03);color:var(--mist);font-size:12px;user-select:none;
+  }
+  .chip:hover{border-color:var(--smoke)}
+  .chip.off{color:var(--ash);background:transparent}
+  .chip.off .dot{background:transparent !important}
+  .chip .dot{width:8px;height:8px;border-radius:99px;border:2px solid}
+  .chip .n{color:var(--ash)}
+  .chip .dots{display:inline-flex;gap:3px}
+  .chip .dots i{width:6px;height:6px;border-radius:99px}
+  .ctr-pick{background:var(--obsidian);border:1px solid var(--graphite);border-radius:8px;padding:4px;min-width:280px;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+  .ctr-pick-row{display:flex;align-items:center;gap:8px;height:30px;padding:0 8px;border-radius:6px;cursor:pointer;font-size:13px;color:var(--mist);user-select:none}
+  .ctr-pick-row .ant-checkbox-wrapper{pointer-events:none}
+  .ctr-pick-row:hover{background:rgba(255,255,255,.04)}
+  .ctr-pick-row .dot{width:8px;height:8px;border-radius:99px;flex:none}
+  .ctr-pick-row .n{margin-left:auto;color:var(--ash)}
+  .ctr-pick-row .only{font-size:12px;color:var(--ash);visibility:hidden;padding:0 2px}
+  .ctr-pick-row .only:hover{color:var(--paper)}
+  .ctr-pick-row:hover .only{visibility:visible}
+  .ctr-pick-sep{height:1px;background:var(--graphite);margin:4px 0}
+
+  /* ---- env ---- */
+  .env-val{display:inline-block;max-width:520px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}
+  .mx-val{display:inline-block;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}
+  .mx-odd{color:var(--amber)}
+
+  /* ---- code views ---- */
+  .code-box{background:var(--void);border:1px solid var(--graphite);border-radius:8px;max-height:calc(100vh - 470px);min-height:280px;overflow:auto}
+  .code{padding:10px 0;color:var(--mist);font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12px;line-height:1.75;letter-spacing:-.013em;width:max-content;min-width:100%}
+  .ln{display:flex}
+  .ln:hover .t{background:rgba(255,255,255,.02)}
+  .ln .n{flex:0 0 52px;position:sticky;left:0;background:var(--void);padding-right:14px;text-align:right;color:var(--smoke);user-select:none}
+  .ln .t{flex:1;min-width:0;padding-right:16px;white-space:pre}
+  .ln.drift .t{background:rgba(217,164,65,.12)}
+  .ln.drift .n{color:var(--amber)}
+  .y-k{color:var(--paper)}
+  .y-c{color:var(--ash)}
+
+  .ant-table-wrapper .ant-table{background:transparent}
+  .ant-table-tbody > tr > td{border-bottom:1px solid var(--graphite) !important}
+  .svc-table .ant-table-tbody > tr{cursor:pointer}
+  .svc-table .row-act{opacity:.35;transition:opacity .12s}
+  .svc-table tr:hover .row-act, .svc-table tr:focus-within .row-act{opacity:1}
+  .svc-table tr.flash > td{background:rgba(228,242,34,.06) !important}
+  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar-thumb{background:var(--graphite);border-radius:99px;border:3px solid var(--void)}
+  ::-webkit-scrollbar-track{background:transparent}
+  ::-webkit-scrollbar-corner{background:transparent}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+const { useState, useMemo, useRef, useEffect } = React;
+const html = htm.bind(React.createElement);
+const {
+  ConfigProvider, theme, App: AntApp,
+  Table, Button, Input, Descriptions, Tabs, Select, Switch,
+  Segmented, Dropdown, Empty, Tooltip, Checkbox,
+} = antd;
+
+const {
+  MoreOutlined, PlayCircleOutlined, PauseCircleOutlined, ReloadOutlined,
+  DeleteOutlined, CopyOutlined, ArrowLeftOutlined, SearchOutlined,
+  DownloadOutlined, ClearOutlined, CodeOutlined, FileTextOutlined,
+  InfoCircleOutlined, EyeOutlined, EyeInvisibleOutlined, SettingOutlined,
+  ContainerOutlined, PictureOutlined, HddOutlined, VerticalAlignBottomOutlined,
+  ExportOutlined, PoweroffOutlined, FolderOutlined, FolderOpenOutlined,
+  RightOutlined, ColumnHeightOutlined, VerticalAlignMiddleOutlined,
+  WarningOutlined, CloseCircleOutlined, CloudDownloadOutlined, SyncOutlined,
+  ApartmentOutlined, EditOutlined, CheckCircleOutlined, BuildOutlined, DiffOutlined,
+  MinusOutlined, PlusOutlined, RiseOutlined, DisconnectOutlined, UnorderedListOutlined,
+  ColumnWidthOutlined, CloseOutlined, CaretRightOutlined, ClockCircleOutlined, EnterOutlined, DownOutlined,
+} = window.icons;
+
+/* ---------- Linear theme tokens (shared with index.html) ---------- */
+const themeCfg = {
+  algorithm: theme.darkAlgorithm,
+  token: {
+    colorBgBase: '#08090a',
+    colorBgContainer: '#0f1011',
+    colorBgElevated: '#161718',
+    colorBorder: '#23252a',
+    colorBorderSecondary: '#23252a',
+    colorText: '#d0d6e0',
+    colorTextSecondary: '#8a8f98',
+    colorTextTertiary: '#62666d',
+    colorPrimary: '#e4f222',
+    colorTextLightSolid: '#08090a',
+    colorError: '#eb5757',
+    colorSuccess: '#27a644',
+    colorWarning: '#d9a441',
+    colorInfo: '#02b8cc',
+    borderRadius: 6,
+    borderRadiusLG: 12,
+    fontFamily: "'Inter',system-ui,-apple-system,sans-serif",
+    fontSize: 13,
+    controlHeight: 32,
+    controlHeightSM: 26,
+    lineHeight: 1.5,
+    wireframe: false,
+  },
+  components: {
+    Button: { primaryShadow: 'none', defaultBg: 'transparent', defaultBorderColor: '#23252a', fontWeight: 400, paddingInline: 12 },
+    Table: {
+      headerBg: '#0f1011', headerColor: '#8a8f98', headerSplitColor: 'transparent',
+      rowHoverBg: '#161718', borderColor: '#23252a', headerBorderRadius: 8,
+      cellPaddingBlock: 9, cellPaddingInline: 12,
+    },
+    Input: { colorBgContainer: 'rgba(255,255,255,0.02)', activeBorderColor: '#d0d6e0', hoverBorderColor: '#383b3f', activeShadow: 'none' },
+    Select: { colorBgContainer: 'rgba(255,255,255,0.02)', optionSelectedBg: '#23252a' },
+    Descriptions: { labelBg: 'transparent', titleColor: '#ffffff' },
+    Tabs: { itemColor: '#8a8f98', itemSelectedColor: '#ffffff', inkBarColor: '#e4f222', horizontalItemGutter: 24 },
+    Segmented: { itemSelectedBg: '#23252a', itemColor: '#8a8f98', itemSelectedColor: '#ffffff' },
+    Tooltip: { colorBgSpotlight: '#23252a', colorTextLightSolid: '#e5e5e6' },
+  },
+};
+
+/* ---------- primitives ---------- */
+const Mono = ({ children }) => html`<span className="mono">${children}</span>`;
+
+const STATE_COLOR = { running: '#27a644', exited: '#eb5757', paused: '#d9a441', created: '#8a8f98', restarting: '#02b8cc', partial: '#d9a441' };
+
+function StateDot({ state, size }) {
+  const color = STATE_COLOR[state] || '#8a8f98';
+  const s = size || 8;
+  return html`<span title=${state} style=${{
+    display: 'inline-block', width: s, height: s, borderRadius: 99, background: color,
+    boxShadow: `0 0 0 3px ${color}22`, flex: '0 0 auto',
+  }}></span>`;
+}
+
+function Pill({ children, tone }) {
+  const tones = {
+    green: ['rgba(39,166,68,.13)', '#27a644'],
+    coral: ['rgba(235,87,87,.12)', '#eb5757'],
+    amber: ['rgba(217,164,65,.14)', '#d9a441'],
+    violet: ['rgba(99,102,241,.16)', '#8b93ff'],
+    lav: ['rgba(139,92,246,.16)', '#b79bff'],
+    teal: ['rgba(2,184,204,.13)', '#02b8cc'],
+    neutral: ['rgba(255,255,255,.05)', '#8a8f98'],
+  };
+  const [bg, fg] = tones[tone || 'neutral'];
+  return html`<span style=${{
+    display: 'inline-block', padding: '0 6px', borderRadius: 4, fontSize: 12, lineHeight: '18px', whiteSpace: 'nowrap',
+    background: bg, color: fg, fontFamily: "'JetBrains Mono',ui-monospace,monospace", letterSpacing: '-.013em',
+  }}>${children}</span>`;
+}
+
+const Glyph = () => html`<svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+  <rect x="1" y="4.5" width="16" height="4" rx="1.4" fill="#e4f222"/>
+  <rect x="1" y="9.5" width="16" height="4" rx="1.4" fill="#62666d"/>
+</svg>`;
+
+/* stop header clicks when a button inside a collapsible section header is used */
+const stop = fn => e => { e.stopPropagation(); fn && fn(e); };
+
+/* ---------- mock project ---------- */
+const PROJECT = {
+  name: 'shop',
+  workdir: '/home/kafka/dev/shop',
+  files: ['compose.yaml', 'compose.override.yaml'],
+  envFile: '.env',
+  profiles: [],
+  composeVersion: 'v2.29.7',
+  created: '2026-09-14 09:12:40',
+  configHash: '4be1c09a7d3f',
+};
+
+/* service → colour used for log tags, chips and graph accents; coral stays reserved for errors */
+const SVC_COLOR = {
+  gateway: '#02b8cc', api: '#8b93ff', worker: '#27a644', postgres: '#b79bff', redis: '#d9a441',
+  adminer: '#e5e5e6', pgbackup: '#8a8f98', mailer: '#62666d',
+};
+
+/* services gated behind a profile only exist while that profile is active */
+const SERVICES = [
+  { name: 'gateway', deps: [{ on: 'api', cond: 'healthy' }] },
+  { name: 'api', build: './api', deps: [{ on: 'postgres', cond: 'healthy' }, { on: 'redis', cond: 'started' }] },
+  { name: 'worker', scalable: true, deps: [{ on: 'postgres', cond: 'healthy' }, { on: 'redis', cond: 'started' }] },
+  { name: 'postgres', deps: [] },
+  { name: 'redis', deps: [] },
+  { name: 'adminer', profile: 'tools', deps: [{ on: 'postgres', cond: 'started' }] },
+  { name: 'pgbackup', profile: 'ops', deps: [{ on: 'postgres', cond: 'healthy' }] },
+];
+
+const PROFILES = [
+  { name: 'tools', services: ['adminer'], desc: 'Database admin UI on :8081' },
+  { name: 'ops', services: ['pgbackup'], desc: 'Nightly pg_dump into ./backups' },
+];
+
+const PROFILE_CTRS = {
+  adminer: { key: 'adminer', service: 'adminer', label: 'adminer', name: 'shop-adminer-1', id: '61c0d9e3a8f5', image: 'adminer:4', state: 'running',
+    health: null, ports: [['0.0.0.0:8081', '8080/tcp', 'http://localhost:8081']], cpu: 0.1, mem: 18, net: [0, 0], uptime: 'a few seconds', restarts: 0, shell: '/bin/sh' },
+  pgbackup: { key: 'pgbackup', service: 'pgbackup', label: 'pgbackup', name: 'shop-pgbackup-1', id: '0b7e4c19d2a6', image: 'prodrigestivill/postgres-backup-local:16', state: 'running',
+    health: null, ports: [], cpu: 0.1, mem: 30, net: [0, 0], uptime: 'a few seconds', restarts: 0, shell: '/bin/sh' },
+};
+
+/* a worker replica created by scaling up */
+const workerReplica = n => ({
+  key: `worker-${n}`, service: 'worker', replica: n, label: `worker-${n}`, name: `shop-worker-${n}`,
+  id: (0x5a3c10e7b200 + n * 7919).toString(16), image: 'ghcr.io/acme/worker:2.4.1', state: 'running',
+  health: null, ports: [], cpu: 1.2, mem: 74, net: [0, 0], uptime: 'a few seconds', restarts: 0, shell: '/bin/sh', fresh: true,
+});
+
+const BASE_CTRS = [
+  { key: 'gateway', service: 'gateway', label: 'gateway', name: 'api-gateway', id: 'a91f3c2d8e04', image: 'nginx:alpine', state: 'running',
+    health: 'healthy', ports: [['0.0.0.0:8080', '80/tcp', 'http://localhost:8080'], ['0.0.0.0:8443', '443/tcp', 'https://localhost:8443']],
+    cpu: 0.8, mem: 42, net: [1.2, 0.84], uptime: '4d 6h', restarts: 1, shell: '/bin/sh' },
+  { key: 'api', service: 'api', label: 'api', name: 'api-core', id: 'c7e2019ab4d3', image: 'shop/api:dev', state: 'running',
+    health: 'healthy', ports: [['', '3000/tcp']], cpu: 3.1, mem: 164, net: [4.8, 3.1], uptime: '4d 6h', restarts: 0, shell: '/bin/bash',
+    drift: { key: 'environment.LOG_LEVEL', from: 'info', to: 'debug' } },
+  { key: 'worker-1', service: 'worker', replica: 1, label: 'worker-1', name: 'shop-worker-1', id: 'e0a4c7d912bb', image: 'ghcr.io/acme/worker:2.4.1', state: 'exited',
+    exit: 1, health: null, ports: [], cpu: 0.4, mem: 96, net: [0, 0], uptime: 'a few seconds', down: 'exited (1) 6 min ago', restarts: 3, shell: '/bin/sh',
+    reason: 'OOM while serialising export (limit 256 MB) · restart limit on-failure:3 reached' },
+  { key: 'worker-2', service: 'worker', replica: 2, label: 'worker-2', name: 'shop-worker-2', id: '3fd81b0c6a27', image: 'ghcr.io/acme/worker:2.4.1', state: 'running',
+    health: null, ports: [], cpu: 1.6, mem: 118, net: [0.6, 0.4], uptime: '4d 6h', restarts: 0, shell: '/bin/sh' },
+  { key: 'postgres', service: 'postgres', label: 'postgres', name: 'postgres-main', id: '77bd10fe3311', image: 'postgres:16', state: 'running',
+    health: 'healthy', ports: [['0.0.0.0:5432', '5432/tcp', '']], cpu: 2.4, mem: 218, net: [2.2, 5.9], uptime: '4d 6h', restarts: 0, shell: '/bin/bash' },
+  { key: 'redis', service: 'redis', label: 'redis', name: 'redis-cache', id: 'b31e88a0c5f9', image: 'redis:7-alpine', state: 'paused',
+    health: null, ports: [['', '6379/tcp']], cpu: 0.2, mem: 11, net: [0.3, 0.2], uptime: '4d 6h', restarts: 0, shell: '/bin/sh' },
+  { key: 'mailer', service: 'mailer', label: 'mailer', name: 'shop-mailer-1', id: '9e61f0a2b7c4', image: 'axllent/mailpit:v1.20', state: 'running',
+    orphan: true, health: null, ports: [['0.0.0.0:8025', '8025/tcp', 'http://localhost:8025']], cpu: 0.1, mem: 24, net: [0.1, 0.1], uptime: '12d 3h', restarts: 0, shell: '/bin/sh' },
+];
+
+/* memory over the last 30 minutes, one sample per minute (MB); worker-2 creeps up */
+const TRENDS = (() => {
+  let seed = 7;
+  const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const flat = (base, jitter) => Array.from({ length: 30 }, () => Math.round(base + (rnd() - 0.5) * jitter));
+  return {
+    gateway: flat(42, 4), api: flat(160, 16), postgres: flat(216, 8), redis: flat(11, 1), mailer: flat(24, 2),
+    'worker-2': Array.from({ length: 30 }, (_, i) => Math.round(80 + i * 1.3 + (rnd() - 0.5) * 4)),
+  };
+})();
+
+const NETWORKS = [
+  { key: 'n1', name: 'shop_default', driver: 'bridge', subnet: '172.18.0.0/16', scope: 'project', services: ['gateway', 'api', 'worker', 'postgres', 'redis'] },
+  { key: 'n2', name: 'edge', driver: 'bridge', subnet: '172.20.0.0/16', scope: 'external', services: ['gateway'] },
+];
+
+const VOLUMES = [
+  { key: 'v1', type: 'volume', name: 'shop_pgdata', target: '/var/lib/postgresql/data', services: ['postgres'], size: '1.4 GB' },
+  { key: 'v2', type: 'volume', name: 'shop_redis-data', target: '/data', services: ['redis'], size: '6 MB' },
+  { key: 'v3', type: 'volume', name: 'shop_gateway-conf', target: '/etc/nginx/conf.d', services: ['gateway'], size: '12 kB' },
+  { key: 'v4', type: 'bind', name: './certs', target: '/etc/nginx/certs', services: ['gateway'], size: '—', ro: true },
+  { key: 'v5', type: 'bind', name: './api/src', target: '/app/src', services: ['api'], size: '—' },
+];
+
+/* short image IDs, one per service */
+const IMAGES = [
+  { service: 'gateway', id: '9c24e1b6a0f2' },
+  { service: 'api', id: '5d02aa71c3e9' },
+  { service: 'worker', id: 'aa10c9f3b1d4' },
+  { service: 'postgres', id: '71ab0f9e2c51' },
+  { service: 'redis', id: '2d80b4a6e7f0' },
+  { service: 'adminer', id: '1c9e0f7a3d28' },
+  { service: 'pgbackup', id: '4a7d2e0c9b13' },
+  { service: 'mailer', id: 'e3b50c81f6a9' },
+];
+
+/* ---------- env per container ---------- */
+const e = (k, v, src, secret) => ({ k, v, src, secret: !!secret });
+const NODE_PATH = '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin';
+const WORKER_ENV = id => [
+  e('NODE_ENV', 'production', 'compose'), e('LOG_LEVEL', 'debug', 'compose'),
+  e('DATABASE_URL', 'postgres://shop:s3cr3t-p4ss@postgres-main:5432/shop', 'compose', true),
+  e('REDIS_URL', 'redis://redis-cache:6379', 'compose'), e('QUEUE', 'orders', 'compose'), e('CONCURRENCY', '4', 'compose'),
+  e('TZ', 'UTC', 'compose'), e('NODE_VERSION', '20.17.0', 'image'), e('PATH', NODE_PATH, 'image'), e('HOSTNAME', id, 'runtime'),
+];
+const ENV = {
+  gateway: [
+    e('UPSTREAM_URL', 'http://api-core:3000', 'compose'), e('LOG_LEVEL', 'info', 'compose'), e('TZ', 'Europe/Berlin', 'compose'),
+    e('NGINX_VERSION', '1.27.1', 'image'), e('PKG_RELEASE', '1', 'image'), e('PATH', NODE_PATH, 'image'), e('HOSTNAME', 'a91f3c2d8e04', 'runtime'),
+  ],
+  api: [
+    e('NODE_ENV', 'production', 'compose'), e('PORT', '3000', 'compose'), e('LOG_LEVEL', 'info', 'compose'),
+    e('DATABASE_URL', 'postgres://shop:s3cr3t-p4ss@postgres-main:5432/shop?sslmode=disable', 'compose', true),
+    e('REDIS_URL', 'redis://redis-cache:6379', 'compose'), e('JWT_SIGNING_KEY', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.pr0t0type', 'compose', true),
+    e('TZ', 'Europe/Berlin', 'compose'), e('NODE_VERSION', '20.17.0', 'image'), e('PATH', NODE_PATH, 'image'), e('HOSTNAME', 'c7e2019ab4d3', 'runtime'),
+  ],
+  'worker-1': WORKER_ENV('e0a4c7d912bb'),
+  'worker-2': WORKER_ENV('3fd81b0c6a27'),
+  postgres: [
+    e('POSTGRES_USER', 'shop', 'compose'), e('POSTGRES_PASSWORD', 's3cr3t-p4ss', 'compose', true), e('POSTGRES_DB', 'shop', 'compose'),
+    e('TZ', 'Europe/Berlin', 'compose'), e('PGDATA', '/var/lib/postgresql/data', 'image'), e('PG_VERSION', '16.4', 'image'),
+    e('PATH', '/usr/lib/postgresql/16/bin:' + NODE_PATH, 'image'), e('HOSTNAME', '77bd10fe3311', 'runtime'),
+  ],
+  redis: [
+    e('REDIS_VERSION', '7.2.5', 'image'), e('REDIS_DOWNLOAD_SHA', '5981179706f8391f03be91d951acafaeda91af7fac56beffb2701963103e423d', 'image'),
+    e('PATH', NODE_PATH, 'image'), e('HOSTNAME', 'b31e88a0c5f9', 'runtime'),
+  ],
+  mailer: [
+    e('MP_SMTP_AUTH_ACCEPT_ANY', '1', 'compose'), e('TZ', 'Europe/Berlin', 'compose'),
+    e('PATH', NODE_PATH, 'image'), e('HOSTNAME', '9e61f0a2b7c4', 'runtime'),
+  ],
+  adminer: [
+    e('ADMINER_DEFAULT_SERVER', 'postgres-main', 'compose'), e('ADMINER_DESIGN', 'dracula', 'compose'),
+    e('PHP_VERSION', '8.3.11', 'image'), e('PATH', NODE_PATH, 'image'), e('HOSTNAME', '61c0d9e3a8f5', 'runtime'),
+  ],
+  pgbackup: [
+    e('POSTGRES_HOST', 'postgres-main', 'compose'), e('POSTGRES_DB', 'shop', 'compose'), e('POSTGRES_USER', 'shop', 'compose'),
+    e('POSTGRES_PASSWORD', 's3cr3t-p4ss', 'compose', true), e('SCHEDULE', '@daily', 'compose'), e('BACKUP_KEEP_DAYS', '7', 'compose'),
+    e('TZ', 'Europe/Berlin', 'compose'), e('PATH', NODE_PATH, 'image'), e('HOSTNAME', '0b7e4c19d2a6', 'runtime'),
+  ],
+};
+const envOf = c => ENV[c.key] || (c.service === 'worker' ? WORKER_ENV(c.id) : [e('HOSTNAME', c.id, 'runtime')]);
+
+/* ---------- merged logs: [ts, container, level, message]; level "event" = docker lifecycle event ---------- */
+const LOGS = [
+  ['2026-09-22T07:59:58.900Z', 'postgres', 'event', 'container started'],
+  ['2026-09-22T07:59:59.012Z', 'postgres', 'info', 'starting PostgreSQL 16.4 on x86_64-pc-linux-musl'],
+  ['2026-09-22T07:59:59.140Z', 'postgres', 'info', 'listening on IPv4 address "0.0.0.0", port 5432'],
+  ['2026-09-22T07:59:59.302Z', 'redis', 'event', 'container started'],
+  ['2026-09-22T07:59:59.330Z', 'redis', 'info', 'Redis version=7.2.5, bits=64, pid=1, just started'],
+  ['2026-09-22T07:59:59.410Z', 'redis', 'info', 'Ready to accept connections tcp'],
+  ['2026-09-22T07:59:59.620Z', 'postgres', 'info', 'database system is ready to accept connections'],
+  ['2026-09-22T07:59:59.980Z', 'api', 'event', 'container started — waited for postgres (healthy), redis (started)'],
+  ['2026-09-22T08:00:00.020Z', 'worker-1', 'event', 'container started'],
+  ['2026-09-22T08:00:00.024Z', 'worker-2', 'event', 'container started'],
+  ['2026-09-22T08:00:00.114Z', 'api', 'info', 'shop-api v3.8.0 listening on :3000'],
+  ['2026-09-22T08:00:00.200Z', 'worker-1', 'info', 'connected to redis://redis-cache:6379, queue=orders'],
+  ['2026-09-22T08:00:00.210Z', 'worker-2', 'info', 'connected to redis://redis-cache:6379, queue=orders'],
+  ['2026-09-22T08:00:00.301Z', 'api', 'debug', 'pg pool ready (min=2 max=10)'],
+  ['2026-09-22T08:00:00.990Z', 'gateway', 'event', 'container started — waited for api (healthy)'],
+  ['2026-09-22T08:00:01.004Z', 'gateway', 'info', 'upstream api-core:3000 resolved to 172.18.0.7'],
+  ['2026-09-22T08:00:12.556Z', 'gateway', 'info', 'GET /health 200 1ms'],
+  ['2026-09-22T08:01:04.880Z', 'gateway', 'info', 'GET /api/v1/items 200 14ms'],
+  ['2026-09-22T08:01:04.884Z', 'api', 'info', 'GET /v1/items 200 11ms'],
+  ['2026-09-22T08:01:04.886Z', 'postgres', 'debug', 'duration: 3.214 ms  statement: SELECT * FROM items LIMIT 50'],
+  ['2026-09-22T08:01:48.760Z', 'postgres', 'warn', 'duration: 1788.402 ms  statement: SELECT o.*, i.* FROM orders o JOIN order_items i ...'],
+  ['2026-09-22T08:01:48.770Z', 'api', 'warn', 'slow query 1790ms (orders.list)'],
+  ['2026-09-22T08:01:48.775Z', 'gateway', 'warn', 'upstream api-core:3000 slow response 1840ms'],
+  ['2026-09-22T08:02:17.990Z', 'postgres', 'error', 'canceling statement due to lock timeout'],
+  ['2026-09-22T08:02:18.001Z', 'api', 'error', 'QueryFailedError: canceling statement due to lock timeout'],
+  ['2026-09-22T08:02:18.004Z', 'gateway', 'error', 'upstream timed out (110: Connection timed out) after 30000ms'],
+  ['2026-09-22T08:02:18.006Z', 'gateway', 'error', 'GET /api/v1/orders 504 30001ms'],
+  ['2026-09-22T08:02:20.118Z', 'gateway', 'info', 'upstream api-core:3000 recovered'],
+  ['2026-09-22T08:03:01.770Z', 'gateway', 'info', 'POST /api/v1/cart 201 22ms'],
+  ['2026-09-22T08:03:01.772Z', 'api', 'info', 'POST /v1/cart 201 19ms'],
+  ['2026-09-22T08:03:01.790Z', 'worker-2', 'info', 'job 8812 cart.recalc done in 14ms'],
+  ['2026-09-22T08:03:40.002Z', 'worker-1', 'info', 'job 8813 orders.export started (41 022 rows)'],
+  ['2026-09-22T08:03:44.410Z', 'worker-1', 'error', 'FATAL: JavaScript heap out of memory while serialising export'],
+  ['2026-09-22T08:03:44.420Z', 'worker-1', 'event', 'container died (exit code 1) — restarting, policy on-failure:3'],
+  ['2026-09-22T08:03:45.500Z', 'worker-1', 'info', 'job 8813 orders.export resumed'],
+  ['2026-09-22T08:03:46.100Z', 'worker-1', 'error', 'FATAL: JavaScript heap out of memory while serialising export'],
+  ['2026-09-22T08:03:46.110Z', 'worker-1', 'event', 'container exited (1) — restart limit reached'],
+  ['2026-09-22T08:04:08.330Z', 'gateway', 'error', 'TLS handshake error from 10.0.2.44: unknown certificate authority'],
+  ['2026-09-22T08:04:30.000Z', 'redis', 'event', 'container paused'],
+  ['2026-09-22T08:04:31.200Z', 'worker-2', 'warn', 'redis-cache:6379 not responding, retrying in 2s'],
+  ['2026-09-22T08:04:35.200Z', 'worker-2', 'warn', 'redis-cache:6379 not responding, retrying in 4s'],
+  ['2026-09-22T08:04:42.557Z', 'gateway', 'info', 'GET /health 200 1ms'],
+  ['2026-09-22T08:04:58.120Z', 'mailer', 'info', '[smtpd] message received from api-core: "Order #1042 confirmed"'],
+  ['2026-09-22T08:05:12.556Z', 'gateway', 'info', 'GET /health 200 1ms'],
+];
+
+/* ---------- compose files ---------- */
+const COMPOSE_YAML = `name: shop
+
+services:
+  gateway:
+    image: nginx:alpine
+    container_name: api-gateway
+    ports:
+      - "8080:80"
+      - "8443:443"
+    volumes:
+      - gateway-conf:/etc/nginx/conf.d
+      - ./certs:/etc/nginx/certs:ro
+    environment:
+      UPSTREAM_URL: http://api-core:3000
+      LOG_LEVEL: info
+      TZ: Europe/Berlin
+    depends_on:
+      api:
+        condition: service_healthy
+    networks: [default, edge]
+    restart: unless-stopped
+
+  api:
+    build: ./api
+    image: shop/api:dev
+    container_name: api-core
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      LOG_LEVEL: debug
+      DATABASE_URL: postgres://shop:\${POSTGRES_PASSWORD}@postgres-main:5432/shop?sslmode=disable
+      REDIS_URL: redis://redis-cache:6379
+      JWT_SIGNING_KEY: \${JWT_SIGNING_KEY}
+      TZ: Europe/Berlin
+    volumes:
+      - ./api/src:/app/src
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
+      interval: 10s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  worker:
+    image: ghcr.io/acme/worker:2.4.1
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          memory: 256M
+    environment:
+      NODE_ENV: production
+      LOG_LEVEL: debug
+      DATABASE_URL: postgres://shop:\${POSTGRES_PASSWORD}@postgres-main:5432/shop
+      REDIS_URL: redis://redis-cache:6379
+      QUEUE: orders
+      CONCURRENCY: 4
+      TZ: UTC
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+    restart: on-failure:3
+
+  postgres:
+    image: postgres:16
+    container_name: postgres-main
+    environment:
+      POSTGRES_USER: shop
+      POSTGRES_PASSWORD: \${POSTGRES_PASSWORD}
+      POSTGRES_DB: shop
+      TZ: Europe/Berlin
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shop"]
+      interval: 5s
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis-cache
+    volumes:
+      - redis-data:/data
+
+  adminer:
+    image: adminer:4
+    profiles: [tools]
+    ports:
+      - "8081:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres-main
+      ADMINER_DESIGN: dracula
+    depends_on: [postgres]
+
+  pgbackup:
+    image: prodrigestivill/postgres-backup-local:16
+    profiles: [ops]
+    environment:
+      POSTGRES_HOST: postgres-main
+      POSTGRES_DB: shop
+      POSTGRES_USER: shop
+      POSTGRES_PASSWORD: \${POSTGRES_PASSWORD}
+      SCHEDULE: "@daily"
+      BACKUP_KEEP_DAYS: 7
+    volumes:
+      - ./backups:/backups
+    depends_on:
+      postgres: { condition: service_healthy }
+
+volumes:
+  pgdata:
+  redis-data:
+  gateway-conf:
+
+networks:
+  edge:
+    external: true`;
+
+const OVERRIDE_YAML = `# local-only overrides, picked up automatically by docker compose
+services:
+  postgres:
+    ports:
+      - "5432:5432"`;
+
+const DOTENV = `COMPOSE_PROJECT_NAME=shop
+POSTGRES_PASSWORD=s3cr3t-p4ss
+JWT_SIGNING_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.pr0t0type`;
+
+/* ---------- derived helpers ---------- */
+/* the live container list changes with scaling, profiles and orphan removal, so components read it from context */
+const CtrsCtx = React.createContext(BASE_CTRS);
+const useCtrs = () => React.useContext(CtrsCtx);
+
+const svcState = (svc, states, ctrs) => {
+  const ks = ctrs.filter(c => c.service === svc).map(c => states[c.key]);
+  if (ks.every(s => s === 'running')) return 'running';
+  if (ks.every(s => s === 'exited')) return 'exited';
+  return 'partial';
+};
+const MASK = '••••••••••••••••';
+
+/* who breaks if `svc` goes away: direct dependents with their condition, then transitive ones via their parent */
+function impactOf(svc, services) {
+  const out = [];
+  const seen = new Set([svc]);
+  const walk = n => services.forEach(s => s.deps.forEach(d => {
+    if (d.on === n && !seen.has(s.name)) {
+      seen.add(s.name);
+      out.push({ name: s.name, cond: d.cond, via: n === svc ? null : n });
+      walk(s.name);
+    }
+  }));
+  walk(svc);
+  return out;
+}
+
+/* single-series sparkline: no legend (the column header names it), hover shows the sample under the pointer */
+function Spark({ data, unit, w = 96, h = 22 }) {
+  const [hi, setHi] = useState(null);
+  const min = Math.min(...data), max = Math.max(...data), span = max - min || 1;
+  const x = i => 2 + i * (w - 4) / (data.length - 1);
+  const y = v => h - 3 - (v - min) / span * (h - 6);
+  const d = data.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join('');
+  const onMove = ev => {
+    const r = ev.currentTarget.getBoundingClientRect();
+    setHi(Math.max(0, Math.min(data.length - 1, Math.round((ev.clientX - r.left - 2) / (w - 4) * (data.length - 1)))));
+  };
+  const title = hi == null
+    ? `${min}–${max} ${unit} over the last 30 min`
+    : `${data[hi]} ${unit} · ${data.length - 1 - hi ? `${data.length - 1 - hi} min ago` : 'now'}`;
+  return html`<${Tooltip} title=${title} mouseEnterDelay=${0}>
+    <svg width=${w} height=${h} style=${{ display: 'block', cursor: 'crosshair' }} onMouseMove=${onMove} onMouseLeave=${() => setHi(null)}>
+      <path d=${d} fill="none" stroke="#8a8f98" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+      ${hi != null && html`<g>
+        <line x1=${x(hi)} x2=${x(hi)} y1="0" y2=${h} stroke="#383b3f" strokeWidth="1" />
+        <circle cx=${x(hi)} cy=${y(data[hi])} r="3" fill="#e5e5e6" stroke="#0f1011" strokeWidth="2" />
+      </g>`}
+    </svg>
+  <//>`;
+}
+
+/* ---------- collapsible section (same as container detail) ---------- */
+function Section({ id, title, extra, closed, onToggle, children }) {
+  const isOpen = !closed.includes(id);
+  return html`
+    <div className="card">
+      <div className=${'card-head sec-head' + (isOpen ? '' : ' closed')} role="button" tabIndex=${0}
+        aria-expanded=${isOpen} onClick=${() => onToggle(id)}
+        onKeyDown=${ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); onToggle(id); } }}>
+        <${RightOutlined} className="sec-chev" rotate=${isOpen ? 90 : 0} />
+        <h3 className="section-title">${title}</h3>
+        ${extra}
+      </div>
+      ${isOpen && children}
+    </div>`;
+}
+
+function useSections(ids) {
+  const [closed, setClosed] = useState([]);
+  const toggle = id => setClosed(c => c.includes(id) ? c.filter(x => x !== id) : [...c, id]);
+  const allClosed = ids.every(id => closed.includes(id));
+  const button = html`<${Button} size="small"
+    icon=${allClosed ? html`<${ColumnHeightOutlined} />` : html`<${VerticalAlignMiddleOutlined} />`}
+    onClick=${() => setClosed(allClosed ? [] : ids)}>
+    ${allClosed ? 'Expand all' : 'Collapse all'}
+  <//>`;
+  return { sec: { closed, onToggle: toggle }, button, setClosed };
+}
+
+/* ---------- dependency graph ---------- */
+function DependencyGraph({ states, services, onPick }) {
+  const CTRS = useCtrs();
+  const [hover, setHover] = useState(null);
+  const W = 190, H = 48, GAP_X = 110, GAP_Y = 14, TOP = 26;
+
+  const { nodes, edges, cols, width, height } = useMemo(() => {
+    const depth = {};
+    const d = name => {
+      if (depth[name] != null) return depth[name];
+      const s = services.find(x => x.name === name);
+      return depth[name] = s.deps.length ? 1 + Math.max(...s.deps.map(x => d(x.on))) : 0;
+    };
+    services.forEach(s => d(s.name));
+    const maxD = Math.max(...Object.values(depth));
+    /* dependents on the left, dependencies on the right: arrows read "needs" */
+    const cols = Array.from({ length: maxD + 1 }, (_, i) => services.filter(s => maxD - depth[s.name] === i));
+    const rows = Math.max(...cols.map(c => c.length));
+    const height = TOP + rows * (H + GAP_Y) - GAP_Y;
+    const width = cols.length * W + (cols.length - 1) * GAP_X;
+    const nodes = {};
+    cols.forEach((col, ci) => {
+      const off = (rows - col.length) * (H + GAP_Y) / 2;
+      col.forEach((s, ri) => { nodes[s.name] = { ...s, x: ci * (W + GAP_X), y: TOP + off + ri * (H + GAP_Y) }; });
+    });
+    const edges = services.flatMap(s => s.deps.map(dep => ({ from: s.name, to: dep.on, cond: dep.cond })));
+    return { nodes, edges, cols, width, height };
+  }, [services]);
+
+  /* hovering a node lights up everything it transitively needs and everything that needs it */
+  const related = useMemo(() => {
+    if (!hover) return null;
+    const set = new Set([hover]);
+    const walk = (n, dir) => edges.forEach(ed => {
+      const [a, b] = dir === 'down' ? [ed.from, ed.to] : [ed.to, ed.from];
+      if (a === n && !set.has(b)) { set.add(b); walk(b, dir); }
+    });
+    walk(hover, 'down'); walk(hover, 'up');
+    return set;
+  }, [hover, edges]);
+
+  const startOrder = [...cols].reverse().map(c => c.map(s => s.name).join(', '));
+
+  return html`
+    <div>
+      <div className="dag-wrap">
+        <div className="dag" style=${{ width, height }}>
+          ${cols.map((_, ci) => html`<span key=${ci} className="dag-col-h" style=${{ left: ci * (W + GAP_X) }}>
+            Starts ${ci === cols.length - 1 ? 'first' : ci === 0 ? 'last' : `#${cols.length - ci}`}
+          </span>`)}
+          <svg width=${width} height=${height}>
+            <defs>
+              <marker id="arr" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+                <path d="M0,0 L8,4 L0,8 z" fill="#62666d" />
+              </marker>
+              <marker id="arr-on" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+                <path d="M0,0 L8,4 L0,8 z" fill="#d0d6e0" />
+              </marker>
+            </defs>
+            ${edges.map((ed, i) => {
+              const a = nodes[ed.from], b = nodes[ed.to];
+              const x1 = a.x + W, y1 = a.y + H / 2, x2 = b.x - 2, y2 = b.y + H / 2;
+              const on = related && related.has(ed.from) && related.has(ed.to);
+              const dim = related && !on;
+              return html`<g key=${i} opacity=${dim ? 0.25 : 1}>
+                <path d=${`M${x1},${y1} C${x1 + 55},${y1} ${x2 - 55},${y2} ${x2},${y2}`}
+                  fill="none" stroke=${on ? '#d0d6e0' : '#383b3f'} strokeWidth="1"
+                  strokeDasharray=${ed.cond === 'started' ? '4 3' : undefined} markerEnd=${on ? 'url(#arr-on)' : 'url(#arr)'} />
+                ${on && html`<text x=${(x1 + x2) / 2} y=${(y1 + y2) / 2 - 6} textAnchor="middle"
+                  fill="#d0d6e0" fontSize="12" fontFamily="JetBrains Mono, monospace">${ed.cond}</text>`}
+              </g>`;
+            })}
+          </svg>
+          ${Object.values(nodes).map(n => {
+            const kids = CTRS.filter(c => c.service === n.name);
+            const up = kids.filter(c => states[c.key] === 'running').length;
+            return html`<div key=${n.name}
+              className=${'dag-node' + (related ? (related.has(n.name) ? ' on' : ' off') : '')}
+              style=${{ left: n.x, top: n.y, width: W, height: H, borderLeft: `2px solid ${SVC_COLOR[n.name]}` }}
+              onMouseEnter=${() => setHover(n.name)} onMouseLeave=${() => setHover(null)}
+              onClick=${() => onPick(n.name)}>
+              <span className="nm"><${StateDot} state=${svcState(n.name, states, CTRS)} size=${7} />${n.name}
+                ${kids.length > 1 && html`<span className="mono dim">×${kids.length}</span>`}
+                ${n.profile && html`<span className="mono dim">· ${n.profile}</span>`}</span>
+              <span className="mono dim">${kids.length > 1 ? `${up}/${kids.length} running` : kids[0].name}</span>
+            </div>`;
+          })}
+        </div>
+      </div>
+      <div className="toolbar" style=${{ marginTop: 12 }}>
+        <span className="dim fs12">
+          Arrows point to what a service needs · solid = waits for <${Mono}>healthy<//>, dashed = waits for <${Mono}>started<//> · hover a service to trace its chain and see conditions
+        </span>
+        <span className="spacer"></span>
+        <span className="dim fs12">Start order: ${startOrder.map((s, i) => html`<span key=${i}>${i ? ' → ' : ''}<span className="mono" style=${{ color: '#d0d6e0' }}>${s}</span></span>`)}</span>
+      </div>
+    </div>`;
+}
+
+/* ---------- Info tab ---------- */
+const INFO_SECTIONS = ['general', 'services', 'deps', 'ports', 'networks', 'volumes'];
+
+function Stepper({ value, min, max, onChange }) {
+  return html`<span className="stepper" onClick=${stop()}>
+    <${Button} type="text" size="small" icon=${html`<${MinusOutlined} />`} disabled=${value <= min}
+      aria-label="Scale down" onClick=${() => onChange(value - 1)} />
+    <span className="mono">×${value}</span>
+    <${Button} type="text" size="small" icon=${html`<${PlusOutlined} />`} disabled=${value >= max}
+      aria-label="Scale up" onClick=${() => onChange(value + 1)} />
+  </span>`;
+}
+
+function InfoTab({ states, onCopy, go, onLogs, flash, setFlash, services, profiles, toggleProfile, scale, removeOrphans, act }) {
+  const CTRS = useCtrs();
+  const { message } = AntApp.useApp();
+  const { sec, button } = useSections(INFO_SECTIONS);
+
+  const general = [
+    { key: 'p', label: 'Project', children: html`<span className="row-flex"><${Pill} tone="teal">${PROJECT.name}<//>
+      <span className="dim fs12">from <${Mono}>name:<//> in compose.yaml</span></span>` },
+    { key: 'wd', label: 'Working directory', children: html`<span className="row-flex">
+      <span className="copyable mono" onClick=${() => onCopy(PROJECT.workdir, 'Path')}>${PROJECT.workdir}<${CopyOutlined} /></span>
+      <${Button} type="text" size="small" icon=${html`<${FolderOpenOutlined} />`}>Reveal<//></span>` },
+    { key: 'f', label: 'Compose files', children: html`<span className="row-flex">
+      ${PROJECT.files.map((f, i) => html`<span key=${f} className="row-flex">${i > 0 && html`<span className="dim">+</span>`}
+        <a className="mono" style=${{ color: '#d0d6e0' }} onClick=${() => go.tab('config')}>${f}</a></span>`)}
+      <span className="dim fs12">merged in this order</span></span>` },
+    { key: 'env', label: 'Env file', children: html`<span className="row-flex"><${Mono}>${PROJECT.envFile}<//>
+      <span className="dim fs12">3 variables used for interpolation</span></span>` },
+    { key: 'pr', label: 'Profiles', children: html`<div style=${{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      ${PROFILES.map(p => html`<span key=${p.name} className="row-flex">
+        <${Switch} size="small" checked=${profiles.includes(p.name)} onChange=${() => toggleProfile(p.name)} />
+        <${Mono}>${p.name}<//>
+        <span className="dim fs12">${p.services.join(', ')} · ${p.desc}</span>
+      </span>`)}
+      <span className="dim fs12">Services without a profile always run. Switching one on runs <span className="mono">docker compose --profile NAME up -d</span>.</span>
+    </div>` },
+    { key: 'c', label: 'Created', children: html`<span><${Mono}>${PROJECT.created}<//> <span className="dim fs12">(first container)</span></span>` },
+    { key: 'v', label: 'Compose', children: html`<span className="row-flex"><${Mono}>docker compose ${PROJECT.composeVersion}<//>
+      <span className="dim fs12">config hash <span className="mono">${PROJECT.configHash}</span></span></span>` },
+  ];
+
+  const running = s => states[s.key] === 'running';
+  const replicas = svc => CTRS.filter(c => c.service === svc).length;
+  const svcCols = [
+    { title: '', key: 'dot', width: 30, render: (_, c) => html`<${StateDot} state=${states[c.key]} />` },
+    {
+      title: 'Service', key: 'svc', width: 270, render: (_, c) => {
+        const svc = services.find(s => s.name === c.service);
+        const first = CTRS.find(x => x.service === c.service) === c;
+        return html`<div style=${{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <span className="row-flex" style=${{ gap: 6 }}>
+            <span style=${{ width: 3, height: 12, borderRadius: 2, background: SVC_COLOR[c.service] }}></span>
+            <span style=${{ color: c.orphan ? '#8a8f98' : '#fff' }}>${c.service}</span>
+            ${c.replica && html`<span className="mono dim">#${c.replica}</span>`}
+            ${svc && svc.scalable && first && html`<${Tooltip} title=${`Replicas · docker compose up -d --scale ${c.service}=N`}>
+              <span><${Stepper} value=${replicas(c.service)} min=${1} max=${6} onChange=${n => scale(c.service, n)} /></span><//>`}
+            ${svc && svc.profile && html`<${Pill} tone="neutral">profile: ${svc.profile}<//>`}
+            ${c.fresh && html`<${Pill} tone="green">new<//>`}
+            ${c.orphan && html`<${Tooltip} title="Not defined in any compose file anymore"><span><${Pill} tone="neutral">orphan<//></span><//>`}
+            ${c.drift && html`<${Tooltip} title=${`${c.drift.key} changed in compose.yaml`}><span><${Pill} tone="amber">outdated<//></span><//>`}
+          </span>
+          <span className="mono dim">${c.name}</span>
+        </div>`;
+      },
+    },
+    { title: 'Image', dataIndex: 'image', render: (v, c) => {
+      const img = IMAGES.find(i => i.service === c.service);
+      return html`<div style=${{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <${Mono}>${v}<//>
+        ${img && html`<span className="copyable mono dim" onClick=${ev => { ev.stopPropagation(); onCopy('sha256:' + img.id, 'Image ID'); }}>sha256:${img.id}<${CopyOutlined} /></span>`}
+      </div>`;
+    } },
+    { title: 'Ports', key: 'ports', width: 150, render: (_, c) => c.ports.length
+      ? html`<div style=${{ display: 'flex', flexDirection: 'column', whiteSpace: 'nowrap' }}>${c.ports.map(([h, p]) => html`<span key=${p} className="mono dim">${h ? `${h.replace('0.0.0.0', '')} → ${p}` : p}</span>`)}</div>`
+      : html`<span className="dim">—</span>` },
+    { title: 'Health', key: 'h', width: 90, render: (_, c) => !running(c)
+      ? html`<span className="dim">—</span>`
+      : c.health ? html`<${Pill} tone="green">${c.health}<//>` : html`<span className="dim fs12">no check</span>` },
+    { title: 'CPU', key: 'cpu', width: 64, render: (_, c) => html`<span className="mono">${running(c) ? c.cpu.toFixed(1) + '%' : '—'}</span>` },
+    { title: 'Memory · 30 min', key: 'mem', width: 196, render: (_, c) => {
+      if (!running(c)) return html`<span className="dim">—</span>`;
+      const t = TRENDS[c.key];
+      const now = t ? t[t.length - 1] : c.mem;
+      const rising = t && now - t[0] > 20;
+      return html`<span className="row-flex" style=${{ gap: 10, flexWrap: 'nowrap' }} onClick=${stop()}>
+        ${t ? html`<${Spark} data=${t} unit="MB" />` : html`<span className="dim fs12" style=${{ width: 96 }}>collecting…</span>`}
+        <span className="mono" style=${{ minWidth: 52 }}>${now} MB</span>
+        ${rising && html`<${Tooltip} title=${`Rising: +${now - t[0]} MB in 30 min`}><${RiseOutlined} style=${{ color: '#d9a441' }} /><//>`}
+      </span>`;
+    } },
+    { title: 'Status', key: 'st', width: 150, render: (_, c) => html`<span className=${'fs12 ' + (states[c.key] === 'exited' ? '' : 'dim')}
+      style=${states[c.key] === 'exited' ? { color: '#eb5757' } : null}>
+      ${states[c.key] === 'running' ? `up ${c.uptime}` : states[c.key] === 'paused' ? 'paused' : c.down || 'exited'}
+      ${c.restarts > 0 && html`<span className="dim"> · ${c.restarts}↻</span>`}</span>` },
+    {
+      title: '', key: 'act', width: 136, align: 'right',
+      render: (_, c) => html`<span className="row-act row-flex" style=${{ gap: 0, flexWrap: 'nowrap' }} onClick=${stop()}>
+        <${Tooltip} title=${running(c) ? 'Already running' : states[c.key] === 'paused' ? 'Unpause' : 'Start'}>
+          <${Button} type="text" size="small" disabled=${running(c)} icon=${html`<${PlayCircleOutlined} />`}
+            aria-label=${states[c.key] === 'paused' ? 'Unpause' : 'Start'} onClick=${() => act(c, 'start')} />
+        <//>
+        <${Tooltip} title=${states[c.key] === 'exited' ? 'Already stopped' : 'Stop'}>
+          <${Button} type="text" size="small" disabled=${states[c.key] === 'exited'} icon=${html`<${PoweroffOutlined} />`}
+            aria-label="Stop" onClick=${() => act(c, 'stop')} />
+        <//>
+        <${Dropdown} trigger=${['click']} placement="bottomRight" menu=${{ items: [
+          { key: 'lg', icon: html`<${FileTextOutlined} />`, label: 'Logs', onClick: () => onLogs(c.key) },
+          { key: 'fs', icon: html`<${FolderOutlined} />`, label: 'Files', onClick: () => go.container(c, 'Files') },
+          { key: 'ex', icon: html`<${CodeOutlined} />`, label: running(c) ? 'Exec' : 'Exec (needs a running container)', disabled: !running(c),
+            onClick: () => go.container(c, 'Exec') },
+          { type: 'divider' },
+          { key: 'rs', icon: html`<${ReloadOutlined} />`, label: 'Restart', disabled: !running(c), onClick: () => act(c, 'restart') },
+          c.orphan
+            ? { key: 'rm', icon: html`<${DeleteOutlined} />`, label: 'Remove orphan', danger: true, onClick: removeOrphans }
+            : { key: 'rc', icon: html`<${SyncOutlined} />`, label: `Recreate ${c.service}`, onClick: () => message.success(`docker compose up -d --force-recreate ${c.service}`) },
+          { key: 'op', icon: html`<${ExportOutlined} />`, label: 'Open container', onClick: () => go.container(c, 'Info') },
+        ] }}>
+          <${Button} type="text" size="small" icon=${html`<${MoreOutlined} />`} aria-label="More" />
+        <//>
+      </span>`,
+    },
+  ];
+
+  const inactive = PROFILES.filter(p => !profiles.includes(p.name));
+  const ports = CTRS.flatMap(c => c.ports.filter(p => p[0]).map(([h, p, url]) => ({ key: c.key + p, c, host: h, ctr: p, url })));
+
+  const svcChips = list => html`<span className="row-flex" style=${{ gap: 6 }}>${list.map(s => html`<span key=${s} className="mono fs12"
+    style=${{ color: SVC_COLOR[s], borderLeft: `2px solid ${SVC_COLOR[s]}`, paddingLeft: 6 }}>${s}</span>`)}</span>`;
+
+  return html`
+    <div style=${{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div className="toolbar">
+        <span className="spacer"></span>
+        ${button}
+      </div>
+
+      <${Section} id="general" title="General" ...${sec}>
+        <${Descriptions} column=${1} size="small" bordered items=${general} />
+      <//>
+
+      <${Section} id="services" title="Services" ...${sec}
+        extra=${html`<span className="dim fs12">${services.length} services · ${CTRS.length} containers · click a row to open it</span>`}>
+        <${Table} className="svc-table" size="small" pagination=${false} dataSource=${CTRS} columns=${svcCols}
+          rowClassName=${c => (flash === c.service ? 'flash' : '')}
+          onRow=${c => ({ onClick: () => go.container(c, 'Info') })} />
+        ${inactive.length > 0 && html`<div className="inactive">
+          <div className="dim fs12" style=${{ marginBottom: 4 }}>Defined but not running — profile off</div>
+          ${inactive.flatMap(p => p.services.map(s => html`<div key=${s} className="inactive-row">
+            <span style=${{ width: 3, height: 12, borderRadius: 2, background: SVC_COLOR[s] }}></span>
+            <span className="muted">${s}</span>
+            <${Pill} tone="neutral">profile: ${p.name}<//>
+            <span className="dim fs12">${p.desc}</span>
+            <span style=${{ flex: 1 }}></span>
+            <${Button} size="small" icon=${html`<${PlayCircleOutlined} />`} onClick=${() => toggleProfile(p.name)}>Enable ${p.name}<//>
+          </div>`))}
+        </div>`}
+      <//>
+
+      <${Section} id="deps" title="Dependencies" ...${sec}>
+        <${DependencyGraph} states=${states} services=${services} onPick=${s => { setFlash(s); setTimeout(() => setFlash(null), 1200); }} />
+      <//>
+
+      <${Section} id="ports" title="Published ports" ...${sec}
+        extra=${html`<span className="dim fs12">${ports.length} on the host</span>`}>
+        <${Table} size="small" pagination=${false} dataSource=${ports} columns=${[
+          { title: 'Service', key: 's', width: 160, render: (_, r) => svcChips([r.c.service]) },
+          { title: 'Host', dataIndex: 'host', width: 170, render: v => html`<${Mono}>${v}<//>` },
+          { title: '', key: 'arrow', width: 30, render: () => html`<span className="dim">→</span>` },
+          { title: 'Container', dataIndex: 'ctr', render: v => html`<${Mono}>${v}<//>` },
+          { title: '', key: 'open', align: 'right', render: (_, r) => html`<span className="row-flex">
+            <${Tooltip} title="Copy host address"><${Button} type="text" size="small" icon=${html`<${CopyOutlined} />`}
+              onClick=${() => onCopy(r.host.replace('0.0.0.0', 'localhost'), 'Address')} /><//>
+            ${r.url && html`<${Button} type="text" size="small" icon=${html`<${ExportOutlined} />`}>Open<//>`}
+          </span>` },
+        ]} />
+      <//>
+
+      <${Section} id="networks" title="Networks" ...${sec}>
+        <${Table} size="small" pagination=${false} dataSource=${NETWORKS} columns=${[
+          { title: 'Network', dataIndex: 'name', render: (v, r) => html`<div style=${{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <span className="row-flex" style=${{ gap: 6 }}><span style=${{ color: '#fff' }}>${v}</span>
+              ${r.scope === 'external' && html`<${Pill} tone="lav">external<//>`}</span>
+            <span className="mono dim">${r.driver} · ${r.subnet}</span></div>` },
+          { title: 'Attached', dataIndex: 'services', render: v => svcChips(v) },
+        ]} />
+      <//>
+      <${Section} id="volumes" title="Volumes & mounts" ...${sec}>
+        <${Table} size="small" pagination=${false} dataSource=${VOLUMES} columns=${[
+          { title: 'Source', dataIndex: 'name', render: (v, r) => html`<div style=${{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <span className="row-flex" style=${{ gap: 6 }}><${Pill} tone=${r.type === 'bind' ? 'lav' : 'teal'}>${r.type}<//><${Mono}>${v}<//>
+              ${r.ro && html`<${Pill} tone="neutral">ro<//>`}</span>
+            <span className="mono dim">${r.target}</span></div>` },
+          { title: 'Used by', dataIndex: 'services', render: v => svcChips(v) },
+          { title: 'Size', dataIndex: 'size', width: 70, align: 'right', render: v => html`<span className="mono dim">${v}</span>` },
+        ]} />
+      <//>
+    </div>`;
+}
+
+/* ---------- Environment tab ---------- */
+const srcTone = v => (v === 'compose' ? 'teal' : v === 'runtime' ? 'lav' : 'neutral');
+const toDotenv = rows => rows.map(r => `${r.k}=${/[\s"']/.test(r.v) ? JSON.stringify(r.v) : r.v}`).join('\n');
+
+function EnvTab({ states, onCopy, go }) {
+  const CTRS = useCtrs();
+  const [q, setQ] = useState('');
+  const [src, setSrc] = useState('all');
+  const [mode, setMode] = useState('list');
+  const [reveal, setReveal] = useState(false);
+  const [onlyDiff, setOnlyDiff] = useState(true);
+  const { sec, button } = useSections(CTRS.map(c => c.key));
+
+  const match = r => (src === 'all' || r.src === src) &&
+    (!q || r.k.toLowerCase().includes(q.toLowerCase()) || r.v.toLowerCase().includes(q.toLowerCase()));
+  const shown = r => (r.secret && !reveal ? MASK : r.v);
+  const total = CTRS.reduce((n, c) => n + envOf(c).length, 0);
+
+  const cols = [
+    { title: 'Variable', dataIndex: 'k', width: 240, render: v => html`<span className="mono" style=${{ color: '#fff' }}>${v}</span>` },
+    { title: 'Value', dataIndex: 'v', render: (v, r) => html`<span className=${'mono env-val' + (r.secret && !reveal ? ' dim' : '')} title=${r.secret && !reveal ? '' : v}>${shown(r)}</span>` },
+    { title: 'Source', dataIndex: 'src', width: 100, render: v => html`<${Pill} tone=${srcTone(v)}>${v}<//>` },
+    { title: '', key: 'a', width: 46, align: 'right', render: (_, r) => html`<${Tooltip} title="Copy KEY=value">
+      <${Button} type="text" size="small" icon=${html`<${CopyOutlined} />`} onClick=${() => onCopy(`${r.k}=${r.v}`, r.k)} /><//>` },
+  ];
+
+  /* matrix: one row per variable, one column per container */
+  const matrix = useMemo(() => {
+    const keys = [...new Set(CTRS.flatMap(envOf).filter(match).map(r => r.k))];
+    return keys.map(k => {
+      const cells = Object.fromEntries(CTRS.map(c => [c.key, envOf(c).find(r => r.k === k)]));
+      const vals = Object.values(cells).filter(Boolean).map(r => r.v);
+      const freq = vals.reduce((a, v) => ({ ...a, [v]: (a[v] || 0) + 1 }), {});
+      const mode = Object.keys(freq).sort((a, b) => freq[b] - freq[a])[0];
+      return { key: k, k, cells, present: vals.length, differs: Object.keys(freq).length > 1, mode };
+    }).filter(r => r.present > 1 && (!onlyDiff || r.differs) && r.k !== 'HOSTNAME');
+  }, [q, src, onlyDiff, CTRS]);
+
+  const mxCols = [
+    { title: 'Variable', dataIndex: 'k', width: 190, fixed: 'left', render: (v, r) => html`<span className="row-flex" style=${{ gap: 6 }}>
+      <span className="mono" style=${{ color: '#fff' }}>${v}</span>${r.differs && html`<${Pill} tone="amber">differs<//>`}</span>` },
+    ...CTRS.map(c => ({
+      title: html`<span className="row-flex" style=${{ gap: 6 }}><span style=${{ width: 3, height: 10, borderRadius: 2, background: SVC_COLOR[c.service] }}></span>${c.label}</span>`,
+      key: c.key, width: 190,
+      render: (_, r) => {
+        const cell = r.cells[c.key];
+        if (!cell) return html`<span className="dim">—</span>`;
+        return html`<span className=${'mono mx-val' + (r.differs && cell.v !== r.mode ? ' mx-odd' : '') + (cell.secret && !reveal ? ' dim' : '')}
+          title=${cell.secret && !reveal ? '' : cell.v}>${shown(cell)}</span>`;
+      },
+    })),
+  ];
+
+  const visible = CTRS.map(c => ({ c, rows: envOf(c).filter(match) })).filter(x => !q || x.rows.length);
+  const hiddenCount = CTRS.length - visible.length;
+
+  return html`
+    <div style=${{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div className="toolbar">
+        <${Input} placeholder="Filter across all containers" allowClear value=${q} onChange=${ev => setQ(ev.target.value)}
+          prefix=${html`<${SearchOutlined} style=${{ color: '#62666d' }} />`} style=${{ width: 260 }} />
+        <${Segmented} value=${src} onChange=${setSrc} options=${[
+          { label: 'All', value: 'all' }, { label: 'Compose', value: 'compose' },
+          { label: 'Image', value: 'image' }, { label: 'Runtime', value: 'runtime' },
+        ]} />
+        <${Segmented} value=${mode} onChange=${setMode} options=${[
+          { label: 'By container', value: 'list' }, { label: 'Compare', value: 'matrix' },
+        ]} />
+        <span className="spacer"></span>
+        <${Button} icon=${html`<${reveal ? EyeInvisibleOutlined : EyeOutlined} />`} onClick=${() => setReveal(r => !r)}>
+          ${reveal ? 'Hide secrets' : 'Reveal secrets'}
+        <//>
+        ${mode === 'list' && button}
+      </div>
+
+      ${mode === 'list'
+        ? html`${visible.map(({ c, rows }) => html`<${Section} key=${c.key} id=${c.key} ...${sec}
+            title=${html`<span className="row-flex" style=${{ gap: 8 }}>
+              <span style=${{ width: 3, height: 12, borderRadius: 2, background: SVC_COLOR[c.service] }}></span>${c.label}</span>`}
+            extra=${html`<span className="row-flex" style=${{ flex: 1 }}>
+              <${StateDot} state=${states[c.key]} size=${6} />
+              <span className="mono dim">${c.name}</span>
+              <span className="dim fs12">· ${rows.length}${rows.length !== envOf(c).length ? ` of ${envOf(c).length}` : ''} vars</span>
+              ${c.replica && html`<span className="dim fs12">· replica of ${c.service}, differs only in HOSTNAME</span>`}
+              <span style=${{ flex: 1 }}></span>
+              <${Tooltip} title="Copy these rows as .env">
+                <${Button} size="small" type="text" icon=${html`<${CopyOutlined} />`} onClick=${stop(() => onCopy(toDotenv(rows), `${c.label} env`))}>.env<//>
+              <//>
+              <${Button} size="small" type="text" icon=${html`<${ExportOutlined} />`} onClick=${stop(() => go.container(c, 'Environment'))}>Open<//>
+            </span>`}>
+            <${Table} size="small" columns=${cols} dataSource=${rows.map((r, i) => ({ ...r, key: i }))} pagination=${false}
+              locale=${{ emptyText: html`<${Empty} description="No matching variables" />` }} />
+          <//>`)}
+          ${hiddenCount > 0 && html`<div className="dim fs12">${hiddenCount} container${hiddenCount > 1 ? 's' : ''} hidden — no matching variables.</div>`}`
+        : html`<div className="card">
+            <div className="toolbar" style=${{ marginBottom: 12 }}>
+              <span style=${{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <${Switch} size="small" checked=${onlyDiff} onChange=${setOnlyDiff} />
+                <span className="dim fs12">Only variables that differ</span>
+              </span>
+              <span className="spacer"></span>
+              <span className="dim fs12">
+                Variables set in 2+ containers · <span style=${{ color: '#d9a441' }}>amber</span> = differs from the most common value · HOSTNAME skipped
+              </span>
+            </div>
+            <${Table} size="small" pagination=${false} columns=${mxCols} dataSource=${matrix} scroll=${{ x: 'max-content' }}
+              locale=${{ emptyText: html`<${Empty} description=${onlyDiff ? 'No differences — shared variables agree everywhere' : 'No shared variables'} />` }} />
+          </div>`}
+
+      <div className="dim fs12">Values are read-only — change them in compose.yaml and recreate the service. ${total} variables across ${CTRS.length} containers.</div>
+    </div>`;
+}
+
+/* ---------- Logs tab ---------- */
+const LOCAL_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
+const RANK = { debug: 0, info: 1, warn: 2, error: 3 };
+
+function LogsTab({ solo, states }) {
+  const CTRS = useCtrs();
+  const keys = CTRS.map(c => c.key);
+  const [q, setQ] = useState('');
+  const [level, setLevel] = useState('all');
+  const [hidden, setHidden] = useState(solo ? keys.filter(k => k !== solo) : []);
+  const [events, setEvents] = useState(true);
+  const [view, setView] = useState('merged');
+  const [follow, setFollow] = useState(!solo);
+  const [timestamps, setTimestamps] = useState(true);
+  const [wrap, setWrap] = useState(true);
+  const [tail, setTail] = useState('500');
+  const [anchor, setAnchor] = useState(null);
+  const [cleared, setCleared] = useState(0);
+  /* side-by-side columns start from the toolbar settings and keep their own changes */
+  const [colOpts, setColOpts] = useState({});
+  const boxRef = useRef(null);
+  const optsOf = k => ({ timestamps, wrap, follow, ...colOpts[k] });
+  const flipCol = (k, name) => setColOpts(o => ({ ...o, [k]: { ...o[k], [name]: !optsOf(k)[name] } }));
+  /* toolbar toggles read "on" only when every visible column is on, and flipping one resets every column */
+  const allOn = name => (view === 'merged' ? optsOf(null)[name] : shownKeys.length > 0 && shownKeys.every(k => optsOf(k)[name]));
+  const setAll = (name, set) => {
+    set(!allOn(name));
+    setColOpts(o => Object.fromEntries(Object.entries(o).map(([k, { [name]: _, ...rest }]) => [k, rest])));
+  };
+
+  const shownKeys = keys.filter(k => !hidden.includes(k));
+  const rows = useMemo(() => LOGS.slice(cleared).filter(([, k, lv, msg]) =>
+    shownKeys.includes(k) &&
+    (lv === 'event' ? events : (level === 'all' || RANK[lv] >= RANK[level])) &&
+    (!q || msg.toLowerCase().includes(q.toLowerCase()))
+  ), [q, level, hidden, events, cleared, CTRS]);
+
+  /* follow sticks to the bottom; an anchor instead scrolls every pane to the highlighted moment */
+  useEffect(() => {
+    const panes = boxRef.current ? [...boxRef.current.querySelectorAll('[data-pane]')] : [];
+    panes.forEach(pane => {
+      const hit = anchor && pane.querySelector('.lg-anchor, .lg-near');
+      if (hit) pane.scrollTop = hit.offsetTop - pane.clientHeight / 2;
+      else if (pane.dataset.follow) pane.scrollTop = pane.scrollHeight;
+    });
+  }, [rows, follow, colOpts, anchor, view]);
+
+  const count = k => LOGS.filter(l => l[1] === k).length;
+  const errCount = LOGS.filter(l => l[2] === 'error' && shownKeys.includes(l[1])).length;
+  const warnCount = LOGS.filter(l => l[2] === 'warn' && shownKeys.includes(l[1])).length;
+
+  const toggle = k => setHidden(h => h.includes(k) ? h.filter(x => x !== k) : [...h, k]);
+  const soloOn = k => setHidden(h => (h.length === keys.length - 1 && !h.includes(k)) ? [] : keys.filter(x => x !== k));
+
+  const near = ts => anchor && Math.abs(dayjs(ts).valueOf() - dayjs(anchor).valueOf()) <= 2000;
+
+  const renderMsg = msg => {
+    if (!q) return msg;
+    const i = msg.toLowerCase().indexOf(q.toLowerCase());
+    if (i < 0) return msg;
+    return html`${msg.slice(0, i)}<span className="hl">${msg.slice(i, i + q.length)}</span>${msg.slice(i + q.length)}`;
+  };
+
+  const line = ([ts, k, lv, msg], i, withTag, { timestamps, wrap }) => {
+    const c = CTRS.find(x => x.key === k);
+    const cls = 'lg-row lg-' + lv + (anchor === ts ? ' lg-anchor' : near(ts) ? ' lg-near' : '');
+    return html`<div key=${i} className=${cls} style=${{ whiteSpace: wrap ? 'pre-wrap' : 'pre' }}>
+      ${timestamps && html`<span className="lg-ts" title="Highlight everything within ±2s across containers"
+        onClick=${() => setAnchor(a => (a === ts ? null : ts))}>${dayjs(ts).format('HH:mm:ss.SSS')}</span>`}
+      ${withTag && html`<span className="lg-tag" style=${{ color: SVC_COLOR[c.service], borderColor: SVC_COLOR[c.service] }}
+        title=${`${c.name} — click to show only this`} onClick=${() => soloOn(k)}>${c.label}</span>`}
+      <span className="lg-lvl">${lv === 'event' ? '●' : lv.toUpperCase()}</span>
+      <span className="msg">${renderMsg(msg)}</span>
+    </div>`;
+  };
+
+  const empty = html`<span className="dim" style=${{ padding: '0 12px' }}>No log lines match the current filter.</span>`;
+
+  return html`
+    <div className="card">
+      <div className="toolbar" style=${{ marginBottom: 10 }}>
+        <${Input} placeholder="Search all containers" allowClear value=${q} onChange=${ev => setQ(ev.target.value)}
+          prefix=${html`<${SearchOutlined} style=${{ color: '#62666d' }} />`} style=${{ width: 220 }} />
+        <${Segmented} value=${level} onChange=${setLevel} options=${[
+          { label: 'All', value: 'all' }, { label: 'Info', value: 'info' },
+          { label: `Warn ${warnCount}`, value: 'warn' }, { label: `Error ${errCount}`, value: 'error' },
+        ]} />
+        <${Select} value=${tail} onChange=${setTail} style=${{ width: 150 }} options=${[
+          { value: '100', label: 'Last 100 / ctr' }, { value: '500', label: 'Last 500 / ctr' },
+          { value: 'since', label: 'Since last up' }, { value: 'all', label: 'All lines' },
+        ]} />
+        <span className="spacer"></span>
+        <span style=${{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <${Switch} size="small" checked=${allOn('timestamps')} onChange=${() => setAll('timestamps', setTimestamps)} />
+          <span className="dim fs12">Timestamps${view === 'split' ? ' (all)' : ''}</span>
+        </span>
+        ${view === 'merged' && html`<span style=${{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <${Switch} size="small" checked=${wrap} onChange=${setWrap} /><span className="dim fs12">Wrap</span>
+        </span>`}
+        <${Button} icon=${html`<${VerticalAlignBottomOutlined} />`} type=${allOn('follow') ? 'primary' : 'default'}
+          onClick=${() => setAll('follow', setFollow)}>${view === 'split' ? 'Follow all' : 'Follow'}<//>
+        <${Tooltip} title=${view === 'split' ? 'Clear all columns' : 'Clear'}><${Button} icon=${html`<${ClearOutlined} />`} aria-label="Clear" onClick=${() => setCleared(LOGS.length)} /><//>
+        <${Tooltip} title=${view === 'split' ? `Download all ${shownKeys.length} columns (.zip)` : 'Download'}><${Button} icon=${html`<${DownloadOutlined} />`} aria-label="Download" /><//>
+      </div>
+
+      <div className="toolbar" style=${{ marginBottom: 12, gap: 6 }}>
+        <${Dropdown} trigger=${['click']} placement="bottomLeft" popupRender=${() => html`<div className="ctr-pick">
+          <div className="ctr-pick-row" role="checkbox" aria-checked=${hidden.length === 0} onClick=${() => setHidden(hidden.length === 0 ? keys : [])}>
+            <${Checkbox} tabIndex=${-1} checked=${hidden.length === 0} indeterminate=${hidden.length > 0 && shownKeys.length > 0} />
+            <span>All containers</span>
+            <span className="n mono fs12">${shownKeys.length} / ${keys.length}</span>
+          </div>
+          <div className="ctr-pick-sep"></div>
+          ${CTRS.map(c => html`<div key=${c.key} className="ctr-pick-row" title=${c.name} role="checkbox"
+            aria-checked=${!hidden.includes(c.key)} onClick=${() => toggle(c.key)}>
+            <${Checkbox} tabIndex=${-1} checked=${!hidden.includes(c.key)} />
+            <span className="dot" style=${{ background: SVC_COLOR[c.service] }}></span>
+            <span>${c.label}</span>
+            ${states[c.key] !== 'running' && html`<span className="mono fs12" style=${{ color: STATE_COLOR[states[c.key]] }}>${states[c.key]}</span>`}
+            <span className="n mono fs12">${count(c.key)}</span>
+            <a className="only" onClick=${ev => { ev.stopPropagation(); setHidden(keys.filter(x => x !== c.key)); }}>only</a>
+          </div>`)}
+        </div>`}>
+          <span className="chip" role="button" tabIndex=${0}>
+            <span className="dots">${CTRS.filter(c => !hidden.includes(c.key)).map(c =>
+              html`<i key=${c.key} style=${{ background: SVC_COLOR[c.service] }}></i>`)}</span>
+            Containers
+            <span className="n mono">${shownKeys.length === keys.length ? 'all' : `${shownKeys.length} / ${keys.length}`}</span>
+            <${DownOutlined} style=${{ fontSize: 10, color: '#62666d' }} />
+          </span>
+        <//>
+        <span className=${'chip' + (events ? '' : ' off')} onClick=${() => setEvents(v => !v)} role="checkbox" aria-checked=${events} tabIndex=${0}>
+          <${ApartmentOutlined} style=${{ color: events ? '#8a8f98' : '#62666d' }} /> Lifecycle events
+        </span>
+        ${hidden.length > 0 && html`<${Button} type="text" size="small" onClick=${() => setHidden([])}>Show all<//>`}
+        <span className="spacer"></span>
+        <${Segmented} value=${view} onChange=${setView} options=${[
+          { label: html`<span><${UnorderedListOutlined} /> Merged</span>`, value: 'merged' },
+          { label: html`<span><${ColumnWidthOutlined} /> Side by side</span>`, value: 'split' },
+        ]} />
+      </div>
+
+      <div ref=${boxRef}>
+        ${view === 'merged'
+          ? html`<pre className="logs" data-pane="1" data-follow=${follow ? '1' : undefined}>${rows.length ? rows.map((r, i) => line(r, i, true, { timestamps, wrap })) : empty}</pre>`
+          : shownKeys.length === 0
+            ? html`<pre className="logs">${empty}</pre>`
+            : html`<div className="lg-split">
+                ${shownKeys.map(k => {
+                  const c = CTRS.find(x => x.key === k);
+                  const mine = rows.filter(r => r[1] === k);
+                  const o = optsOf(k);
+                  const opt = (name, title, icon) => html`<${Tooltip} title=${`${title}: ${o[name] ? 'on' : 'off'}`}>
+                    <${Button} type="text" size="small" className=${o[name] ? 'on' : ''} icon=${icon}
+                      aria-label=${title} aria-pressed=${o[name]} onClick=${() => flipCol(k, name)} />
+                  <//>`;
+                  return html`<div key=${k} className="lg-col">
+                    <div className="lg-col-h" style=${{ borderTop: `2px solid ${SVC_COLOR[c.service]}` }}>
+                      <${StateDot} state=${states[k]} size=${6} />
+                      <span style=${{ color: '#fff' }}>${c.label}</span>
+                      <span className="mono dim nm">${c.name}</span>
+                      <span style=${{ flex: 1 }}></span>
+                      <span className="mono dim">${mine.length}</span>
+                      <span className="opts">
+                        ${opt('timestamps', 'Timestamps', html`<${ClockCircleOutlined} />`)}
+                        ${opt('wrap', 'Wrap', html`<${EnterOutlined} />`)}
+                        ${opt('follow', 'Follow', html`<${VerticalAlignBottomOutlined} />`)}
+                        <${Tooltip} title=${`Download ${c.name} logs`}>
+                          <${Button} type="text" size="small" icon=${html`<${DownloadOutlined} />`} aria-label="Download" />
+                        <//>
+                      </span>
+                    </div>
+                    <pre className="logs" data-pane="1" data-follow=${o.follow ? '1' : undefined}>${mine.length ? mine.map((r, i) => line(r, i, false, o)) : html`<span className="dim" style=${{ padding: '0 12px' }}>No matching lines.</span>`}</pre>
+                  </div>`;
+                })}
+              </div>`}
+      </div>
+
+      <div className="toolbar" style=${{ marginTop: 10 }}>
+        <span className="dim fs12">
+          ${rows.length} lines from ${shownKeys.length} of ${CTRS.length} containers
+          ${(view === 'merged' ? timestamps : shownKeys.some(k => optsOf(k).timestamps)) && ` · times in ${LOCAL_TZ} (UTC${dayjs().format('Z')})`}
+        </span>
+        <span className="spacer"></span>
+        ${anchor
+          ? html`<span className="fs12" style=${{ color: '#02b8cc' }}>Highlighting ±2s around ${dayjs(anchor).format('HH:mm:ss.SSS')}${view === 'split' ? ' · every column scrolled to it' : ''}
+              <a style=${{ marginLeft: 8, color: '#d0d6e0' }} onClick=${() => setAnchor(null)}>clear</a></span>`
+          : html`<span className="dim fs12">Tip: click a timestamp to line up what every container did at that moment.</span>`}
+      </div>
+    </div>`;
+}
+
+/* ---------- Config tab ---------- */
+function YamlView({ text, driftLine }) {
+  const lines = text.split('\n');
+  return html`<div className="code-box"><div className="code">
+    ${lines.map((ln, i) => {
+      const cm = /^(\s*)(#.*)$/.exec(ln);
+      const kv = /^(\s*-?\s*)([\w.-]+)(:)(.*)$/.exec(ln);
+      const drift = i + 1 === driftLine;
+      const body = cm ? html`${cm[1]}<span className="y-c">${cm[2]}</span>`
+        : kv ? html`${kv[1]}<span className="y-k">${kv[2]}</span><span className="y-c">${kv[3]}</span>${kv[4]}`
+        : (ln || ' ');
+      return html`<div key=${i} className=${'ln' + (drift ? ' drift' : '')}>
+        <span className="n">${drift ? '≠ ' : ''}${i + 1}</span>
+        <span className="t">${body}${drift && html`<span className="y-c">   # running container: info</span>`}</span>
+      </div>`;
+    })}
+  </div></div>`;
+}
+
+function ConfigTab({ onCopy }) {
+  const [file, setFile] = useState('compose.yaml');
+  const [reveal, setReveal] = useState(false);
+
+  const resolved = useMemo(() => {
+    const pw = reveal ? 's3cr3t-p4ss' : '********';
+    const jwt = reveal ? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.pr0t0type' : '********';
+    return COMPOSE_YAML
+      .replaceAll('${POSTGRES_PASSWORD}', pw).replaceAll('${JWT_SIGNING_KEY}', jwt)
+      .replace('    container_name: postgres-main\n', '    container_name: postgres-main\n    ports:\n      - "5432:5432"   # from compose.override.yaml\n');
+  }, [reveal]);
+
+  const text = { 'compose.yaml': COMPOSE_YAML, 'compose.override.yaml': OVERRIDE_YAML,
+    '.env': reveal ? DOTENV : DOTENV.replace(/(PASSWORD|KEY)=.*/g, '$1=********'), resolved }[file];
+  const driftLine = file === 'compose.yaml' ? COMPOSE_YAML.split('\n').findIndex(l => l.includes('LOG_LEVEL: debug')) + 1 : null;
+
+  return html`
+    <div style=${{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div className="card">
+        <div className="toolbar" style=${{ marginBottom: 12 }}>
+          <${Segmented} value=${file} onChange=${setFile} options=${[
+            { label: 'compose.yaml', value: 'compose.yaml' },
+            { label: 'compose.override.yaml', value: 'compose.override.yaml' },
+            { label: '.env', value: '.env' },
+            { label: 'Resolved', value: 'resolved' },
+          ]} />
+          <span className="dim fs12" style=${{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <${InfoCircleOutlined} />
+            ${file === 'resolved' ? 'Output of docker compose config: files merged, variables interpolated.'
+              : file === '.env' ? 'Used for ${VAR} interpolation, not injected into containers by itself.'
+              : `${PROJECT.workdir}/${file}`}
+          </span>
+          <span className="spacer"></span>
+          ${(file === '.env' || file === 'resolved') && html`<${Button} icon=${html`<${reveal ? EyeInvisibleOutlined : EyeOutlined} />`}
+            onClick=${() => setReveal(r => !r)}>${reveal ? 'Hide secrets' : 'Reveal secrets'}<//>`}
+          <${Button} icon=${html`<${CopyOutlined} />`} onClick=${() => onCopy(text, file)}>Copy<//>
+          ${file !== 'resolved' && html`<${Button} icon=${html`<${EditOutlined} />`}>Open in editor<//>`}
+        </div>
+        <${YamlView} text=${text} driftLine=${driftLine} />
+        <div className="toolbar" style=${{ marginTop: 10 }}>
+          <span className="dim fs12">Read-only · edits happen in your editor; this view reloads when the file changes.</span>
+          <span className="spacer"></span>
+          <span className="dim fs12" style=${{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <${CheckCircleOutlined} style=${{ color: '#27a644' }} /> Config valid
+          </span>
+        </div>
+      </div>
+    </div>`;
+}
+
+/* ---------- detail page ---------- */
+function GroupDetail() {
+  const { modal, message } = AntApp.useApp();
+  const [tab, setTab] = useState('info');
+  const [ctrs, setCtrs] = useState(BASE_CTRS);
+  const [states, setStates] = useState(Object.fromEntries(BASE_CTRS.map(c => [c.key, c.state])));
+  const [profiles, setProfiles] = useState([]);
+  const [logSolo, setLogSolo] = useState(null);
+  const [flash, setFlash] = useState(null);
+
+  const services = useMemo(() => SERVICES.filter(s => !s.profile || profiles.includes(s.profile)), [profiles]);
+
+  const onCopy = (text, what) => {
+    if (navigator.clipboard) navigator.clipboard.writeText(text);
+    message.success(`${what} copied`);
+  };
+
+  /* in the real app these route to the container detail page with the given tab selected */
+  const go = {
+    tab: setTab,
+    container: (c, t) => message.info(html`<span>Opens <span className="mono">${c.name}</span> › ${t}</span>`),
+  };
+  const onLogs = key => { setLogSolo(key); setTab('logs'); };
+
+  const apply = (keys, verb) => setStates(s => ({ ...s, ...Object.fromEntries(keys.map(k => [k, verb === 'stop' ? 'exited' : 'running'])) }));
+
+  /* start is always safe; stop/restart first checks who depends on the service and offers to include them */
+  const act = (c, verb) => {
+    const Verb = verb[0].toUpperCase() + verb.slice(1);
+    if (verb === 'start') {
+      apply([c.key], verb);
+      message.success(`${c.name} ${states[c.key] === 'paused' ? 'unpaused' : 'started'}`);
+      return;
+    }
+    const siblingsUp = ctrs.some(x => x.service === c.service && x.key !== c.key && states[x.key] === 'running');
+    const hit = siblingsUp ? [] : impactOf(c.service, services)
+      .filter(d => ctrs.some(x => x.service === d.name && states[x.key] !== 'exited'));
+    if (!hit.length) {
+      apply([c.key], verb);
+      message[verb === 'stop' ? 'warning' : 'success'](`${c.name} ${verb === 'stop' ? 'stopped' : 'restarted'}`);
+      return;
+    }
+    const dependents = ctrs.filter(x => hit.some(h => h.name === x.service));
+    const m = modal.confirm({
+      title: `${Verb} ${c.service}?`, centered: true, width: 520,
+      icon: html`<${WarningOutlined} style=${{ color: '#d9a441' }} />`,
+      content: html`<div>
+        <div style=${{ marginBottom: 10 }}>${hit.length} service${hit.length > 1 ? 's' : ''} depend on <${Mono}>${c.service}<//>:</div>
+        <div className="impact">
+          ${hit.map(h => html`<div key=${h.name} className="impact-row" style=${{ paddingLeft: h.via ? 22 : 8 }}>
+            <span style=${{ width: 3, height: 12, borderRadius: 2, background: SVC_COLOR[h.name] }}></span>
+            <${Mono}>${h.name}<//>
+            <span className="dim fs12">${h.via ? `via ${h.via}` : `waits for ${c.service} ${h.cond}`}</span>
+          </div>`)}
+        </div>
+        <div className="dim fs12" style=${{ marginTop: 10 }}>
+          ${verb === 'stop'
+            ? `They keep running but lose ${c.service}; requests that need it fail until it's back.`
+            : `Expect a short outage while ${c.service} restarts. Dependents are not restarted unless you include them.`}
+        </div>
+      </div>`,
+      okText: `${Verb} ${c.service} only`, okType: verb === 'stop' ? 'danger' : 'default',
+      onOk: () => { apply([c.key], verb); message.warning(`docker compose ${verb} ${c.service}`); },
+      footer: (_, { OkBtn, CancelBtn }) => html`<${React.Fragment}>
+        <${CancelBtn} />
+        <${OkBtn} />
+        <${Button} type="primary" danger=${verb === 'stop'} onClick=${() => {
+          apply([c.key, ...dependents.map(d => d.key)], verb);
+          message.warning(`docker compose ${verb} ${[c.service, ...hit.map(h => h.name)].join(' ')}`);
+          m.destroy();
+        }}>${Verb} all ${hit.length + 1}<//>
+      <//>`,
+    });
+  };
+
+  const scale = (svc, n) => {
+    const cur = ctrs.filter(c => c.service === svc);
+    if (n > cur.length) {
+      const top = Math.max(...cur.map(c => c.replica));
+      const add = Array.from({ length: n - cur.length }, (_, i) => workerReplica(top + 1 + i));
+      setCtrs(cs => {
+        const at = cs.map(c => c.service).lastIndexOf(svc);
+        return [...cs.slice(0, at + 1), ...add, ...cs.slice(at + 1)];
+      });
+      apply(add.map(a => a.key), 'start');
+    } else {
+      const drop = [...cur].sort((a, b) => b.replica - a.replica).slice(0, cur.length - n).map(c => c.key);
+      setCtrs(cs => cs.filter(c => !drop.includes(c.key)));
+    }
+    message.success(`docker compose up -d --scale ${svc}=${n} --no-recreate`);
+  };
+
+  const toggleProfile = name => {
+    const p = PROFILES.find(x => x.name === name);
+    if (profiles.includes(name)) {
+      setProfiles(ps => ps.filter(x => x !== name));
+      setCtrs(cs => cs.filter(c => !p.services.includes(c.service)));
+      message.info(`docker compose --profile ${name} rm -sf ${p.services.join(' ')}`);
+    } else {
+      const add = p.services.map(s => PROFILE_CTRS[s]);
+      setProfiles(ps => [...ps, name]);
+      setCtrs(cs => {
+        const at = cs.findIndex(c => c.orphan);
+        return at < 0 ? [...cs, ...add] : [...cs.slice(0, at), ...add, ...cs.slice(at)];
+      });
+      apply(add.map(a => a.key), 'start');
+      message.success(`docker compose --profile ${name} up -d`);
+    }
+  };
+
+  const removeOrphans = () => {
+    const orphans = ctrs.filter(c => c.orphan);
+    modal.confirm({
+      title: 'Remove orphan containers?', centered: true, okText: 'Remove', okType: 'danger',
+      content: html`<span>${orphans.map(o => html`<${Mono} key=${o.key}>${o.name}<//>`)} will be stopped and removed. Its image and volumes are kept.</span>`,
+      onOk: () => { setCtrs(cs => cs.filter(c => !c.orphan)); message.success('docker compose up -d --remove-orphans'); },
+    });
+  };
+
+  const list = ctrs.map(c => states[c.key]);
+  const up = list.filter(s => s === 'running').length;
+  const allUp = up === list.length;
+  const anyActive = list.some(s => s !== 'exited');
+  const setAll = s => setStates(st => ({ ...st, ...Object.fromEntries(ctrs.map(c => [c.key, s])) }));
+
+  const run = ctrs.filter(c => states[c.key] === 'running');
+  const cpu = run.reduce((a, c) => a + c.cpu, 0);
+  const mem = run.reduce((a, c) => a + c.mem, 0);
+  const top = run.reduce((a, c) => (!a || c.mem > a.mem ? c : a), null);
+  const rx = run.reduce((a, c) => a + c.net[0], 0);
+  const tx = run.reduce((a, c) => a + c.net[1], 0);
+  const restarts = ctrs.reduce((a, c) => a + c.restarts, 0);
+
+  const tip = (label, title) => html`<${Tooltip} title=${title} placement="left" mouseEnterDelay=${0.3} align=${{ offset: [-40, 0] }}>
+    <span style=${{ display: 'block' }}>${label}</span>
+  <//>`;
+
+  const down = volumes => modal.confirm({
+    title: volumes ? 'Down and delete volumes?' : 'Take the project down?', centered: true,
+    okText: volumes ? 'Delete everything' : 'Down', okType: 'danger',
+    content: html`<span>All <${Mono}>${ctrs.length}<//> containers and the <${Mono}>shop_default<//> network will be removed.
+      ${volumes ? html` Volumes <${Mono}>shop_pgdata<//>, <${Mono}>shop_redis-data<//> and <${Mono}>shop_gateway-conf<//> (1.4 GB) are deleted permanently.` : ' Named volumes are kept.'}</span>`,
+  });
+
+  const moreItems = [
+    { key: 'pull', icon: html`<${CloudDownloadOutlined} />`, label: tip('Pull images', 'docker compose pull — fetches newer images. Running containers keep the old one until recreated.') },
+    { key: 'build', icon: html`<${BuildOutlined} />`, label: tip('Build', 'docker compose build — rebuilds services that have a build: section (api).') },
+    { key: 'recreate', icon: html`<${SyncOutlined} />`, label: tip('Recreate outdated', 'docker compose up -d — recreates only services whose config or image changed (api).') },
+    { key: 'force', icon: html`<${SyncOutlined} />`, label: tip('Force recreate all', 'docker compose up -d --force-recreate — every container is replaced, even unchanged ones.') },
+    { type: 'divider' },
+    { key: 'cpn', icon: html`<${CopyOutlined} />`, label: 'Copy project name', onClick: () => onCopy(PROJECT.name, 'Project name') },
+    { key: 'cfg', icon: html`<${FileTextOutlined} />`, label: tip('Copy resolved config', 'docker compose config — all files merged and variables interpolated. Secrets are not masked.'), onClick: () => onCopy(COMPOSE_YAML, 'Resolved config') },
+    { key: 'dir', icon: html`<${FolderOpenOutlined} />`, label: 'Reveal project folder' },
+    { type: 'divider' },
+    { key: 'orph', icon: html`<${DisconnectOutlined} />`, disabled: !ctrs.some(c => c.orphan), label: tip('Remove orphans', 'Removes containers labelled with this project whose service is no longer in the compose files.'), onClick: removeOrphans },
+    { key: 'down', icon: html`<${DeleteOutlined} />`, danger: true, label: tip('Down', 'Removes containers and project networks. Named volumes are kept.'), onClick: () => down(false) },
+    { key: 'downv', icon: html`<${DeleteOutlined} />`, danger: true, label: tip('Down + delete volumes', 'Also deletes named volumes. Database data is lost.'), onClick: () => down(true) },
+  ];
+
+  const tabs = [
+    { key: 'info', label: html`<span><${InfoCircleOutlined} /> Info</span>` },
+    { key: 'env', label: html`<span><${SettingOutlined} /> Environment</span>` },
+    { key: 'logs', label: html`<span><${FileTextOutlined} /> Logs</span>` },
+    { key: 'config', label: html`<span><${ApartmentOutlined} /> Config <span style=${{ display: 'inline-block', width: 6, height: 6, borderRadius: 99, background: '#d9a441', marginLeft: 4, verticalAlign: 'middle' }}></span></span>` },
+  ];
+
+  const body = {
+    info: html`<${InfoTab} states=${states} onCopy=${onCopy} go=${go} onLogs=${onLogs} flash=${flash} setFlash=${setFlash}
+      services=${services} profiles=${profiles} toggleProfile=${toggleProfile} scale=${scale} removeOrphans=${removeOrphans} act=${act} />`,
+    env: html`<${EnvTab} states=${states} onCopy=${onCopy} go=${go} />`,
+    logs: html`<${LogsTab} key=${logSolo || 'all'} solo=${logSolo} states=${states} />`,
+    config: html`<${ConfigTab} onCopy=${onCopy} />`,
+  }[tab];
+
+  const health = allUp ? ['green', 'all running'] : up === 0 ? ['coral', 'stopped'] : ['amber', 'degraded'];
+
+  return html`
+    <${CtrsCtx.Provider} value=${ctrs}>
+    <div>
+      <div className="head">
+        <div className="crumbs">
+          <span className="link">Containers</span>
+          <span>/</span>
+          <span style=${{ color: '#8a8f98' }}>${PROJECT.name}</span>
+        </div>
+
+        <div className="head-row">
+          <${Button} type="text" icon=${html`<${ArrowLeftOutlined} />`} aria-label="Back to containers" style=${{ marginTop: 2 }} />
+          <div style=${{ flex: 1, minWidth: 240 }}>
+            <div className="title">
+              <${FolderOpenOutlined} style=${{ color: '#8a8f98', fontSize: 18 }} />
+              ${PROJECT.name}
+              <${Pill} tone="teal">compose<//>
+              <${Pill} tone=${health[0]}>${health[1]}<//>
+            </div>
+            <div className="sub">
+              <span className="copyable mono" onClick=${() => onCopy(PROJECT.workdir, 'Path')}>${PROJECT.workdir}<${CopyOutlined} /></span>
+              <span className="dim">·</span>
+              <span className="mono dim">${services.length} services · ${ctrs.length} containers</span>
+              ${profiles.length > 0 && html`<span className="dim">·</span><span className="mono dim">profiles: ${profiles.join(', ')}</span>`}
+              <span className="dim">·</span>
+              <span className="mono dim">up since ${PROJECT.created.slice(0, 10)}</span>
+            </div>
+          </div>
+
+          <div className="toolbar">
+            ${!allUp && html`<${Button} type="primary" icon=${html`<${PlayCircleOutlined} />`}
+              onClick=${() => { setAll('running'); message.success('docker compose start'); }}>
+              ${up === 0 ? 'Start' : `Start ${list.length - up} stopped`}<//>`}
+            <${Button} icon=${html`<${ReloadOutlined} />`} disabled=${!anyActive}
+              onClick=${() => { setAll('running'); message.success('docker compose restart'); }}>Restart<//>
+            <${Button} danger icon=${html`<${PoweroffOutlined} />`} disabled=${!anyActive}
+              onClick=${() => { setAll('exited'); message.warning('docker compose stop'); }}>Stop<//>
+            <${Dropdown} menu=${{ items: moreItems }} trigger=${['click']} placement="bottomRight">
+              <${Button} icon=${html`<${MoreOutlined} />`} aria-label="More actions" />
+            <//>
+          </div>
+        </div>
+
+        <div className="stats">
+          <div className="stat">
+            <div className="k">Containers</div>
+            <div className="v">${up}<small>/ ${list.length} running</small></div>
+            <div className="run-bar">${ctrs.map(c => html`<${Tooltip} key=${c.key} title=${`${c.name} · ${states[c.key]}`}>
+              <span style=${{ background: STATE_COLOR[states[c.key]] }}></span><//>`)}</div>
+          </div>
+          <div className="stat"><div className="k">CPU</div><div className="v">${cpu.toFixed(1)}%<small>sum</small></div></div>
+          <div className="stat"><div className="k">Memory</div><div className="v">${mem} MB<small>${top ? `top: ${top.label} ${top.mem} MB` : ''}</small></div></div>
+          <div className="stat"><div className="k">Network I/O</div><div className="v">${rx.toFixed(1)} MB / ${tx.toFixed(1)} MB</div></div>
+          <div className="stat"><div className="k">Restarts</div><div className="v">${restarts}<small>worker-1: 3 in 2 min</small></div></div>
+          <div className="stat"><div className="k">Volumes</div><div className="v">3<small>1.4 GB</small></div></div>
+        </div>
+
+        <${Tabs} activeKey=${tab} onChange=${k => { if (k === 'logs') setLogSolo(null); setTab(k); }} items=${tabs} style=${{ marginBottom: -1 }} />
+      </div>
+
+      <div className="page">${body}</div>
+    </div>
+    <//>`;
+}
+
+/* ---------- shell ---------- */
+const NAV = [
+  { key: 'containers', label: 'Containers', hint: '7', icon: ContainerOutlined },
+  { key: 'images', label: 'Images', hint: '6', icon: PictureOutlined },
+  { key: 'volumes', label: 'Volumes', hint: '5', icon: HddOutlined },
+  { key: 'prefs', label: 'Preferences', hint: '', icon: SettingOutlined },
+];
+
+function Shell() {
+  return html`
+    <div className="app">
+      <aside className="side">
+        <div className="brand"><${Glyph} />Container GUI</div>
+        ${NAV.map(n => html`
+          <div key=${n.key} className=${'nav-item' + (n.key === 'containers' ? ' active' : '')}>
+            <${n.icon} style=${{ fontSize: 14, color: n.key === 'containers' ? '#e4f222' : '#62666d' }} />
+            <span style=${{ flex: 1 }}>${n.label}</span>
+            ${n.hint && html`<span className="mono dim">${n.hint}</span>`}
+          </div>`)}
+        <div className="side-foot">
+          <span className="mono">desktop-linux</span>
+          <span style=${{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <span style=${{ width: 6, height: 6, borderRadius: 99, background: '#27a644' }}></span>
+            <span className="mono">7ms</span>
+          </span>
+        </div>
+      </aside>
+
+      <main className="main">
+        <${GroupDetail} />
+      </main>
+    </div>`;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(
+  html`<${ConfigProvider} theme=${themeCfg}><${AntApp}><${Shell} /><//><//>`
+);
+</script>
+</body>
+</html>
