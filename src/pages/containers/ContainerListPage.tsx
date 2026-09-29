@@ -238,6 +238,17 @@ export default function ContainerListPage() {
     if (action === "remove") setSelected([]);
   };
 
+  // Same idea as eligibleIds/runBatch, scoped to one compose group's children
+  // so the group row can offer bulk actions without a page-wide selection.
+  const groupEligibleIds = (children: ContainerRow[], action: ActionKind) =>
+    children.filter((child) => actionApplies(action, child.state)).map((child) => child.id);
+
+  const runGroupBatch = (children: ContainerRow[], action: ActionKind) => {
+    const ids = groupEligibleIds(children, action);
+    for (const id of ids) runAction(id, action);
+    if (action === "remove") setSelected((prev) => prev.filter((key) => !ids.includes(String(key))));
+  };
+
   const columns: TableColumnsType<Row> = [
     {
       title: "Name",
@@ -349,7 +360,37 @@ export default function ContainerListPage() {
       width: 48,
       align: "right",
       render: (_, row) => {
-        if (row.kind === "group") return null;
+        if (row.kind === "group") {
+          const stoppable = groupEligibleIds(row.children, "stop");
+          const startable = groupEligibleIds(row.children, "start");
+          if (stoppable.length) {
+            return (
+              <Tooltip title={`Stop ${stoppable.length} running`}>
+                <Button
+                  type="text"
+                  size="small"
+                  aria-label="Stop group"
+                  icon={<MinusCircleOutlined />}
+                  onClick={() => runGroupBatch(row.children, "stop")}
+                />
+              </Tooltip>
+            );
+          }
+          if (startable.length) {
+            return (
+              <Tooltip title={`Start ${startable.length} stopped`}>
+                <Button
+                  type="text"
+                  size="small"
+                  aria-label="Start group"
+                  icon={<PlayCircleOutlined />}
+                  onClick={() => runGroupBatch(row.children, "start")}
+                />
+              </Tooltip>
+            );
+          }
+          return null;
+        }
         if (pending[row.id]) return <Spin size="small" />;
         if (actionApplies("stop", row.state)) {
           return (
@@ -386,7 +427,89 @@ export default function ContainerListPage() {
       width: 56,
       align: "right",
       render: (_, row) => {
-        if (row.kind === "group") return null;
+        if (row.kind === "group") {
+          return (
+            <RowActions
+              groups={[
+                [
+                  {
+                    key: "start",
+                    label: "Start all",
+                    icon: <PlayCircleOutlined />,
+                    disabled: !groupEligibleIds(row.children, "start").length,
+                    onClick: () => runGroupBatch(row.children, "start"),
+                  },
+                  {
+                    key: "stop",
+                    label: "Stop all",
+                    icon: <MinusCircleOutlined />,
+                    disabled: !groupEligibleIds(row.children, "stop").length,
+                    onClick: () => runGroupBatch(row.children, "stop"),
+                  },
+                  {
+                    key: "restart",
+                    label: "Restart all",
+                    icon: <ReloadOutlined />,
+                    disabled: !groupEligibleIds(row.children, "restart").length,
+                    onClick: () => runGroupBatch(row.children, "restart"),
+                  },
+                  {
+                    key: "kill",
+                    label: "Terminate all",
+                    icon: <StopOutlined />,
+                    danger: true,
+                    disabled: !groupEligibleIds(row.children, "kill").length,
+                    onClick: () => runGroupBatch(row.children, "kill"),
+                  },
+                  {
+                    key: "pause",
+                    label: "Pause all",
+                    icon: <PauseCircleOutlined />,
+                    disabled: !groupEligibleIds(row.children, "pause").length,
+                    onClick: () => runGroupBatch(row.children, "pause"),
+                  },
+                  {
+                    key: "unpause",
+                    label: "Resume all",
+                    icon: <PlayCircleOutlined />,
+                    disabled: !groupEligibleIds(row.children, "unpause").length,
+                    onClick: () => runGroupBatch(row.children, "unpause"),
+                  },
+                ],
+                [
+                  {
+                    key: "details",
+                    label: "Group details",
+                    icon: <InfoCircleOutlined />,
+                    onClick: () => navigate(`/containers/group/${encodeURIComponent(row.project)}`),
+                  },
+                ],
+                [
+                  {
+                    key: "remove",
+                    label: "Remove all",
+                    icon: <DeleteOutlined />,
+                    danger: true,
+                    onClick: () =>
+                      modal.confirm({
+                        title: "Remove compose group?",
+                        centered: true,
+                        okText: "Remove",
+                        okType: "danger",
+                        content: (
+                          <span>
+                            <Mono>{row.project}</Mono> and its {row.children.length} containers will be
+                            stopped and deleted.
+                          </span>
+                        ),
+                        onOk: () => runGroupBatch(row.children, "remove"),
+                      }),
+                  },
+                ],
+              ]}
+            />
+          );
+        }
         const paused = row.state === "paused";
         return (
           <RowActions
