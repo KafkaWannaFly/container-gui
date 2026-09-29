@@ -4,7 +4,7 @@
 # side's output in one block instead of interleaving it; a failure on either
 # side fails the parent target.
 
-.PHONY: i i-front i-back dev test test-front test-back up down fm fm-front fm-back lint lint-front lint-back
+.PHONY: i i-front i-back dev test test-front test-back up profiles orphan down fm fm-front fm-back lint lint-front lint-back
 
 PAR := $(MAKE) -j2 -Otarget --no-print-directory
 
@@ -20,20 +20,35 @@ i-front:
 i-back:
 	cargo fetch --manifest-path src-tauri/Cargo.toml
 
+check:
+	cargo check --manifest-path src-tauri/Cargo.toml
+
 ## Start the Tauri app (runs Vite + the Rust shell).
 dev:
 	pnpm tauri dev
 
-## Create sample containers: one bare, one 1 volume/1 port, one 3 volumes/3 ports.
-## The last two share a compose project group (`com.docker.compose.project`).
+## Create the sample containers: one bare, plus the `container-gui` compose
+## project (a compose group with profiles, scaling, healthchecks and volumes).
 up:
+	-docker network create cgui-edge
 	docker run -d --name cgui-sample-bare alpine sleep infinity
 	docker compose -f test-data/compose.yaml up -d
 
-## Remove the sample containers and volumes created by `up`.
+## Same group with the tools + ops profiles enabled.
+profiles:
+	-docker network create cgui-edge
+	docker compose -f test-data/compose.yaml --profile tools --profile ops up -d
+
+## Leave a container that no longer belongs to the group (orphan).
+orphan:
+	docker compose -f test-data/compose.yaml -f test-data/compose.orphan.yaml up -d legacy
+	docker compose -f test-data/compose.yaml up -d
+
+## Remove the sample containers, volumes and the external network created by `up`.
 down:
 	-docker rm -f cgui-sample-bare
-	-docker compose -f test-data/compose.yaml down -v
+	-docker compose -f test-data/compose.yaml --profile tools --profile ops down -v --remove-orphans
+	-docker network rm cgui-edge
 
 ## Type-check/build the frontend and run backend tests in parallel.
 test:

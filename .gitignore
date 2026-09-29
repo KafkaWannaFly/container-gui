@@ -69,6 +69,8 @@ web_modules/
 .env
 .env.*
 !.env.example
+# test-data/.env is a fixture (fake secrets only)
+!test-data/.env
 
 # parcel-bundler cache (https://parceljs.org/)
 .cache
@@ -168,4 +170,6 @@ rustc-ice-*.txt
 #.idea/
 
 plans/*
+test-data/backups/*
+!test-data/backups/.gitkeep
 .playwright-mcp

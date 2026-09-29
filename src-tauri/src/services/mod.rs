@@ -1,3 +1,4 @@
+pub mod compose_service;
 pub mod container_service;
 pub mod exec_service;
 pub mod files_service;

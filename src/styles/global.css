@@ -435,12 +435,6 @@ pre.logs .dim {
   transition: transform 0.15s;
 }
 
-.grid2 {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
-  gap: 16px;
-  align-items: start;
-}
 
 .tab-stack {
   display: flex;
@@ -1087,4 +1081,389 @@ pre.logs .dim {
 .fs-code-body .cm-theme,
 .df-view .cm-theme {
   height: 100%;
+}
+
+/* ---------- compose group detail ---------- */
+.g-run-bar {
+  display: flex;
+  gap: 2px;
+  margin-top: 6px;
+}
+
+.g-run-bar span {
+  width: 14px;
+  height: 4px;
+  border-radius: 2px;
+}
+
+.g-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 9999px;
+  cursor: pointer;
+  border: 1px solid var(--graphite);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--mist);
+  font-family: inherit;
+  font-size: 12px;
+  user-select: none;
+}
+
+.g-chip:hover {
+  border-color: var(--smoke);
+}
+
+.g-chip.off {
+  color: var(--ash);
+  background: transparent;
+}
+
+.g-chip .n {
+  color: var(--ash);
+}
+
+.g-chip .dots {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.g-chip .dots i {
+  width: 6px;
+  height: 6px;
+  border-radius: 99px;
+}
+
+.g-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  border: 1px solid var(--graphite);
+  border-radius: 6px;
+  padding: 0 2px;
+  margin-left: 4px;
+}
+
+.g-stepper .mono {
+  min-width: 22px;
+  text-align: center;
+  color: var(--bone);
+}
+
+.g-inactive {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--graphite);
+}
+
+.g-inactive-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 6px;
+}
+
+.g-inactive-row:hover {
+  background: var(--obsidian);
+}
+
+.g-impact {
+  border: 1px solid var(--graphite);
+  border-radius: 6px;
+  padding: 4px 0;
+}
+
+.g-impact-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+}
+
+.g-svc-chip {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  border-left: 2px solid;
+  padding-left: 6px;
+}
+
+/* dependency graph */
+.g-dag-wrap {
+  overflow: auto;
+  padding: 4px 2px 2px;
+}
+
+.g-dag {
+  position: relative;
+  margin: 0 auto;
+}
+
+.g-dag svg {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+}
+
+.g-dag-node {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  background: var(--obsidian);
+  border: 1px solid var(--graphite);
+  border-radius: 6px;
+  padding: 0 10px;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  transition: border-color 0.12s, opacity 0.12s;
+}
+
+.g-dag-node:hover,
+.g-dag-node.on {
+  border-color: var(--smoke);
+}
+
+.g-dag-node.off {
+  opacity: 0.45;
+}
+
+.g-dag-node .nm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--paper);
+  font-size: 13px;
+}
+
+.g-dag-col-h {
+  position: absolute;
+  top: -2px;
+  font-size: 12px;
+  color: var(--ash);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* merged / split logs */
+.g-log {
+  margin: 0;
+  background: var(--void);
+  border: 1px solid var(--graphite);
+  border-radius: 8px;
+  padding: 12px 0;
+  height: calc(100vh - 470px);
+  min-height: 320px;
+  overflow: auto;
+  color: var(--mist);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.75;
+  letter-spacing: -0.013em;
+}
+
+.g-row {
+  padding: 0 12px;
+  display: flex;
+  gap: 10px;
+}
+
+.g-row > .msg {
+  flex: 1;
+  min-width: 0;
+}
+
+.g-ts,
+.g-tag {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+}
+
+.g-ts {
+  color: var(--ash);
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+
+.g-ts:hover {
+  color: var(--mist);
+  text-decoration: underline;
+}
+
+.g-tag {
+  flex: 0 0 130px;
+  cursor: pointer;
+  overflow: hidden;
+  white-space: nowrap;
+  border-left: 2px solid;
+  padding-left: 8px;
+}
+
+.g-tag:hover {
+  text-decoration: underline;
+}
+
+.g-lvl {
+  flex: 0 0 46px;
+}
+
+.g-info {
+  color: var(--mist);
+}
+
+.g-warn {
+  color: var(--amber);
+}
+
+.g-error {
+  color: var(--coral);
+}
+
+.g-event {
+  color: var(--fog);
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.g-event .msg {
+  font-style: italic;
+}
+
+.g-near {
+  background: rgba(2, 184, 204, 0.07);
+}
+
+.g-anchor {
+  background: rgba(2, 184, 204, 0.16);
+}
+
+.g-split {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(360px, 1fr);
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.g-col {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--void);
+  border: 1px solid var(--graphite);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.g-col-h {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px 4px 12px;
+  border-bottom: 1px solid var(--graphite);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.g-col .g-log {
+  border: 0;
+  border-radius: 0;
+  height: calc(100vh - 506px);
+}
+
+/* config code view */
+.g-code-box {
+  background: var(--void);
+  border: 1px solid var(--graphite);
+  border-radius: 8px;
+  max-height: calc(100vh - 470px);
+  min-height: 280px;
+  overflow: auto;
+}
+
+.g-code {
+  padding: 10px 0;
+  color: var(--mist);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.75;
+  letter-spacing: -0.013em;
+  width: max-content;
+  min-width: 100%;
+}
+
+.g-ln {
+  display: flex;
+}
+
+.g-ln .n {
+  flex: 0 0 52px;
+  position: sticky;
+  left: 0;
+  background: var(--void);
+  padding-right: 14px;
+  text-align: right;
+  color: var(--smoke);
+  user-select: none;
+}
+
+.g-ln .t {
+  flex: 1;
+  min-width: 0;
+  padding-right: 16px;
+  white-space: pre;
+}
+
+.g-ln.drift .t {
+  background: rgba(217, 164, 65, 0.12);
+}
+
+.g-ln.drift .n {
+  color: var(--amber);
+}
+
+.y-k {
+  color: var(--paper);
+}
+
+.y-c {
+  color: var(--ash);
+}
+
+.mx-val {
+  display: inline-block;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+
+.mx-odd {
+  color: var(--amber);
+}
+
+.svc-table .ant-table-tbody > tr {
+  cursor: pointer;
+}
+
+.svc-table .row-act {
+  opacity: 0.35;
+  transition: opacity 0.12s;
+}
+
+.svc-table tr:hover .row-act,
+.svc-table tr:focus-within .row-act {
+  opacity: 1;
+}
+
+.svc-table tr.g-flash > td {
+  background: rgba(228, 242, 34, 0.06);
 }

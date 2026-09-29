@@ -23,6 +23,8 @@ export const ContainerSummarySchema = z.object({
   ports: z.array(PortMappingSchema),
   composeProject: z.string().nullable(),
   composeService: z.string().nullable(),
+  composeWorkingDir: z.string().nullable(),
+  composeConfigFiles: z.string().nullable(),
 });
 export type ContainerSummary = z.infer<typeof ContainerSummarySchema>;
 
@@ -156,6 +158,90 @@ export const SystemInfoSchema = z.object({
   pingMs: z.number(),
 });
 export type SystemInfo = z.infer<typeof SystemInfoSchema>;
+
+/* ------------------------------------------------------------------ *
+ * Compose project (group detail)
+ * ------------------------------------------------------------------ */
+
+export const ComposeFileSchema = z.object({
+  name: z.string(),
+  path: z.string(),
+  content: z.string(),
+});
+export type ComposeFile = z.infer<typeof ComposeFileSchema>;
+
+/** Truncated to the paths the group page reads; Compose adds more. */
+const ComposeServiceConfigSchema = z.looseObject({
+  image: z.string().nullish(),
+  container_name: z.string().nullish(),
+  profiles: z.array(z.string()).nullish(),
+  depends_on: z
+    .record(z.string(), z.union([z.string(), z.looseObject({ condition: z.string().nullish() })]))
+    .nullish(),
+  environment: z.record(z.string(), z.unknown()).nullish(),
+  ports: z
+    .array(
+      z.looseObject({
+        target: z.number(),
+        published: z.string().nullish(),
+        protocol: z.string().nullish(),
+      }),
+    )
+    .nullish(),
+  volumes: z
+    .array(
+      z.looseObject({
+        type: z.string(),
+        source: z.string().nullish(),
+        target: z.string().nullish(),
+        read_only: z.boolean().nullish(),
+      }),
+    )
+    .nullish(),
+  networks: z.record(z.string(), z.unknown()).nullish(),
+  deploy: z.looseObject({ replicas: z.number().nullish() }).nullish(),
+  healthcheck: z.looseObject({ test: z.array(z.string()).nullish() }).nullish(),
+  restart: z.string().nullish(),
+});
+export type ComposeServiceConfig = z.infer<typeof ComposeServiceConfigSchema>;
+
+export const ComposeConfigSchema = z.looseObject({
+  name: z.string().nullish(),
+  services: z.record(z.string(), ComposeServiceConfigSchema).default({}),
+  networks: z
+    .record(z.string(), z.looseObject({ name: z.string().nullish(), external: z.boolean().nullish() }))
+    .nullish(),
+  volumes: z.record(z.string(), z.looseObject({ name: z.string().nullish() })).nullish(),
+});
+export type ComposeConfig = z.infer<typeof ComposeConfigSchema>;
+
+export const ComposeProjectSchema = z.object({
+  project: z.string(),
+  workdir: z.string(),
+  files: z.array(ComposeFileSchema),
+  configHash: z.string(),
+  composeVersion: z.string(),
+  config: ComposeConfigSchema,
+  resolved: z.string(),
+});
+export type ComposeProject = z.infer<typeof ComposeProjectSchema>;
+
+export const ComposeRunSchema = z.object({
+  code: z.number(),
+  stdout: z.string(),
+  stderr: z.string(),
+});
+export type ComposeRun = z.infer<typeof ComposeRunSchema>;
+
+export type ComposeActionRequest = {
+  workdir: string;
+  files: string[];
+  action: string;
+  service?: string | null;
+  replicas?: number | null;
+  profiles?: string[];
+  services?: string[];
+};
 
 /**
  * Raw Docker inspect payload. We only assert the paths the UI reads and
@@ -319,6 +405,14 @@ export function portUrl(hostPort: number | string, containerPort: number | strin
 
 export function shortId(id: string): string {
   return id.replace(/^sha256:/, "").slice(0, 12);
+}
+
+/** Truncate a long name to `start…end` instead of clipping the end away. */
+export function middleEllipsis(text: string, max = 14): string {
+  if (text.length <= max) return text;
+  const head = Math.ceil((max - 1) / 2);
+  const tail = Math.floor((max - 1) / 2);
+  return `${text.slice(0, head)}…${text.slice(text.length - tail)}`;
 }
 
 /* ------------------------------ filesystem ----------------------------- */

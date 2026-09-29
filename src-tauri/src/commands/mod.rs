@@ -1,3 +1,4 @@
+pub mod compose;
 pub mod containers;
 pub mod context;
 pub mod exec;

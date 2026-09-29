@@ -231,18 +231,17 @@ export default function InfoTab({ ctr, image, onCopy }: TabProps) {
         <Descriptions column={1} size="small" bordered items={general} />
       </Section>
 
-      <div className="grid2">
-        <Section id="health" title="Health check" {...section}>
-          {health.length ? (
-            <Descriptions column={1} size="small" bordered items={health} />
-          ) : (
-            <span className="dim">No health check configured for this container.</span>
-          )}
-        </Section>
-        <Section id="limits" title="Resource limits" {...section}>
-          <Descriptions column={1} size="small" bordered items={limits} />
-        </Section>
-      </div>
+      <Section id="health" title="Health check" {...section}>
+        {health.length ? (
+          <Descriptions column={1} size="small" bordered items={health} />
+        ) : (
+          <span className="dim">No health check configured for this container.</span>
+        )}
+      </Section>
+
+      <Section id="limits" title="Resource limits" {...section}>
+        <Descriptions column={1} size="small" bordered items={limits} />
+      </Section>
 
       <Section
         id="ports"

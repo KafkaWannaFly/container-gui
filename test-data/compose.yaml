@@ -1,30 +1,168 @@
-# Sample compose group for `make up`. The project name is pinned so both
-# services share the com.docker.compose.project label regardless of folder.
+# Test fixtures for the compose group detail page (prototypes/group-detail.html).
+# Project name is pinned so every service shares com.docker.compose.project.
+#
+#   make up        baseline (profiles off, worker x2, flaky exited)
+#   make profiles  enable the tools + ops profiles
+#   make orphan    leave a legacy container not in this file
+#   make down      remove containers, volumes, external network
 name: container-gui
 
 services:
-  one-volume-one-port:
+  # healthcheck (healthy), 2 published ports, named volume, default+external net
+  gateway:
     image: nginx:alpine
-    container_name: cgui-sample-1v1p
+    container_name: cgui-gateway
     ports:
       - "18080:80"
+      - "18443:443"
     volumes:
-      - cgui-sample-vol-1:/data
+      - gateway-conf:/etc/nginx/conf.d
+    environment:
+      UPSTREAM_URL: http://api:3000
+      LOG_LEVEL: info
+      TZ: Europe/Berlin
+    healthcheck:
+      test: ["CMD-SHELL", "nginx -t"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    depends_on:
+      api: { condition: service_healthy }
+    networks: [default, edge]
+    restart: unless-stopped
 
-  three-volume-three-port:
-    image: nginx:alpine
-    container_name: cgui-sample-3v3p
-    ports:
-      - "18081:80"
-      - "18082:80"
-      - "18083:80"
+  # default name (container-gui-api-1), masked secrets in DATABASE_URL/JWT_SIGNING_KEY,
+  # named volume + read-only bind
+  api:
+    image: alpine:3.20
+    command:
+      - sh
+      - -c
+      - |
+        touch /tmp/ready
+        while true; do echo "INFO  request handled"; sleep 5; done
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      LOG_LEVEL: debug
+      DATABASE_URL: postgres://cgui:${POSTGRES_PASSWORD}@postgres:5432/app
+      JWT_SIGNING_KEY: ${JWT_SIGNING_KEY}
+      TZ: Europe/Berlin
     volumes:
-      - cgui-sample-vol-2:/a
-      - cgui-sample-vol-3:/b
-      - cgui-sample-vol-4:/c
+      - api-cache:/cache
+      - ./fixtures:/fixtures:ro
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /tmp/ready"]
+      interval: 3s
+      timeout: 2s
+      retries: 5
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+
+  # scalable: no container_name + deploy.replicas -> scaling stepper
+  worker:
+    image: alpine:3.20
+    command:
+      - sh
+      - -c
+      - |
+        while true; do echo "INFO  worker tick"; sleep 5; done
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          memory: 64M
+    environment:
+      NODE_ENV: production
+      LOG_LEVEL: debug
+      DATABASE_URL: postgres://cgui:${POSTGRES_PASSWORD}@postgres:5432/app
+      REDIS_URL: redis://redis:6379
+      QUEUE: orders
+      CONCURRENCY: "4"
+      TZ: UTC
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+    restart: on-failure:3
+
+  # healthy dependency, data volume grows -> non-zero volume size
+  postgres:
+    image: postgres:16-alpine
+    container_name: cgui-postgres
+    environment:
+      POSTGRES_USER: cgui
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: app
+      TZ: Europe/Berlin
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cgui -d app"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  # no healthcheck -> "no check"; writes to a named volume
+  redis:
+    image: redis:7-alpine
+    container_name: cgui-redis
+    command: ["redis-server", "--loglevel", "notice"]
+    volumes:
+      - redis-data:/data
+
+  # exits 1 -> exited row + restart count + error logs + die events
+  flaky:
+    image: alpine:3.20
+    container_name: cgui-flaky
+    command: ["sh", "-c", "echo 'FATAL: simulated crash' >&2; exit 1"]
+    restart: on-failure:3
+    depends_on:
+      redis: { condition: service_started }
+
+  # published URL for the ports table
+  mailer:
+    image: axllent/mailpit:latest
+    container_name: cgui-mailer
+    ports:
+      - "18025:8025"
+
+  # profiles: services that only exist while the profile is on
+  adminer:
+    image: adminer:4
+    profiles: [tools]
+    ports:
+      - "18081:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+      ADMINER_DESIGN: dracula
+    depends_on:
+      postgres: { condition: service_started }
+
+  pgbackup:
+    image: prodrigestivill/postgres-backup-local:16
+    profiles: [ops]
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: app
+      POSTGRES_USER: cgui
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      SCHEDULE: "@daily"
+      BACKUP_KEEP_DAYS: "7"
+    volumes:
+      - ./backups:/backups
+    depends_on:
+      postgres: { condition: service_healthy }
 
 volumes:
-  cgui-sample-vol-1:
-  cgui-sample-vol-2:
-  cgui-sample-vol-3:
-  cgui-sample-vol-4:
+  pgdata:
+  redis-data:
+  gateway-conf:
+  api-cache:
+
+networks:
+  # created by `make up`; external so the UI shows the "external" pill
+  edge:
+    external: true
+    name: cgui-edge

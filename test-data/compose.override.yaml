@@ -1,0 +1,9 @@
+# Auto-merged after compose.yaml. Exercises the "merged in this order" view,
+# the Resolved config output, and a variable that differs between services.
+services:
+  postgres:
+    ports:
+      - "15432:5432"
+  worker:
+    environment:
+      LOG_LEVEL: info

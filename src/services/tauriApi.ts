@@ -1,6 +1,11 @@
 import { Channel, invoke } from "@tauri-apps/api/core";
 import { z } from "zod";
 import {
+  type ComposeActionRequest,
+  type ComposeProject,
+  ComposeProjectSchema,
+  type ComposeRun,
+  ComposeRunSchema,
   type ConnectionConfig,
   ConnectionConfigSchema,
   type ContainerInspect,
@@ -152,6 +157,18 @@ export function streamContainerStats(id: string, onSample: (stats: ContainerLive
 /** Write the full container log to `dest`; resolves to the path. */
 export function saveContainerLogs(id: string, dest: string): Promise<string> {
   return call("save_container_logs", { id, dest }, z.string());
+}
+
+/* -------------------------------- compose ----------------------------- */
+
+/** Merged config, raw files and metadata for one compose project. */
+export function getComposeProject(workdir: string, files: string[]): Promise<ComposeProject> {
+  return call("compose_project", { workdir, files }, ComposeProjectSchema);
+}
+
+/** Run an allow-listed `docker compose` lifecycle action. */
+export function composeAction(request: ComposeActionRequest): Promise<ComposeRun> {
+  return call("compose_action", { request }, ComposeRunSchema);
 }
 
 /* -------------------------------- files ------------------------------- */

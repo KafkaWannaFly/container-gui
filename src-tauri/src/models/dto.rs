@@ -26,6 +26,8 @@ pub struct ContainerSummaryDto {
     pub ports: Vec<PortMappingDto>,
     pub compose_project: Option<String>,
     pub compose_service: Option<String>,
+    pub compose_working_dir: Option<String>,
+    pub compose_config_files: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -322,4 +324,53 @@ pub struct SystemInfoDto {
     pub cpus: i64,
     pub memory_total: i64,
     pub ping_ms: u64,
+}
+
+/// One compose file as shown in the Config tab.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ComposeFileDto {
+    pub name: String,
+    pub path: String,
+    pub content: String,
+}
+
+/// Everything the group page needs for one compose project. `config` is the
+/// parsed output of `docker compose config --format json` (fully merged and
+/// interpolated); `resolved` is the same document rendered as YAML.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ComposeProjectDto {
+    pub project: String,
+    pub workdir: String,
+    pub files: Vec<ComposeFileDto>,
+    pub config_hash: String,
+    pub compose_version: String,
+    pub config: serde_json::Value,
+    pub resolved: String,
+}
+
+/// Result of a `docker compose` lifecycle action.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ComposeRunDto {
+    pub code: i32,
+    pub stdout: String,
+    pub stderr: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ComposeActionRequest {
+    pub workdir: String,
+    pub files: Vec<String>,
+    pub action: String,
+    pub service: Option<String>,
+    pub replicas: Option<u8>,
+    #[serde(default)]
+    pub profiles: Vec<String>,
+    /// Extra service names for multi-service verbs (`rm`). `service` still
+    /// covers the single-service verbs.
+    #[serde(default)]
+    pub services: Vec<String>,
 }

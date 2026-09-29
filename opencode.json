@@ -4,7 +4,7 @@
     "servers": {
       "antd": {
         "type": "local",
-        "command": ["npx", "-y", "@ant-design/cli", "mcp"]
+        "command": ["npx", "-y", "@ant-design/cli@6.6.5", "mcp"]
       }
     }
   }

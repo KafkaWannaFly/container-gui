@@ -14,6 +14,7 @@ export const queryKeys = {
   containers: (all = true) => ["containers", all] as const,
   containerStats: () => ["container-stats"] as const,
   containerInspect: (id: string) => ["container-inspect", id] as const,
+  composeProject: (workdir: string) => ["compose-project", workdir] as const,
   images: () => ["images"] as const,
   imageHistory: (ref: string) => ["image-history", ref] as const,
   imageInspect: (ref: string) => ["image-inspect", ref] as const,

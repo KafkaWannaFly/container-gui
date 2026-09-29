@@ -238,17 +238,6 @@ export default function ContainerListPage() {
     if (action === "remove") setSelected([]);
   };
 
-  const confirmBatchRemove = () => {
-    modal.confirm({
-      title: `Remove ${selectedIds.length} container${selectedIds.length > 1 ? "s" : ""}?`,
-      centered: true,
-      okText: "Remove",
-      okType: "danger",
-      content: "Selected containers will be stopped and deleted.",
-      onOk: () => runBatch("remove"),
-    });
-  };
-
   const columns: TableColumnsType<Row> = [
     {
       title: "Name",
@@ -256,7 +245,9 @@ export default function ContainerListPage() {
       render: (_, row) =>
         row.kind === "group" ? (
           <span style={{ display: "inline-flex", alignItems: "baseline", gap: 8 }}>
-            <span style={{ color: "var(--paper)" }}>{row.project}</span>
+            <Link to={`/containers/group/${encodeURIComponent(row.project)}`} className="row-link">
+              {row.project}
+            </Link>
             <span className="mono dim">{row.children.length} containers</span>
           </span>
         ) : (
@@ -351,6 +342,43 @@ export default function ContainerListPage() {
             {formatDistanceToNow(new Date(row.created * 1000), { addSuffix: true })}
           </span>
         ) : null,
+    },
+    {
+      title: "",
+      key: "power",
+      width: 48,
+      align: "right",
+      render: (_, row) => {
+        if (row.kind === "group") return null;
+        if (pending[row.id]) return <Spin size="small" />;
+        if (actionApplies("stop", row.state)) {
+          return (
+            <Tooltip title="Stop">
+              <Button
+                type="text"
+                size="small"
+                aria-label="Stop"
+                icon={<MinusCircleOutlined />}
+                onClick={() => runAction(row.id, "stop")}
+              />
+            </Tooltip>
+          );
+        }
+        if (actionApplies("start", row.state)) {
+          return (
+            <Tooltip title="Start">
+              <Button
+                type="text"
+                size="small"
+                aria-label="Start"
+                icon={<PlayCircleOutlined />}
+                onClick={() => runAction(row.id, "start")}
+              />
+            </Tooltip>
+          );
+        }
+        return null;
+      },
     },
     {
       title: "",
@@ -531,7 +559,7 @@ export default function ContainerListPage() {
               title={`Remove ${selectedIds.length} container(s)?`}
               okText="Remove"
               okType="danger"
-              onConfirm={confirmBatchRemove}
+              onConfirm={() => runBatch("remove")}
               disabled={!selectedIds.length}
             >
               <Tooltip title="Remove">

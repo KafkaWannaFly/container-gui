@@ -22,6 +22,8 @@ use crate::models::dto::{
 
 const LABEL_COMPOSE_PROJECT: &str = "com.docker.compose.project";
 const LABEL_COMPOSE_SERVICE: &str = "com.docker.compose.service";
+const LABEL_COMPOSE_WORKING_DIR: &str = "com.docker.compose.project.working_dir";
+const LABEL_COMPOSE_CONFIG_FILES: &str = "com.docker.compose.project.config_files";
 
 /// Server-side filter for the container list. Built with `bon` so the
 /// command layer can grow optional filters without positional churn.
@@ -76,6 +78,8 @@ pub async fn list_containers(
                     .collect(),
                 compose_project: labels.get(LABEL_COMPOSE_PROJECT).cloned(),
                 compose_service: labels.get(LABEL_COMPOSE_SERVICE).cloned(),
+                compose_working_dir: labels.get(LABEL_COMPOSE_WORKING_DIR).cloned(),
+                compose_config_files: labels.get(LABEL_COMPOSE_CONFIG_FILES).cloned(),
             }
         })
         .collect())

@@ -1,0 +1,7 @@
+# `make orphan` starts this, then re-runs the base file so `legacy` becomes
+# an orphan: labelled with the project but absent from the config.
+name: container-gui
+services:
+  legacy:
+    image: alpine:3.20
+    command: ["sleep", "infinity"]

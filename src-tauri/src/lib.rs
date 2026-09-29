@@ -77,6 +77,8 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            commands::compose::compose_project,
+            commands::compose::compose_action,
             commands::containers::list_containers,
             commands::containers::container_stats,
             commands::containers::inspect_container,
