@@ -30,7 +30,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { CopyButton, MetricCard, Mono, RowActions, StateDot } from "../../components/ui";
 import { queryKeys } from "../../lib/queryClient";
 import type { ContainerActionKind } from "../../services/tauriApi";
-import { containerAction, getSystemInfo, listContainerStats, listContainers } from "../../services/tauriApi";
+import { containerAction, getSystemInfo, listContainers, metricsLatest } from "../../services/tauriApi";
 import {
   type ContainerStats,
   type ContainerSummary,
@@ -95,7 +95,7 @@ export default function ContainerListPage() {
 
   const stats = useQuery({
     queryKey: queryKeys.containerStats(),
-    queryFn: () => listContainerStats(true),
+    queryFn: () => metricsLatest(),
     refetchInterval: STATS_INTERVAL_MS,
     enabled: liveCount > 0,
   });
@@ -214,7 +214,7 @@ export default function ContainerListPage() {
     let cpu = 0;
     let memory = 0;
     for (const item of stats.data ?? []) {
-      cpu += item.cpuPercent;
+      cpu += item.cpuPercent ?? 0;
       memory += item.memoryUsage;
     }
     return { cpu, memory };

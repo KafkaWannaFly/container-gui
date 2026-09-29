@@ -3,7 +3,7 @@ use tauri::State;
 use crate::AppState;
 use crate::error::AppResult;
 use crate::models::dto::{
-    ContainerLiveStatsDto, ContainerStatsDto, ContainerSummaryDto, LogEventDto, LogStreamOptions,
+    ContainerSummaryDto, LogEventDto, LogStreamOptions, MetricsLatestDto, MetricsSeriesDto,
 };
 use crate::services::container_service::{self, ContainerListFilter};
 
@@ -17,13 +17,26 @@ pub async fn list_containers(
     container_service::list_containers(&client, &filter).await
 }
 
+/// Newest collector sample per live container (all, or just `ids`).
 #[tauri::command]
-pub async fn container_stats(
+pub async fn metrics_latest(
     state: State<'_, AppState>,
-    all: bool,
-) -> AppResult<Vec<ContainerStatsDto>> {
-    let client = state.manager.required_client().await?;
-    container_service::list_container_stats(&client, all).await
+    ids: Option<Vec<String>>,
+) -> AppResult<Vec<MetricsLatestDto>> {
+    Ok(state.metrics.latest(ids.as_deref()))
+}
+
+/// Collector history for `ids` since `since` (epoch ms), downsampled to at
+/// most `max_points` per container.
+#[tauri::command]
+pub async fn metrics_series(
+    state: State<'_, AppState>,
+    ids: Vec<String>,
+    since: Option<i64>,
+    max_points: Option<usize>,
+) -> AppResult<MetricsSeriesDto> {
+    let now = crate::docker::metrics::now_ms();
+    Ok(state.metrics.series(&ids, since, max_points, now))
 }
 
 #[tauri::command]
@@ -66,18 +79,6 @@ pub async fn stream_container_logs(
     Ok(())
 }
 
-#[tauri::command]
-pub async fn stream_container_stats(
-    state: State<'_, AppState>,
-    id: String,
-    stream_id: String,
-    on_stats: tauri::ipc::Channel<ContainerLiveStatsDto>,
-) -> AppResult<()> {
-    let client = state.manager.required_client().await?;
-    container_service::spawn_stats_stream(client, state.streams.clone(), id, stream_id, on_stats);
-    Ok(())
-}
-
 /// Write the container's full log (both streams, with timestamps) to the path
 /// the user chose in the save dialog, without routing it through the webview.
 /// Returns the path.
@@ -93,7 +94,7 @@ pub async fn save_container_logs(
     Ok(dest.display().to_string())
 }
 
-/// Cancel any log, stats or exec stream by the id its caller registered.
+/// Cancel any log or exec stream by the id its caller registered.
 #[tauri::command]
 pub async fn stop_stream(state: State<'_, AppState>, stream_id: String) -> AppResult<()> {
     state.streams.cancel(&stream_id);

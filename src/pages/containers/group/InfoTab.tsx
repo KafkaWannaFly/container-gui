@@ -21,6 +21,7 @@ import type {
   ContainerInspect,
   ContainerStats,
   ContainerSummary,
+  MetricSample,
 } from "../../../types/docker";
 import { formatBytes, portUrl } from "../../../types/docker";
 import { Section, useSections } from "./components";
@@ -29,7 +30,9 @@ import { impactOf, type ServiceInfo, type ServiceState, svcColor } from "./model
 
 const SECTIONS = ["general", "services", "deps", "networks", "volumes"];
 
-function Spark({ data }: { data: number[] }) {
+/** Memory over the collector's history window. A jump bigger than 1.5 steps
+ * (container stopped, app disconnected) breaks the line. */
+function Spark({ data, stepMs }: { data: MetricSample[]; stepMs: number }) {
   if (data.length < 2)
     return (
       <span className="dim" style={{ fontSize: 12, width: 96 }}>
@@ -38,14 +41,23 @@ function Spark({ data }: { data: number[] }) {
     );
   const w = 96;
   const h = 22;
-  const min = Math.min(...data);
-  const max = Math.max(...data);
+  const values = data.map((s) => s.memoryUsage);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
   const span = max - min || 1;
-  const x = (i: number) => 2 + (i * (w - 4)) / (data.length - 1);
+  const t0 = data[0].ts;
+  const tSpan = data[data.length - 1].ts - t0 || 1;
+  const x = (ts: number) => 2 + ((ts - t0) * (w - 4)) / tSpan;
   const y = (v: number) => h - 3 - ((v - min) / span) * (h - 6);
-  const d = data.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join("");
+  const d = data
+    .map((s, i) => {
+      const move = i === 0 || s.ts - data[i - 1].ts > stepMs * 1.5;
+      return `${move ? "M" : "L"}${x(s.ts).toFixed(1)},${y(s.memoryUsage).toFixed(1)}`;
+    })
+    .join("");
+  const minutes = Math.max(1, Math.round((Date.now() - t0) / 60_000));
   return (
-    <Tooltip title={`${formatBytes(min)}–${formatBytes(max)}`}>
+    <Tooltip title={`${formatBytes(min)}–${formatBytes(max)} · last ${minutes} min`}>
       <svg width={w} height={h} style={{ display: "block" }} role="img" aria-label="Memory trend">
         <path
           d={d}
@@ -68,6 +80,7 @@ export default function InfoTab({
   activeProfiles,
   statsById,
   trends,
+  trendStepMs,
   inspectById,
   states,
   serviceStates,
@@ -84,7 +97,8 @@ export default function InfoTab({
   services: ServiceInfo[];
   activeProfiles: string[];
   statsById: Map<string, ContainerStats>;
-  trends: Map<string, number[]>;
+  trends: Map<string, MetricSample[]>;
+  trendStepMs: number;
   inspectById: Map<string, ContainerInspect>;
   states: Map<string, string>;
   serviceStates: Map<string, ServiceState>;
@@ -285,14 +299,10 @@ export default function InfoTab({
               ) : null}
             </span>
             <span className="mono dim">{nameOf(ctr)}</span>
+            <span className="mono">{ctr.image}</span>
           </div>
         );
       },
-    },
-    {
-      title: "Image",
-      dataIndex: "image",
-      render: (value: string) => <Mono>{value}</Mono>,
     },
     {
       title: "Ports",
@@ -301,9 +311,7 @@ export default function InfoTab({
       render: (_: unknown, ctr: ContainerSummary) => {
         const published = [
           ...new Map(
-            ctr.ports
-              .filter((port) => port.publicPort)
-              .map((port) => [port.publicPort, port] as const),
+            ctr.ports.filter((port) => port.publicPort).map((port) => [port.publicPort, port] as const),
           ).values(),
         ];
         return published.length ? (
@@ -333,28 +341,14 @@ export default function InfoTab({
       },
     },
     {
-      title: "Health",
-      key: "health",
-      width: 90,
-      render: (_: unknown, ctr: ContainerSummary) => {
-        if (!running(ctr)) return <span className="dim">—</span>;
-        const status = inspectById.get(ctr.id)?.State?.Health?.Status;
-        return status ? (
-          <Pill tone={status === "healthy" ? "green" : "amber"}>{status}</Pill>
-        ) : (
-          <span className="dim" style={{ fontSize: 12 }}>
-            no check
-          </span>
-        );
-      },
-    },
-    {
       title: "CPU",
       key: "cpu",
       width: 74,
       render: (_: unknown, ctr: ContainerSummary) => {
         const stat = running(ctr) ? statsById.get(ctr.id) : undefined;
-        return <span className="mono">{stat ? `${stat.cpuPercent.toFixed(1)}%` : "—"}</span>;
+        return (
+          <span className="mono">{stat?.cpuPercent != null ? `${stat.cpuPercent.toFixed(1)}%` : "—"}</span>
+        );
       },
     },
     {
@@ -366,7 +360,7 @@ export default function InfoTab({
         const stats = statsById.get(ctr.id);
         return (
           <span style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
-            <Spark data={trends.get(ctr.id) ?? []} />
+            <Spark data={trends.get(ctr.id) ?? []} stepMs={trendStepMs} />
             <span className="mono" style={{ minWidth: 64 }}>
               {stats ? formatBytes(stats.memoryUsage, 1) : "—"}
             </span>
@@ -403,7 +397,7 @@ export default function InfoTab({
     {
       title: "",
       key: "act",
-      width: 132,
+      width: 96,
       align: "right" as const,
       render: (_: unknown, ctr: ContainerSummary) => {
         if (!serviceNameSet.has(ctr.composeService ?? "")) return null;
@@ -455,24 +449,29 @@ export default function InfoTab({
             style={{ display: "inline-flex", alignItems: "center", gap: 0 }}
             onClick={(event) => event.stopPropagation()}
           >
-            <Tooltip title={state === "running" ? "Already running" : "Start"}>
-              <Button
-                type="text"
-                size="small"
-                disabled={state === "running" || state === "paused"}
-                icon={<PlayCircleOutlined />}
-                onClick={() => act(ctr, "start")}
-              />
-            </Tooltip>
-            <Tooltip title={state === "exited" ? "Already stopped" : "Stop"}>
-              <Button
-                type="text"
-                size="small"
-                disabled={state === "exited"}
-                icon={<PoweroffOutlined />}
-                onClick={() => act(ctr, "stop")}
-              />
-            </Tooltip>
+            {state === "running" ? (
+              <Tooltip title="Stop">
+                <Button
+                  color="danger"
+                  variant="text"
+                  size="small"
+                  aria-label="Stop"
+                  icon={<PoweroffOutlined />}
+                  onClick={() => act(ctr, "stop")}
+                />
+              </Tooltip>
+            ) : state === "exited" || state === "created" || state === "dead" ? (
+              <Tooltip title="Start">
+                <Button
+                  color="primary"
+                  variant="text"
+                  size="small"
+                  aria-label="Start"
+                  icon={<PlayCircleOutlined />}
+                  onClick={() => act(ctr, "start")}
+                />
+              </Tooltip>
+            ) : null}
             <Dropdown trigger={["click"]} placement="bottomRight" menu={{ items }}>
               <Button type="text" size="small" icon={<MoreOutlined />} aria-label="More" />
             </Dropdown>

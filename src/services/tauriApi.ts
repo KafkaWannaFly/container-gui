@@ -10,8 +10,6 @@ import {
   ConnectionConfigSchema,
   type ContainerInspect,
   ContainerInspectSchema,
-  type ContainerLiveStats,
-  ContainerLiveStatsSchema,
   type ContainerStats,
   ContainerStatsSchema,
   type ContainerSummary,
@@ -42,6 +40,8 @@ import {
   LogEventSchema,
   type LogLine,
   type LogStreamOptions,
+  type MetricsSeries,
+  MetricsSeriesSchema,
   type SystemInfo,
   SystemInfoSchema,
   type VolumeItem,
@@ -83,8 +83,21 @@ export function listContainers(all = true): Promise<ContainerSummary[]> {
   return call("list_containers", { all }, z.array(ContainerSummarySchema));
 }
 
-export function listContainerStats(all = true): Promise<ContainerStats[]> {
-  return call("container_stats", { all }, z.array(ContainerStatsSchema));
+/** Newest backend-collected sample per live container (all, or just `ids`). */
+export function metricsLatest(ids?: string[]): Promise<ContainerStats[]> {
+  return call("metrics_latest", { ids: ids ?? null }, z.array(ContainerStatsSchema));
+}
+
+/** Collected history (up to 30 min), downsampled to at most `maxPoints` per container. */
+export function metricsSeries(
+  ids: string[],
+  options: { since?: number; maxPoints?: number } = {},
+): Promise<MetricsSeries> {
+  return call(
+    "metrics_series",
+    { ids, since: options.since ?? null, maxPoints: options.maxPoints ?? null },
+    MetricsSeriesSchema,
+  );
 }
 
 export function inspectContainer(id: string): Promise<ContainerInspect> {
@@ -147,11 +160,6 @@ export function streamContainerLogs(
     (event) => (event.kind === "lines" ? onLines(event.lines) : onEnd?.(event.error)),
     (err) => onEnd?.(err.message),
   );
-}
-
-/** Live stats samples (about one per second) for one container. */
-export function streamContainerStats(id: string, onSample: (stats: ContainerLiveStats) => void): () => void {
-  return openStream("stream_container_stats", { id }, "onStats", ContainerLiveStatsSchema, onSample);
 }
 
 /** Write the full container log to `dest`; resolves to the path. */

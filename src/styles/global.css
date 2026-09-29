@@ -1454,16 +1454,6 @@ pre.logs .dim {
   cursor: pointer;
 }
 
-.svc-table .row-act {
-  opacity: 0.35;
-  transition: opacity 0.12s;
-}
-
-.svc-table tr:hover .row-act,
-.svc-table tr:focus-within .row-act {
-  opacity: 1;
-}
-
 .svc-table tr.g-flash > td {
   background: rgba(228, 242, 34, 0.06);
 }

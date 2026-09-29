@@ -19,7 +19,7 @@ import {
 } from "@ant-design/icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { App, Button, Dropdown, type MenuProps, Result, Spin, Tabs, Tooltip } from "antd";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Mono, Pill } from "../../../components/ui";
 import { queryKeys } from "../../../lib/queryClient";
@@ -27,10 +27,11 @@ import {
   composeAction,
   containerAction,
   getComposeProject,
-  listContainerStats,
   listContainers,
+  metricsLatest,
+  metricsSeries,
 } from "../../../services/tauriApi";
-import type { ContainerStats, ContainerSummary } from "../../../types/docker";
+import type { ContainerStats, ContainerSummary, MetricsSeries } from "../../../types/docker";
 import { formatBytes } from "../../../types/docker";
 import ConfigTab from "./ConfigTab";
 import EnvTab from "./EnvTab";
@@ -48,7 +49,8 @@ import {
 } from "./model";
 
 const STATS_INTERVAL_MS = 2_000;
-const TREND_POINTS = 30;
+/** Sparkline resolution: 30 min of history in 30 s buckets. */
+const TREND_POINTS = 60;
 
 export default function GroupDetailPage() {
   const { project = "" } = useParams();
@@ -57,7 +59,6 @@ export default function GroupDetailPage() {
   const { message, modal } = App.useApp();
   const [tab, setTab] = useState("info");
   const [logSolo, setLogSolo] = useState<string | null>(null);
-  const [trends, setTrends] = useState<Map<string, number[]>>(new Map());
 
   const containersQuery = useQuery({
     queryKey: queryKeys.containers(true),
@@ -86,9 +87,27 @@ export default function GroupDetailPage() {
 
   const statsQuery = useQuery({
     queryKey: queryKeys.containerStats(),
-    queryFn: () => listContainerStats(true),
+    queryFn: () => metricsLatest(),
     refetchInterval: STATS_INTERVAL_MS,
     enabled: containers.length > 0,
+  });
+
+  const liveIds = useMemo(
+    () =>
+      containers
+        .filter((ctr) => ctr.state === "running" || ctr.state === "paused")
+        .map((ctr) => ctr.id)
+        .sort(),
+    [containers],
+  );
+
+  // History lives in the backend collector, so it survives page changes.
+  const seriesQuery = useQuery({
+    queryKey: queryKeys.metricsSeries(liveIds, TREND_POINTS),
+    queryFn: () => metricsSeries(liveIds, { maxPoints: TREND_POINTS }),
+    refetchInterval: STATS_INTERVAL_MS,
+    enabled: liveIds.length > 0,
+    placeholderData: (prev) => prev,
   });
 
   const inspectById = useInspects(containers);
@@ -113,25 +132,18 @@ export default function GroupDetailPage() {
     return map;
   }, [services, containers]);
 
-  // Memory trend: session-only ring buffer, no 30-min history exists yet.
-  // ponytail: 30 samples max — replace with a backend series if history is added.
-  useEffect(() => {
-    if (!statsQuery.data?.length) return;
-    setTrends((prev) => {
-      const next = new Map(prev);
-      for (const stat of statsQuery.data) {
-        if (!statsById.has(stat.id)) continue;
-        const series = [...(next.get(stat.id) ?? []), stat.memoryUsage];
-        next.set(stat.id, series.slice(-TREND_POINTS));
-      }
-      return next;
-    });
-  }, [statsQuery.data, statsById]);
+  const trends = useMemo(() => {
+    const map = new Map<string, MetricsSeries["series"][number]["samples"]>();
+    for (const entry of seriesQuery.data?.series ?? []) map.set(entry.id, entry.samples);
+    return map;
+  }, [seriesQuery.data]);
+  const trendStepMs = seriesQuery.data?.stepMs ?? STATS_INTERVAL_MS;
 
   const invalidate = () => {
     void queryClient.invalidateQueries({ queryKey: ["containers"] });
     void queryClient.invalidateQueries({ queryKey: ["compose-project"] });
     void queryClient.invalidateQueries({ queryKey: queryKeys.containerStats() });
+    void queryClient.invalidateQueries({ queryKey: ["metrics-series"] });
     void queryClient.invalidateQueries({ queryKey: ["container-inspect"] });
   };
 
@@ -250,9 +262,7 @@ export default function GroupDetailPage() {
 
   const toggleProfile = (name: string) => {
     if (activeProfiles.includes(name)) {
-      const names = services
-        .filter((item) => item.profiles.includes(name))
-        .map((item) => item.name);
+      const names = services.filter((item) => item.profiles.includes(name)).map((item) => item.name);
       if (names.length) {
         // One `rm` for every service in the profile instead of one spawn each.
         run("rm", { services: names, profiles: activeProfiles, label: `profile ${name} off` });
@@ -309,7 +319,7 @@ export default function GroupDetailPage() {
       : ["amber", "degraded"];
   const pending = actionMutation.isPending;
 
-  const cpu = [...statsById.values()].reduce((sum, stat) => sum + stat.cpuPercent, 0);
+  const cpu = [...statsById.values()].reduce((sum, stat) => sum + (stat.cpuPercent ?? 0), 0);
   const memory = [...statsById.values()].reduce((sum, stat) => sum + stat.memoryUsage, 0);
   const top = containers.reduce<{ name: string; memory: number } | null>((best, ctr) => {
     const stat = statsById.get(ctr.id);
@@ -431,6 +441,7 @@ export default function GroupDetailPage() {
       activeProfiles={activeProfiles}
       statsById={statsById}
       trends={trends}
+      trendStepMs={trendStepMs}
       inspectById={inspectById}
       states={states}
       serviceStates={serviceStates}

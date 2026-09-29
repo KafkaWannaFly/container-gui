@@ -28,13 +28,34 @@ export const ContainerSummarySchema = z.object({
 });
 export type ContainerSummary = z.infer<typeof ContainerSummarySchema>;
 
-export const ContainerStatsSchema = z.object({
-  id: z.string(),
-  cpuPercent: z.number(),
+/** One collector sample. `cpuPercent` and the rates are null on a container's
+ * first sample and right after a restart (no previous reading to diff). */
+export const MetricSampleSchema = z.object({
+  ts: z.number(),
+  cpuPercent: z.number().nullable(),
+  onlineCpus: z.number(),
   memoryUsage: z.number(),
   memoryLimit: z.number(),
+  netRx: z.number(),
+  netTx: z.number(),
+  blockRead: z.number(),
+  blockWrite: z.number(),
+  pids: z.number(),
+  netRxRate: z.number().nullable(),
+  netTxRate: z.number().nullable(),
+  blockReadRate: z.number().nullable(),
+  blockWriteRate: z.number().nullable(),
 });
+export type MetricSample = z.infer<typeof MetricSampleSchema>;
+
+export const ContainerStatsSchema = MetricSampleSchema.extend({ id: z.string() });
 export type ContainerStats = z.infer<typeof ContainerStatsSchema>;
+
+export const MetricsSeriesSchema = z.object({
+  stepMs: z.number(),
+  series: z.array(z.object({ id: z.string(), samples: z.array(MetricSampleSchema) })),
+});
+export type MetricsSeries = z.infer<typeof MetricsSeriesSchema>;
 
 export const VolumeItemSchema = z.object({
   name: z.string(),
@@ -63,19 +84,6 @@ export const ImagePullProgressSchema = z.object({
   percent: z.number(),
 });
 export type ImagePullProgress = z.infer<typeof ImagePullProgressSchema>;
-
-export const ContainerLiveStatsSchema = z.object({
-  cpuPercent: z.number(),
-  onlineCpus: z.number(),
-  memoryUsage: z.number(),
-  memoryLimit: z.number(),
-  netRx: z.number(),
-  netTx: z.number(),
-  blockRead: z.number(),
-  blockWrite: z.number(),
-  pids: z.number(),
-});
-export type ContainerLiveStats = z.infer<typeof ContainerLiveStatsSchema>;
 
 export const LogLineSchema = z.object({
   stream: z.enum(["stdout", "stderr"]),
