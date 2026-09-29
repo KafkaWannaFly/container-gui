@@ -8,6 +8,7 @@
 //! derived from the previous reading we took ourselves.
 
 use std::collections::{HashMap, HashSet, VecDeque};
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -193,10 +194,11 @@ impl MetricsStore {
 
 /// Start the sampler. Runs for the app's lifetime; skips ticks while
 /// disconnected and when a poll overruns the interval. Each tick is also
-/// written to `db`, and history is reloaded from it when the endpoint
-/// changes (including the first tick after launch).
-pub fn spawn(manager: Arc<DockerSessionManager>, store: Arc<MetricsStore>, db: Arc<MetricsDb>) {
+/// written to the SQLite database at `db_path`, and history is reloaded
+/// from it when the endpoint changes (including the first tick after launch).
+pub fn spawn(manager: Arc<DockerSessionManager>, store: Arc<MetricsStore>, db_path: PathBuf) {
     tauri::async_runtime::spawn(async move {
+        let db = MetricsDb::open_or_memory(&db_path).await;
         let mut ticker = interval(INTERVAL);
         ticker.set_missed_tick_behavior(MissedTickBehavior::Skip);
         let mut ticks: u64 = 0;
@@ -205,12 +207,9 @@ pub fn spawn(manager: Arc<DockerSessionManager>, store: Arc<MetricsStore>, db: A
             ticks += 1;
             let endpoint = manager.endpoint().await;
             if store.set_endpoint(endpoint.clone()) {
-                let (db, endpoint) = (db.clone(), endpoint.clone());
-                let since = now_ms() - RETENTION_MS;
-                match blocking(move || db.load(&endpoint, since)).await {
-                    Some(Ok(history)) => store.restore(history),
-                    Some(Err(err)) => log::warn!("[metrics] loading history failed: {err}"),
-                    None => {}
+                match db.load(&endpoint, now_ms() - RETENTION_MS).await {
+                    Ok(history) => store.restore(history),
+                    Err(err) => log::warn!("[metrics] loading history failed: {err}"),
                 }
             }
             let ts = now_ms();
@@ -224,26 +223,16 @@ pub fn spawn(manager: Arc<DockerSessionManager>, store: Arc<MetricsStore>, db: A
                 },
                 None => store.record(ts, HashSet::new(), Vec::new()),
             };
-            let db = db.clone();
-            let prune = ticks.is_multiple_of(PRUNE_EVERY_TICKS);
-            let written = blocking(move || {
-                db.insert(&endpoint, &added)?;
-                if prune {
-                    db.prune(ts - RETENTION_MS)?;
-                }
-                Ok::<_, rusqlite::Error>(())
-            })
-            .await;
-            if let Some(Err(err)) = written {
+            if let Err(err) = db.insert(&endpoint, &added).await {
                 log::warn!("[metrics] writing history failed: {err}");
+            }
+            if ticks.is_multiple_of(PRUNE_EVERY_TICKS)
+                && let Err(err) = db.prune(ts - RETENTION_MS).await
+            {
+                log::warn!("[metrics] pruning history failed: {err}");
             }
         }
     });
-}
-
-/// Run SQLite work off the async runtime; `None` if the task panicked.
-async fn blocking<T: Send + 'static>(work: impl FnOnce() -> T + Send + 'static) -> Option<T> {
-    tokio::task::spawn_blocking(work).await.ok()
 }
 
 /// One tick: list live containers, then read each one concurrently. A
@@ -583,9 +572,9 @@ mod tests {
         assert!(store.latest(Some(&["b".into()])).is_empty());
     }
 
-    #[test]
-    fn restored_history_is_readable_but_never_used_for_deltas() {
-        let db = MetricsDb::memory();
+    #[tokio::test]
+    async fn restored_history_is_readable_but_never_used_for_deltas() {
+        let db = MetricsDb::memory().await;
         let first = MetricsStore::default();
         first.set_endpoint("one".into());
         let mut added = first.record(0, ids(&["a"]), vec![("a".into(), reading(0, 0, 0))]);
@@ -594,12 +583,12 @@ mod tests {
             ids(&["a"]),
             vec![("a".into(), reading(500, 1_000, 4_000))],
         ));
-        db.insert("one", &added).unwrap();
+        db.insert("one", &added).await.unwrap();
 
         // Simulated app restart.
         let second = MetricsStore::default();
         assert!(second.set_endpoint("one".into()));
-        second.restore(db.load("one", 0).unwrap());
+        second.restore(db.load("one", 0).await.unwrap());
         second.record(
             60_000,
             ids(&["a"]),

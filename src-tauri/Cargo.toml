@@ -31,7 +31,7 @@ variantly = "0.4"
 futures-util = "0.3"
 astral-tokio-tar = "0.7.0"
 tokio-util = { version = "0.7.19", features = ["io"] }
-rusqlite = { version = "0.40.2", features = ["bundled"] }
+sqlx = { version = "0.9.0", default-features = false, features = ["sqlite-bundled", "runtime-tokio", "macros", "migrate"] }
 
 [dev-dependencies]
 tokio = { version = "1.53", features = ["full", "test-util"] }
