@@ -15,6 +15,7 @@ pub struct AppState {
     pub manager: Arc<DockerSessionManager>,
     pub streams: Arc<StreamRegistry>,
     pub execs: Arc<services::exec_service::ExecRegistry>,
+    pub metrics: Arc<docker::metrics::MetricsStore>,
 }
 
 /// Configure application logging. Dev builds write to `<project>/logs` (easy
@@ -61,17 +62,26 @@ pub fn run() {
             let handle = app.handle().clone();
             let manager = Arc::new(DockerSessionManager::new(handle.clone()));
             let streams = Arc::new(StreamRegistry::default());
+            let metrics = Arc::new(docker::metrics::MetricsStore::default());
+            // The sampler opens it; a failure falls back to an in-memory database.
+            let metrics_db = app
+                .path()
+                .app_data_dir()
+                .unwrap_or_else(|_| std::env::temp_dir().join("container-gui"))
+                .join("metrics.sqlite3");
             app.manage(AppState {
                 manager: manager.clone(),
                 streams,
                 execs: Arc::default(),
+                metrics: metrics.clone(),
             });
 
             // Connect first, then start the event worker so it subscribes
             // against a live client.
             tauri::async_runtime::spawn(async move {
                 manager.connect_default().await;
-                docker::events::spawn(handle, manager);
+                docker::events::spawn(handle, manager.clone());
+                docker::metrics::spawn(manager, metrics, metrics_db);
             });
 
             Ok(())
@@ -80,11 +90,11 @@ pub fn run() {
             commands::compose::compose_project,
             commands::compose::compose_action,
             commands::containers::list_containers,
-            commands::containers::container_stats,
+            commands::containers::metrics_latest,
+            commands::containers::metrics_series,
             commands::containers::inspect_container,
             commands::containers::container_action,
             commands::containers::stream_container_logs,
-            commands::containers::stream_container_stats,
             commands::containers::stop_stream,
             commands::containers::save_container_logs,
             commands::files::save_text_to_file,

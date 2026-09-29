@@ -30,20 +30,15 @@ pub struct ContainerSummaryDto {
     pub compose_config_files: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+/// One collector sample for one container. Totals are cumulative since the
+/// container started; rates are per second over the previous sample and are
+/// `None` on the first sample or after a counter reset (container restart).
+#[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ContainerStatsDto {
-    pub id: String,
-    pub cpu_percent: f64,
-    pub memory_usage: i64,
-    pub memory_limit: i64,
-}
-
-/// One sample from the live stats stream of a single container.
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ContainerLiveStatsDto {
-    pub cpu_percent: f64,
+pub struct MetricSampleDto {
+    /// Host time (epoch ms) of the poll that produced this sample.
+    pub ts: i64,
+    pub cpu_percent: Option<f64>,
     pub online_cpus: u32,
     pub memory_usage: i64,
     pub memory_limit: i64,
@@ -52,6 +47,33 @@ pub struct ContainerLiveStatsDto {
     pub block_read: u64,
     pub block_write: u64,
     pub pids: u64,
+    pub net_rx_rate: Option<f64>,
+    pub net_tx_rate: Option<f64>,
+    pub block_read_rate: Option<f64>,
+    pub block_write_rate: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MetricsLatestDto {
+    pub id: String,
+    #[serde(flatten)]
+    pub sample: MetricSampleDto,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ContainerSeriesDto {
+    pub id: String,
+    pub samples: Vec<MetricSampleDto>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MetricsSeriesDto {
+    /// Spacing between points after downsampling; a larger jump is a gap.
+    pub step_ms: i64,
+    pub series: Vec<ContainerSeriesDto>,
 }
 
 #[derive(Debug, Clone, Serialize)]

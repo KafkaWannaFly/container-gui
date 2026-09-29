@@ -13,6 +13,7 @@ export const queryClient = new QueryClient({
 export const queryKeys = {
   containers: (all = true) => ["containers", all] as const,
   containerStats: () => ["container-stats"] as const,
+  metricsSeries: (ids: string[], maxPoints: number) => ["metrics-series", ids, maxPoints] as const,
   containerInspect: (id: string) => ["container-inspect", id] as const,
   composeProject: (workdir: string) => ["compose-project", workdir] as const,
   images: () => ["images"] as const,

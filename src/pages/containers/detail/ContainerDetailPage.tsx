@@ -7,6 +7,7 @@ import {
   FileTextOutlined,
   FolderOutlined,
   InfoCircleOutlined,
+  LineChartOutlined,
   MoreOutlined,
   PauseCircleOutlined,
   PlayCircleOutlined,
@@ -28,9 +29,9 @@ import {
   containerAction,
   inspectContainer,
   inspectImage,
-  streamContainerStats,
+  metricsLatest,
 } from "../../../services/tauriApi";
-import { type ContainerInspect, type ContainerLiveStats, formatBytes, shortId } from "../../../types/docker";
+import { type ContainerInspect, formatBytes, type MetricSample, shortId } from "../../../types/docker";
 import EnvTab from "./EnvTab";
 import InfoTab from "./InfoTab";
 import LogsTab from "./LogsTab";
@@ -39,21 +40,22 @@ import LogsTab from "./LogsTab";
 const ExecTab = lazy(() => import("./ExecTab"));
 const FilesTab = lazy(() => import("./FilesTab"));
 const ImageTab = lazy(() => import("./ImageTab"));
+const MonitorTab = lazy(() => import("./MonitorTab"));
 
 import { composeOf, containerName, cpuLimit, pidsLimit, type TabProps } from "./model";
 
-const TAB_KEYS = ["info", "image", "env", "logs", "files", "exec"] as const;
+const TAB_KEYS = ["info", "image", "env", "logs", "monitor", "files", "exec"] as const;
 type TabKey = (typeof TAB_KEYS)[number];
 
-/** Live stats while the container runs; null otherwise. */
-function useLiveStats(id: string, live: boolean): ContainerLiveStats | null {
-  const [stats, setStats] = useState<ContainerLiveStats | null>(null);
-  useEffect(() => {
-    setStats(null);
-    if (!live) return;
-    return streamContainerStats(id, setStats);
-  }, [id, live]);
-  return stats;
+/** Latest backend-collected sample while the container runs; null otherwise. */
+function useLiveStats(id: string, live: boolean): MetricSample | null {
+  const { data } = useQuery({
+    queryKey: [...queryKeys.containerStats(), id],
+    queryFn: () => metricsLatest([id]),
+    refetchInterval: 2_000,
+    enabled: live,
+  });
+  return live ? (data?.[0] ?? null) : null;
 }
 
 /** Re-render every `ms` so relative times (uptime) stay current. */
@@ -79,13 +81,19 @@ function statusLine(ctr: ContainerInspect): string {
   return state?.Status ?? "unknown";
 }
 
-function HeaderStats({ ctr, stats }: { ctr: ContainerInspect; stats: ContainerLiveStats | null }) {
+function rates(a: number | null | undefined, b: number | null | undefined): string | null {
+  if (a == null || b == null) return null;
+  const rate = (v: number) => (v > 0 ? `${formatBytes(v)}/s` : "0 B/s");
+  return `${rate(a)} · ${rate(b)}`;
+}
+
+function HeaderStats({ ctr, stats }: { ctr: ContainerInspect; stats: MetricSample | null }) {
   const cores = cpuLimit(ctr);
   const pids = pidsLimit(ctr);
   const memLimit = ctr.HostConfig?.Memory || stats?.memoryLimit || 0;
   const memPct = stats && memLimit ? ((stats.memoryUsage / memLimit) * 100).toFixed(1) : null;
   // cpuPercent is docker-stats style: 100% = one full core.
-  const cpuUsed = stats ? stats.cpuPercent / 100 : null;
+  const cpuUsed = stats?.cpuPercent != null ? stats.cpuPercent / 100 : null;
   const cpuCap = cores ?? stats?.onlineCpus ?? 0;
   const cpuPct = cpuUsed !== null && cpuCap ? ((cpuUsed / cpuCap) * 100).toFixed(1) : null;
   const cells: { k: string; v: ReactNode; small?: ReactNode; tip: string }[] = [
@@ -108,12 +116,14 @@ function HeaderStats({ ctr, stats }: { ctr: ContainerInspect; stats: ContainerLi
     {
       k: "Network I/O",
       v: stats ? `${formatBytes(stats.netRx)} / ${formatBytes(stats.netTx)}` : "— / —",
-      tip: "Total data received / sent over the network since the container started.",
+      small: rates(stats?.netRxRate, stats?.netTxRate),
+      tip: "Total data received / sent over the network since the container started, and the current rate.",
     },
     {
       k: "Block I/O",
       v: stats ? `${formatBytes(stats.blockRead)} / ${formatBytes(stats.blockWrite)}` : "— / —",
-      tip: "Total data read from / written to disk since the container started.",
+      small: rates(stats?.blockReadRate, stats?.blockWriteRate),
+      tip: "Total data read from / written to disk since the container started, and the current rate.",
     },
     {
       k: "PIDs",
@@ -297,6 +307,12 @@ export default function ContainerDetailPage() {
     { key: "image", icon: <BlockOutlined />, label: "Image", render: () => <ImageTab {...tabProps} /> },
     { key: "env", icon: <SettingOutlined />, label: "Environment", render: () => <EnvTab {...tabProps} /> },
     { key: "logs", icon: <FileTextOutlined />, label: "Logs", render: () => <LogsTab {...tabProps} /> },
+    {
+      key: "monitor",
+      icon: <LineChartOutlined />,
+      label: "Monitor",
+      render: () => <MonitorTab {...tabProps} />,
+    },
     { key: "files", icon: <FolderOutlined />, label: "Files", render: () => <FilesTab {...tabProps} /> },
     { key: "exec", icon: <CodeOutlined />, label: "Exec", render: () => <ExecTab {...tabProps} /> },
   ];

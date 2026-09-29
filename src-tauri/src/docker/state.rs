@@ -156,6 +156,11 @@ impl DockerSessionManager {
         self.generation.subscribe()
     }
 
+    /// Endpoint of the current (or last attempted) target.
+    pub async fn endpoint(&self) -> String {
+        self.target.read().await.endpoint()
+    }
+
     async fn store(&self, session: Session, target: ConnectionTarget) {
         {
             let mut current = self.session.write().await;

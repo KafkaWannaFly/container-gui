@@ -22,41 +22,33 @@ import type {
   ContainerStats,
   ContainerSummary,
 } from "../../../types/docker";
-import { formatBytes, portUrl } from "../../../types/docker";
+import { formatBytes, formatRate, portUrl } from "../../../types/docker";
 import { Section, useSections } from "./components";
 import DependencyGraph from "./DependencyGraph";
 import { impactOf, type ServiceInfo, type ServiceState, svcColor } from "./model";
 
 const SECTIONS = ["general", "services", "deps", "networks", "volumes"];
 
-function Spark({ data }: { data: number[] }) {
-  if (data.length < 2)
-    return (
-      <span className="dim" style={{ fontSize: 12, width: 96 }}>
-        collecting…
-      </span>
-    );
-  const w = 96;
-  const h = 22;
-  const min = Math.min(...data);
-  const max = Math.max(...data);
-  const span = max - min || 1;
-  const x = (i: number) => 2 + (i * (w - 4)) / (data.length - 1);
-  const y = (v: number) => h - 3 - ((v - min) / span) * (h - 6);
-  const d = data.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join("");
+/** Two stacked rates, e.g. ↓ received over ↑ sent. */
+function RatePair({ a, b, labels }: { a: number | null; b: number | null; labels: [string, string] }) {
   return (
-    <Tooltip title={`${formatBytes(min)}–${formatBytes(max)}`}>
-      <svg width={w} height={h} style={{ display: "block" }} role="img" aria-label="Memory trend">
-        <path
-          d={d}
-          fill="none"
-          stroke="#8a8f98"
-          strokeWidth="1.5"
-          strokeLinejoin="round"
-          strokeLinecap="round"
-        />
-      </svg>
-    </Tooltip>
+    <span
+      className="mono"
+      style={{
+        display: "inline-flex",
+        flexDirection: "column",
+        fontSize: 12,
+        lineHeight: 1.4,
+        whiteSpace: "nowrap",
+      }}
+    >
+      <span>
+        <span className="dim">{labels[0]}</span> {formatRate(a)}
+      </span>
+      <span>
+        <span className="dim">{labels[1]}</span> {formatRate(b)}
+      </span>
+    </span>
   );
 }
 
@@ -67,7 +59,6 @@ export default function InfoTab({
   services,
   activeProfiles,
   statsById,
-  trends,
   inspectById,
   states,
   serviceStates,
@@ -84,7 +75,6 @@ export default function InfoTab({
   services: ServiceInfo[];
   activeProfiles: string[];
   statsById: Map<string, ContainerStats>;
-  trends: Map<string, number[]>;
   inspectById: Map<string, ContainerInspect>;
   states: Map<string, string>;
   serviceStates: Map<string, ServiceState>;
@@ -285,14 +275,10 @@ export default function InfoTab({
               ) : null}
             </span>
             <span className="mono dim">{nameOf(ctr)}</span>
+            <span className="mono">{ctr.image}</span>
           </div>
         );
       },
-    },
-    {
-      title: "Image",
-      dataIndex: "image",
-      render: (value: string) => <Mono>{value}</Mono>,
     },
     {
       title: "Ports",
@@ -301,9 +287,7 @@ export default function InfoTab({
       render: (_: unknown, ctr: ContainerSummary) => {
         const published = [
           ...new Map(
-            ctr.ports
-              .filter((port) => port.publicPort)
-              .map((port) => [port.publicPort, port] as const),
+            ctr.ports.filter((port) => port.publicPort).map((port) => [port.publicPort, port] as const),
           ).values(),
         ];
         return published.length ? (
@@ -333,45 +317,47 @@ export default function InfoTab({
       },
     },
     {
-      title: "Health",
-      key: "health",
-      width: 90,
-      render: (_: unknown, ctr: ContainerSummary) => {
-        if (!running(ctr)) return <span className="dim">—</span>;
-        const status = inspectById.get(ctr.id)?.State?.Health?.Status;
-        return status ? (
-          <Pill tone={status === "healthy" ? "green" : "amber"}>{status}</Pill>
-        ) : (
-          <span className="dim" style={{ fontSize: 12 }}>
-            no check
-          </span>
-        );
-      },
-    },
-    {
       title: "CPU",
       key: "cpu",
       width: 74,
       render: (_: unknown, ctr: ContainerSummary) => {
         const stat = running(ctr) ? statsById.get(ctr.id) : undefined;
-        return <span className="mono">{stat ? `${stat.cpuPercent.toFixed(1)}%` : "—"}</span>;
+        return (
+          <span className="mono">{stat?.cpuPercent != null ? `${stat.cpuPercent.toFixed(1)}%` : "—"}</span>
+        );
       },
     },
     {
       title: "Memory",
       key: "mem",
-      width: 190,
+      width: 96,
       render: (_: unknown, ctr: ContainerSummary) => {
-        if (!running(ctr)) return <span className="dim">—</span>;
-        const stats = statsById.get(ctr.id);
+        const stats = running(ctr) ? statsById.get(ctr.id) : undefined;
         return (
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
-            <Spark data={trends.get(ctr.id) ?? []} />
-            <span className="mono" style={{ minWidth: 64 }}>
-              {stats ? formatBytes(stats.memoryUsage, 1) : "—"}
-            </span>
+          <span className="mono" style={{ whiteSpace: "nowrap" }}>
+            {stats ? formatBytes(stats.memoryUsage, 1) : "—"}
           </span>
         );
+      },
+    },
+    {
+      title: "Network I/O",
+      key: "net",
+      width: 132,
+      render: (_: unknown, ctr: ContainerSummary) => {
+        const stats = running(ctr) ? statsById.get(ctr.id) : undefined;
+        if (!stats) return <span className="dim">—</span>;
+        return <RatePair a={stats.netRxRate} b={stats.netTxRate} labels={["↓", "↑"]} />;
+      },
+    },
+    {
+      title: "Block I/O",
+      key: "block",
+      width: 120,
+      render: (_: unknown, ctr: ContainerSummary) => {
+        const stats = running(ctr) ? statsById.get(ctr.id) : undefined;
+        if (!stats) return <span className="dim">—</span>;
+        return <RatePair a={stats.blockReadRate} b={stats.blockWriteRate} labels={["R", "W"]} />;
       },
     },
     {
@@ -403,7 +389,7 @@ export default function InfoTab({
     {
       title: "",
       key: "act",
-      width: 132,
+      width: 96,
       align: "right" as const,
       render: (_: unknown, ctr: ContainerSummary) => {
         if (!serviceNameSet.has(ctr.composeService ?? "")) return null;
@@ -455,24 +441,29 @@ export default function InfoTab({
             style={{ display: "inline-flex", alignItems: "center", gap: 0 }}
             onClick={(event) => event.stopPropagation()}
           >
-            <Tooltip title={state === "running" ? "Already running" : "Start"}>
-              <Button
-                type="text"
-                size="small"
-                disabled={state === "running" || state === "paused"}
-                icon={<PlayCircleOutlined />}
-                onClick={() => act(ctr, "start")}
-              />
-            </Tooltip>
-            <Tooltip title={state === "exited" ? "Already stopped" : "Stop"}>
-              <Button
-                type="text"
-                size="small"
-                disabled={state === "exited"}
-                icon={<PoweroffOutlined />}
-                onClick={() => act(ctr, "stop")}
-              />
-            </Tooltip>
+            {state === "running" ? (
+              <Tooltip title="Stop">
+                <Button
+                  color="danger"
+                  variant="text"
+                  size="small"
+                  aria-label="Stop"
+                  icon={<PoweroffOutlined />}
+                  onClick={() => act(ctr, "stop")}
+                />
+              </Tooltip>
+            ) : state === "exited" || state === "created" || state === "dead" ? (
+              <Tooltip title="Start">
+                <Button
+                  color="primary"
+                  variant="text"
+                  size="small"
+                  aria-label="Start"
+                  icon={<PlayCircleOutlined />}
+                  onClick={() => act(ctr, "start")}
+                />
+              </Tooltip>
+            ) : null}
             <Dropdown trigger={["click"]} placement="bottomRight" menu={{ items }}>
               <Button type="text" size="small" icon={<MoreOutlined />} aria-label="More" />
             </Dropdown>
