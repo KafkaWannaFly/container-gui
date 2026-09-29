@@ -63,6 +63,13 @@ pub fn run() {
             let manager = Arc::new(DockerSessionManager::new(handle.clone()));
             let streams = Arc::new(StreamRegistry::default());
             let metrics = Arc::new(docker::metrics::MetricsStore::default());
+            // Opening is quick; a failure falls back to an in-memory database.
+            let metrics_db = Arc::new(docker::metrics_db::MetricsDb::open_or_memory(
+                &app.path()
+                    .app_data_dir()
+                    .unwrap_or_else(|_| std::env::temp_dir().join("container-gui"))
+                    .join("metrics.sqlite3"),
+            ));
             app.manage(AppState {
                 manager: manager.clone(),
                 streams,
@@ -75,7 +82,7 @@ pub fn run() {
             tauri::async_runtime::spawn(async move {
                 manager.connect_default().await;
                 docker::events::spawn(handle, manager.clone());
-                docker::metrics::spawn(manager, metrics);
+                docker::metrics::spawn(manager, metrics, metrics_db);
             });
 
             Ok(())

@@ -2,7 +2,7 @@
 name = "container-gui"
 version = "0.1.0"
 description = "Real-time Docker GUI"
-authors = ["you"]
+authors = ["KafkaWannaFly"]
 edition = "2024"
 
 [lib]
@@ -31,6 +31,7 @@ variantly = "0.4"
 futures-util = "0.3"
 astral-tokio-tar = "0.7.0"
 tokio-util = { version = "0.7.19", features = ["io"] }
+rusqlite = { version = "0.40.2", features = ["bundled"] }
 
 [dev-dependencies]
 tokio = { version = "1.53", features = ["full", "test-util"] }

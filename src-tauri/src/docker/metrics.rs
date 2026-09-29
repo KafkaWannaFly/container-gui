@@ -1,7 +1,8 @@
 //! Background resource sampler. Every `INTERVAL` it takes a one-shot stats
 //! reading of each live container and keeps a bounded history per
 //! container, so charts survive page changes and the UI never talks to the
-//! stats endpoint itself.
+//! stats endpoint itself. History is also written to SQLite (see
+//! `metrics_db`) so it survives an app restart.
 //!
 //! One-shot readings carry no `precpu_stats`, so CPU% and I/O rates are
 //! derived from the previous reading we took ourselves.
@@ -16,6 +17,7 @@ use bollard::query_parameters::{ListContainersOptionsBuilder, StatsOptionsBuilde
 use futures_util::{StreamExt, stream};
 use tokio::time::{MissedTickBehavior, interval, timeout};
 
+use crate::docker::metrics_db::MetricsDb;
 use crate::docker::state::DockerSessionManager;
 use crate::error::AppResult;
 use crate::models::dto::{ContainerSeriesDto, MetricSampleDto, MetricsLatestDto, MetricsSeriesDto};
@@ -26,6 +28,8 @@ const RETENTION_MS: i64 = 30 * 60 * 1000;
 const CAPACITY: usize = (RETENTION_MS / INTERVAL_MS) as usize;
 const CONCURRENCY: usize = 8;
 const READ_TIMEOUT: Duration = Duration::from_millis(1_500);
+/// Prune expired rows from disk about once a minute.
+const PRUNE_EVERY_TICKS: u64 = 30;
 
 /// Raw counters from one Docker stats response.
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
@@ -66,34 +70,63 @@ pub struct MetricsStore {
 
 impl MetricsStore {
     /// Drop all history when the Docker endpoint changes; a reconnect to
-    /// the same endpoint keeps it.
-    fn set_endpoint(&self, endpoint: String) {
+    /// the same endpoint keeps it. Returns whether it changed.
+    fn set_endpoint(&self, endpoint: String) -> bool {
         let mut inner = self.inner.lock().unwrap();
-        if inner.endpoint.as_deref() != Some(endpoint.as_str()) {
-            inner.series.clear();
-            inner.live.clear();
-            inner.endpoint = Some(endpoint);
+        if inner.endpoint.as_deref() == Some(endpoint.as_str()) {
+            return false;
+        }
+        inner.series.clear();
+        inner.live.clear();
+        inner.endpoint = Some(endpoint);
+        true
+    }
+
+    /// Seed history loaded from disk. No `prev` reading is restored, so
+    /// the first live sample after a restart never spans the downtime.
+    fn restore(&self, history: HashMap<String, Vec<MetricSampleDto>>) {
+        let mut inner = self.inner.lock().unwrap();
+        for (id, samples) in history {
+            let mut samples: VecDeque<_> = samples.into();
+            while samples.len() > CAPACITY {
+                samples.pop_front();
+            }
+            inner.series.insert(
+                id,
+                Series {
+                    samples,
+                    prev: None,
+                },
+            );
         }
     }
 
-    fn record(&self, ts: i64, live: HashSet<String>, readings: Vec<(String, Reading)>) {
+    /// Append one tick; returns the new samples so they can be persisted.
+    fn record(
+        &self,
+        ts: i64,
+        live: HashSet<String>,
+        readings: Vec<(String, Reading)>,
+    ) -> Vec<(String, MetricSampleDto)> {
         let mut inner = self.inner.lock().unwrap();
         for (id, series) in inner.series.iter_mut() {
             if !live.contains(id) {
                 series.prev = None;
             }
         }
+        let mut added = Vec::with_capacity(readings.len());
         for (id, reading) in readings {
-            let series = inner.series.entry(id).or_insert_with(|| Series {
+            let series = inner.series.entry(id.clone()).or_insert_with(|| Series {
                 samples: VecDeque::with_capacity(CAPACITY),
                 prev: None,
             });
             let sample = sample_of(ts, &reading, series.prev.as_ref());
-            series.samples.push_back(sample);
+            series.samples.push_back(sample.clone());
             while series.samples.len() > CAPACITY {
                 series.samples.pop_front();
             }
             series.prev = Some((ts, reading));
+            added.push((id, sample));
         }
         let cutoff = ts - RETENTION_MS;
         inner.series.retain(|_, series| {
@@ -103,6 +136,7 @@ impl MetricsStore {
             !series.samples.is_empty()
         });
         inner.live = live;
+        added
     }
 
     /// Newest sample of each live container, optionally limited to `ids`.
@@ -158,25 +192,58 @@ impl MetricsStore {
 }
 
 /// Start the sampler. Runs for the app's lifetime; skips ticks while
-/// disconnected and when a poll overruns the interval.
-pub fn spawn(manager: Arc<DockerSessionManager>, store: Arc<MetricsStore>) {
+/// disconnected and when a poll overruns the interval. Each tick is also
+/// written to `db`, and history is reloaded from it when the endpoint
+/// changes (including the first tick after launch).
+pub fn spawn(manager: Arc<DockerSessionManager>, store: Arc<MetricsStore>, db: Arc<MetricsDb>) {
     tauri::async_runtime::spawn(async move {
         let mut ticker = interval(INTERVAL);
         ticker.set_missed_tick_behavior(MissedTickBehavior::Skip);
+        let mut ticks: u64 = 0;
         loop {
             ticker.tick().await;
-            store.set_endpoint(manager.endpoint().await);
+            ticks += 1;
+            let endpoint = manager.endpoint().await;
+            if store.set_endpoint(endpoint.clone()) {
+                let (db, endpoint) = (db.clone(), endpoint.clone());
+                let since = now_ms() - RETENTION_MS;
+                match blocking(move || db.load(&endpoint, since)).await {
+                    Some(Ok(history)) => store.restore(history),
+                    Some(Err(err)) => log::warn!("[metrics] loading history failed: {err}"),
+                    None => {}
+                }
+            }
             let ts = now_ms();
-            let Some(client) = manager.client().await else {
-                store.record(ts, HashSet::new(), Vec::new());
-                continue;
+            let added = match manager.client().await {
+                Some(client) => match poll(&client).await {
+                    Ok((live, readings)) => store.record(ts, live, readings),
+                    Err(err) => {
+                        log::debug!("[metrics] poll failed: {err}");
+                        continue;
+                    }
+                },
+                None => store.record(ts, HashSet::new(), Vec::new()),
             };
-            match poll(&client).await {
-                Ok((live, readings)) => store.record(ts, live, readings),
-                Err(err) => log::debug!("[metrics] poll failed: {err}"),
+            let db = db.clone();
+            let prune = ticks.is_multiple_of(PRUNE_EVERY_TICKS);
+            let written = blocking(move || {
+                db.insert(&endpoint, &added)?;
+                if prune {
+                    db.prune(ts - RETENTION_MS)?;
+                }
+                Ok::<_, rusqlite::Error>(())
+            })
+            .await;
+            if let Some(Err(err)) = written {
+                log::warn!("[metrics] writing history failed: {err}");
             }
         }
     });
+}
+
+/// Run SQLite work off the async runtime; `None` if the task panicked.
+async fn blocking<T: Send + 'static>(work: impl FnOnce() -> T + Send + 'static) -> Option<T> {
+    tokio::task::spawn_blocking(work).await.ok()
 }
 
 /// One tick: list live containers, then read each one concurrently. A
@@ -514,6 +581,40 @@ mod tests {
         assert_eq!(latest.len(), 1);
         assert_eq!(latest[0].id, "a");
         assert!(store.latest(Some(&["b".into()])).is_empty());
+    }
+
+    #[test]
+    fn restored_history_is_readable_but_never_used_for_deltas() {
+        let db = MetricsDb::memory();
+        let first = MetricsStore::default();
+        first.set_endpoint("one".into());
+        let mut added = first.record(0, ids(&["a"]), vec![("a".into(), reading(0, 0, 0))]);
+        added.extend(first.record(
+            2_000,
+            ids(&["a"]),
+            vec![("a".into(), reading(500, 1_000, 4_000))],
+        ));
+        db.insert("one", &added).unwrap();
+
+        // Simulated app restart.
+        let second = MetricsStore::default();
+        assert!(second.set_endpoint("one".into()));
+        second.restore(db.load("one", 0).unwrap());
+        second.record(
+            60_000,
+            ids(&["a"]),
+            vec![("a".into(), reading(900, 2_000, 9_000))],
+        );
+
+        let samples = second
+            .series(&["a".into()], None, None, 60_000)
+            .series
+            .remove(0)
+            .samples;
+        assert_eq!(samples.len(), 3);
+        assert_eq!(samples[1].cpu_percent, Some(100.0));
+        assert_eq!(samples[2].cpu_percent, None, "no delta across the restart");
+        assert!(second.latest(None)[0].sample.ts == 60_000);
     }
 
     #[test]
