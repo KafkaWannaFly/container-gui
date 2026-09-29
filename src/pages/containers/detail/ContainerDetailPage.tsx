@@ -7,6 +7,7 @@ import {
   FileTextOutlined,
   FolderOutlined,
   InfoCircleOutlined,
+  LineChartOutlined,
   MoreOutlined,
   PauseCircleOutlined,
   PlayCircleOutlined,
@@ -39,10 +40,11 @@ import LogsTab from "./LogsTab";
 const ExecTab = lazy(() => import("./ExecTab"));
 const FilesTab = lazy(() => import("./FilesTab"));
 const ImageTab = lazy(() => import("./ImageTab"));
+const MonitorTab = lazy(() => import("./MonitorTab"));
 
 import { composeOf, containerName, cpuLimit, pidsLimit, type TabProps } from "./model";
 
-const TAB_KEYS = ["info", "image", "env", "logs", "files", "exec"] as const;
+const TAB_KEYS = ["info", "image", "env", "logs", "monitor", "files", "exec"] as const;
 type TabKey = (typeof TAB_KEYS)[number];
 
 /** Latest backend-collected sample while the container runs; null otherwise. */
@@ -305,6 +307,12 @@ export default function ContainerDetailPage() {
     { key: "image", icon: <BlockOutlined />, label: "Image", render: () => <ImageTab {...tabProps} /> },
     { key: "env", icon: <SettingOutlined />, label: "Environment", render: () => <EnvTab {...tabProps} /> },
     { key: "logs", icon: <FileTextOutlined />, label: "Logs", render: () => <LogsTab {...tabProps} /> },
+    {
+      key: "monitor",
+      icon: <LineChartOutlined />,
+      label: "Monitor",
+      render: () => <MonitorTab {...tabProps} />,
+    },
     { key: "files", icon: <FolderOutlined />, label: "Files", render: () => <FilesTab {...tabProps} /> },
     { key: "exec", icon: <CodeOutlined />, label: "Exec", render: () => <ExecTab {...tabProps} /> },
   ];
