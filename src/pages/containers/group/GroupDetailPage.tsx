@@ -9,6 +9,7 @@ import {
   FileTextOutlined,
   FolderOpenOutlined,
   InfoCircleOutlined,
+  LineChartOutlined,
   MoreOutlined,
   PlayCircleOutlined,
   PoweroffOutlined,
@@ -29,15 +30,15 @@ import {
   getComposeProject,
   listContainers,
   metricsLatest,
-  metricsSeries,
 } from "../../../services/tauriApi";
-import type { ContainerStats, ContainerSummary, MetricsSeries } from "../../../types/docker";
+import type { ContainerStats, ContainerSummary } from "../../../types/docker";
 import { formatBytes } from "../../../types/docker";
 import ConfigTab from "./ConfigTab";
 import EnvTab from "./EnvTab";
 import { useImages, useInspects } from "./hooks";
 import InfoTab from "./InfoTab";
 import LogsTab from "./LogsTab";
+import MonitorTab from "./MonitorTab";
 import {
   activeProfiles as activeProfilesOf,
   filesOf,
@@ -49,8 +50,6 @@ import {
 } from "./model";
 
 const STATS_INTERVAL_MS = 2_000;
-/** Sparkline resolution: 30 min of history in 30 s buckets. */
-const TREND_POINTS = 60;
 
 export default function GroupDetailPage() {
   const { project = "" } = useParams();
@@ -92,24 +91,6 @@ export default function GroupDetailPage() {
     enabled: containers.length > 0,
   });
 
-  const liveIds = useMemo(
-    () =>
-      containers
-        .filter((ctr) => ctr.state === "running" || ctr.state === "paused")
-        .map((ctr) => ctr.id)
-        .sort(),
-    [containers],
-  );
-
-  // History lives in the backend collector, so it survives page changes.
-  const seriesQuery = useQuery({
-    queryKey: queryKeys.metricsSeries(liveIds, TREND_POINTS),
-    queryFn: () => metricsSeries(liveIds, { maxPoints: TREND_POINTS }),
-    refetchInterval: STATS_INTERVAL_MS,
-    enabled: liveIds.length > 0,
-    placeholderData: (prev) => prev,
-  });
-
   const inspectById = useInspects(containers);
   const imageById = useImages(inspectById);
 
@@ -131,13 +112,6 @@ export default function GroupDetailPage() {
     for (const svc of services) map.set(svc.name, svcState(svc.name, containers));
     return map;
   }, [services, containers]);
-
-  const trends = useMemo(() => {
-    const map = new Map<string, MetricsSeries["series"][number]["samples"]>();
-    for (const entry of seriesQuery.data?.series ?? []) map.set(entry.id, entry.samples);
-    return map;
-  }, [seriesQuery.data]);
-  const trendStepMs = seriesQuery.data?.stepMs ?? STATS_INTERVAL_MS;
 
   const invalidate = () => {
     void queryClient.invalidateQueries({ queryKey: ["containers"] });
@@ -419,6 +393,14 @@ export default function GroupDetailPage() {
       ),
     },
     {
+      key: "monitor",
+      label: (
+        <span>
+          <LineChartOutlined /> Monitor
+        </span>
+      ),
+    },
+    {
       key: "config",
       label: (
         <span>
@@ -440,8 +422,6 @@ export default function GroupDetailPage() {
       services={services}
       activeProfiles={activeProfiles}
       statsById={statsById}
-      trends={trends}
-      trendStepMs={trendStepMs}
       inspectById={inspectById}
       states={states}
       serviceStates={serviceStates}
@@ -465,6 +445,8 @@ export default function GroupDetailPage() {
     />
   ) : tab === "logs" ? (
     <LogsTab key={logSolo ?? "all"} containers={containers} states={states} solo={logSolo} />
+  ) : tab === "monitor" ? (
+    <MonitorTab containers={containers} states={states} />
   ) : (
     <ConfigTab config={config} />
   );

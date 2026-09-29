@@ -1,10 +1,11 @@
-import { ClearOutlined, DownOutlined, SearchOutlined, VerticalAlignBottomOutlined } from "@ant-design/icons";
-import { Button, Checkbox, Dropdown, Empty, Input, Segmented, Select, Switch, Tooltip } from "antd";
+import { ClearOutlined, SearchOutlined, VerticalAlignBottomOutlined } from "@ant-design/icons";
+import { Button, Empty, Input, Segmented, Select, Switch, Tooltip } from "antd";
 import { format } from "date-fns";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { StateDot } from "../../../components/ui";
 import { streamContainerLogs } from "../../../services/tauriApi";
 import { type ContainerSummary, middleEllipsis } from "../../../types/docker";
+import { ContainerFilter } from "./components";
 import { svcColor } from "./model";
 
 type Level = "debug" | "info" | "warn" | "error" | "event";
@@ -150,8 +151,6 @@ export default function LogsTab({
     }
   }, [rows, follow, view]);
 
-  const toggle = (id: string) =>
-    setHidden((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   const only = (id: string) => setHidden(containers.filter((ctr) => ctr.id !== id).map((ctr) => ctr.id));
 
   const renderText = (text: string) => {
@@ -202,21 +201,6 @@ export default function LogsTab({
   const empty = (
     <span className="dim" style={{ padding: "0 12px" }}>
       No log lines match the current filter.
-    </span>
-  );
-
-  const chip = (
-    <span className="g-chip">
-      <span className="dots">
-        {shownKeys.map((ctr) => (
-          <i key={ctr.id} style={{ background: svcColor(ctr.composeService ?? "") }} />
-        ))}
-      </span>
-      Containers
-      <span className="n mono">
-        {shownKeys.length === containers.length ? "all" : `${shownKeys.length} / ${containers.length}`}
-      </span>
-      <DownOutlined style={{ fontSize: 10, color: "var(--smoke)" }} />
     </span>
   );
 
@@ -280,67 +264,13 @@ export default function LogsTab({
       </div>
 
       <div className="toolbar" style={{ marginBottom: 12, gap: 6 }}>
-        <Dropdown
-          trigger={["click"]}
-          placement="bottomLeft"
-          popupRender={() => (
-            <div
-              style={{
-                background: "var(--obsidian)",
-                border: "1px solid var(--graphite)",
-                borderRadius: 8,
-                padding: 4,
-                minWidth: 280,
-              }}
-            >
-              {/* biome-ignore lint/a11y/noStaticElementInteractions: dropdown row toggles a checkbox */}
-              {/* biome-ignore lint/a11y/useKeyWithClickEvents: dropdown row toggles a checkbox */}
-              <div
-                className="g-inactive-row"
-                onClick={() => setHidden(hidden.length === 0 ? containers.map((ctr) => ctr.id) : [])}
-              >
-                <Checkbox
-                  tabIndex={-1}
-                  checked={hidden.length === 0}
-                  indeterminate={hidden.length > 0 && shownKeys.length > 0}
-                />
-                <span>All containers</span>
-                <span className="n mono" style={{ marginLeft: "auto", color: "var(--ash)" }}>
-                  {shownKeys.length} / {containers.length}
-                </span>
-              </div>
-              {containers.map((ctr) => (
-                // biome-ignore lint/a11y/noStaticElementInteractions: dropdown row toggles a checkbox
-                // biome-ignore lint/a11y/useKeyWithClickEvents: dropdown row toggles a checkbox
-                <div key={ctr.id} className="g-inactive-row" onClick={() => toggle(ctr.id)}>
-                  <Checkbox tabIndex={-1} checked={!hidden.includes(ctr.id)} />
-                  <span
-                    style={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: 99,
-                      background: svcColor(ctr.composeService ?? ""),
-                    }}
-                  />
-                  <span>{nameOf.get(ctr.id)}</span>
-                  <button
-                    type="button"
-                    className="link-btn"
-                    style={{ marginLeft: "auto", fontSize: 12 }}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      only(ctr.id);
-                    }}
-                  >
-                    only
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        >
-          {chip}
-        </Dropdown>
+        <ContainerFilter
+          containers={containers}
+          hidden={hidden}
+          setHidden={setHidden}
+          nameOf={(ctr) => nameOf.get(ctr.id) ?? ""}
+          colorOf={(ctr) => svcColor(ctr.composeService ?? "")}
+        />
         <button
           type="button"
           className={`g-chip${events ? "" : " off"}`}
@@ -349,11 +279,6 @@ export default function LogsTab({
         >
           Lifecycle events
         </button>
-        {hidden.length > 0 ? (
-          <Button type="text" size="small" onClick={() => setHidden([])}>
-            Show all
-          </Button>
-        ) : null}
         <span className="spacer" />
         <Segmented
           value={view}

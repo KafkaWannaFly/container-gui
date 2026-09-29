@@ -397,6 +397,12 @@ export function formatBytes(bytes: number, fractionDigits = 1): string {
   return `${value.toFixed(i === 0 ? 0 : fractionDigits)} ${units[i]}`;
 }
 
+/** Bytes per second; `null` (no previous reading yet) shows as "—". */
+export function formatRate(bytesPerSec: number | null | undefined): string {
+  if (bytesPerSec == null) return "—";
+  return bytesPerSec > 0 ? `${formatBytes(bytesPerSec)}/s` : "0 B/s";
+}
+
 export function portLabel(port: PortMapping): string {
   const proto = port.type || "tcp";
   if (port.publicPort) {

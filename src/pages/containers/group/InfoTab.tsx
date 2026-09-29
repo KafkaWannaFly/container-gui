@@ -21,54 +21,34 @@ import type {
   ContainerInspect,
   ContainerStats,
   ContainerSummary,
-  MetricSample,
 } from "../../../types/docker";
-import { formatBytes, portUrl } from "../../../types/docker";
+import { formatBytes, formatRate, portUrl } from "../../../types/docker";
 import { Section, useSections } from "./components";
 import DependencyGraph from "./DependencyGraph";
 import { impactOf, type ServiceInfo, type ServiceState, svcColor } from "./model";
 
 const SECTIONS = ["general", "services", "deps", "networks", "volumes"];
 
-/** Memory over the collector's history window. A jump bigger than 1.5 steps
- * (container stopped, app disconnected) breaks the line. */
-function Spark({ data, stepMs }: { data: MetricSample[]; stepMs: number }) {
-  if (data.length < 2)
-    return (
-      <span className="dim" style={{ fontSize: 12, width: 96 }}>
-        collecting…
-      </span>
-    );
-  const w = 96;
-  const h = 22;
-  const values = data.map((s) => s.memoryUsage);
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const span = max - min || 1;
-  const t0 = data[0].ts;
-  const tSpan = data[data.length - 1].ts - t0 || 1;
-  const x = (ts: number) => 2 + ((ts - t0) * (w - 4)) / tSpan;
-  const y = (v: number) => h - 3 - ((v - min) / span) * (h - 6);
-  const d = data
-    .map((s, i) => {
-      const move = i === 0 || s.ts - data[i - 1].ts > stepMs * 1.5;
-      return `${move ? "M" : "L"}${x(s.ts).toFixed(1)},${y(s.memoryUsage).toFixed(1)}`;
-    })
-    .join("");
-  const minutes = Math.max(1, Math.round((Date.now() - t0) / 60_000));
+/** Two stacked rates, e.g. ↓ received over ↑ sent. */
+function RatePair({ a, b, labels }: { a: number | null; b: number | null; labels: [string, string] }) {
   return (
-    <Tooltip title={`${formatBytes(min)}–${formatBytes(max)} · last ${minutes} min`}>
-      <svg width={w} height={h} style={{ display: "block" }} role="img" aria-label="Memory trend">
-        <path
-          d={d}
-          fill="none"
-          stroke="#8a8f98"
-          strokeWidth="1.5"
-          strokeLinejoin="round"
-          strokeLinecap="round"
-        />
-      </svg>
-    </Tooltip>
+    <span
+      className="mono"
+      style={{
+        display: "inline-flex",
+        flexDirection: "column",
+        fontSize: 12,
+        lineHeight: 1.4,
+        whiteSpace: "nowrap",
+      }}
+    >
+      <span>
+        <span className="dim">{labels[0]}</span> {formatRate(a)}
+      </span>
+      <span>
+        <span className="dim">{labels[1]}</span> {formatRate(b)}
+      </span>
+    </span>
   );
 }
 
@@ -79,8 +59,6 @@ export default function InfoTab({
   services,
   activeProfiles,
   statsById,
-  trends,
-  trendStepMs,
   inspectById,
   states,
   serviceStates,
@@ -97,8 +75,6 @@ export default function InfoTab({
   services: ServiceInfo[];
   activeProfiles: string[];
   statsById: Map<string, ContainerStats>;
-  trends: Map<string, MetricSample[]>;
-  trendStepMs: number;
   inspectById: Map<string, ContainerInspect>;
   states: Map<string, string>;
   serviceStates: Map<string, ServiceState>;
@@ -354,18 +330,34 @@ export default function InfoTab({
     {
       title: "Memory",
       key: "mem",
-      width: 190,
+      width: 96,
       render: (_: unknown, ctr: ContainerSummary) => {
-        if (!running(ctr)) return <span className="dim">—</span>;
-        const stats = statsById.get(ctr.id);
+        const stats = running(ctr) ? statsById.get(ctr.id) : undefined;
         return (
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
-            <Spark data={trends.get(ctr.id) ?? []} stepMs={trendStepMs} />
-            <span className="mono" style={{ minWidth: 64 }}>
-              {stats ? formatBytes(stats.memoryUsage, 1) : "—"}
-            </span>
+          <span className="mono" style={{ whiteSpace: "nowrap" }}>
+            {stats ? formatBytes(stats.memoryUsage, 1) : "—"}
           </span>
         );
+      },
+    },
+    {
+      title: "Network I/O",
+      key: "net",
+      width: 132,
+      render: (_: unknown, ctr: ContainerSummary) => {
+        const stats = running(ctr) ? statsById.get(ctr.id) : undefined;
+        if (!stats) return <span className="dim">—</span>;
+        return <RatePair a={stats.netRxRate} b={stats.netTxRate} labels={["↓", "↑"]} />;
+      },
+    },
+    {
+      title: "Block I/O",
+      key: "block",
+      width: 120,
+      render: (_: unknown, ctr: ContainerSummary) => {
+        const stats = running(ctr) ? statsById.get(ctr.id) : undefined;
+        if (!stats) return <span className="dim">—</span>;
+        return <RatePair a={stats.blockReadRate} b={stats.blockWriteRate} labels={["R", "W"]} />;
       },
     },
     {
