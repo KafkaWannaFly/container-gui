@@ -273,7 +273,7 @@ mod tests {
     #[tokio::test]
     async fn file_database_survives_reopen() {
         let dir = std::env::temp_dir().join(format!("cgui-metrics-{}", std::process::id()));
-        let path = dir.join("metrics.sqlite3");
+        let path = dir.join("app.db");
         let db = MetricsDb::open_or_memory(&path).await;
         db.insert("one", &[("a".into(), sample(1_000))])
             .await

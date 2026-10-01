@@ -1,0 +1,893 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="dark" />
+<title>nginx · Images · Container GUI</title>
+<link rel="stylesheet" href="/public/fonts/fonts.css" />
+<style>
+  :root {
+    --void: #08090a;
+    --carbon: #0f1011;
+    --obsidian: #161718;
+    --graphite: #23252a;
+    --smoke: #383b3f;
+    --ash: #62666d;
+    --fog: #8a8f98;
+    --mist: #d0d6e0;
+    --bone: #e5e5e6;
+    --paper: #fff;
+    --lime: #e4f222;
+    --green: #27a644;
+    --coral: #eb5757;
+    --teal: #02b8cc;
+    --lav: #8b5cf6;
+    --amber: #d9a441;
+    --font-ui: "Be Vietnam Pro", system-ui, -apple-system, sans-serif;
+    --font-mono: "Paper Mono", ui-monospace, monospace;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  html { background: var(--void); }
+  body {
+    background: var(--void);
+    color: var(--mist);
+    font-family: var(--font-ui);
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .mono { font-family: var(--font-mono); font-size: 13px; letter-spacing: -0.013em; }
+  .dim { color: var(--ash); }
+  .ic { width: 14px; height: 14px; flex: 0 0 auto; }
+
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: var(--graphite); border-radius: 99px; border: 3px solid var(--void); }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-corner { background: transparent; }
+
+  /* ---------- shell ---------- */
+  .app-shell { display: flex; min-height: 100vh; }
+  .side {
+    width: 224px; flex: 0 0 224px; height: 100vh; position: sticky; top: 0;
+    background: var(--carbon); border-right: 1px solid var(--graphite);
+    padding: 14px 10px; display: flex; flex-direction: column; gap: 2px;
+  }
+  .brand {
+    display: flex; align-items: center; gap: 9px; padding: 6px 8px 14px;
+    color: var(--paper); font-weight: 510; font-size: 15px; letter-spacing: -0.011em;
+  }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 6px;
+    color: var(--mist); font-size: 13px; cursor: pointer; border: 1px solid transparent;
+    user-select: none; text-decoration: none;
+  }
+  .nav-item:hover { background: var(--obsidian); }
+  .nav-item.active { background: var(--obsidian); border-color: var(--graphite); color: var(--paper); }
+  .nav-item .ic { color: var(--ash); }
+  .nav-item.active .ic { color: var(--lime); }
+  .side-foot {
+    margin-top: auto; padding: 10px 8px 2px; border-top: 1px solid var(--graphite);
+    color: var(--ash); display: flex; justify-content: space-between; align-items: center;
+  }
+  .main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .topbar {
+    height: 48px; flex: 0 0 48px; display: flex; align-items: center; justify-content: space-between;
+    padding: 0 24px; border-bottom: 1px solid var(--graphite);
+    position: sticky; top: 0; background: rgba(8, 9, 10, 0.85); backdrop-filter: blur(8px); z-index: 10;
+  }
+
+  .page { padding: 24px; max-width: 1200px; width: 100%; margin: 0 auto; display: flex; flex-direction: column; gap: 24px; }
+
+  /* ---------- detail head ---------- */
+  .detail-head { position: sticky; top: 48px; z-index: 5; background: var(--void); border-bottom: 1px solid var(--graphite); }
+  .detail-head-inner { max-width: 1200px; margin: 0 auto; padding: 16px 24px 0; }
+  .crumbs { display: flex; align-items: center; gap: 6px; color: var(--ash); font-size: 12px; margin-bottom: 10px; }
+  .crumbs a { color: var(--ash); text-decoration: none; }
+  .crumbs a:hover { color: var(--mist); }
+  .head-row { display: flex; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+  .detail-title {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    font-size: 20px; font-weight: 510; color: var(--paper); letter-spacing: -0.014em;
+  }
+  .detail-sub { display: flex; align-items: center; gap: 10px; margin-top: 6px; flex-wrap: wrap; }
+  .stats { display: flex; gap: 28px; flex-wrap: wrap; padding: 14px 0 12px; }
+  .stat .k { font-size: 12px; color: var(--ash); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 3px; }
+  .stat .v { font-size: 15px; color: var(--bone); font-family: var(--font-mono); letter-spacing: -0.013em; }
+  .stat .v small { font-size: 12px; color: var(--ash); margin-left: 5px; }
+  .detail-body { padding: 20px 24px 28px; gap: 16px; }
+
+  .toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .toolbar .spacer, .spacer { flex: 1; }
+
+  .copyable {
+    display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+    color: var(--ash); background: none; border: 0; padding: 0; font: inherit;
+  }
+  .copyable:hover { color: var(--mist); }
+  .copyable .ic { width: 12px; height: 12px; }
+
+  /* ---------- buttons ---------- */
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 12px;
+    border-radius: 6px; border: 1px solid var(--graphite); background: transparent;
+    color: var(--mist); font: inherit; font-size: 13px; cursor: pointer; white-space: nowrap;
+  }
+  .btn:hover { border-color: var(--smoke); color: var(--paper); }
+  .btn-primary { background: var(--lime); border-color: var(--lime); color: #08090a; font-weight: 510; }
+  .btn-primary:hover { background: #cfe01f; border-color: #cfe01f; color: #08090a; }
+  .btn-danger { color: var(--coral); border-color: rgba(235, 87, 87, 0.45); }
+  .btn-danger:hover { border-color: var(--coral); color: #ff8585; }
+  .btn-text { border-color: transparent; padding: 0 8px; color: var(--ash); }
+  .btn-text:hover { color: var(--mist); background: var(--obsidian); border-color: transparent; }
+  .btn.icon { width: 32px; padding: 0; justify-content: center; }
+  .btn.sm { height: 26px; padding: 0 8px; font-size: 12px; }
+  .btn.sm.icon { width: 26px; padding: 0; }
+
+  /* ---------- pills ---------- */
+  .pill { display: inline-block; padding: 0 6px; border-radius: 4px; font-size: 12px; line-height: 18px; }
+  .pill.green { background: rgba(39, 166, 68, 0.13); color: var(--green); }
+  .pill.neutral { background: rgba(255, 255, 255, 0.05); color: var(--fog); }
+  .pill.teal { background: rgba(2, 184, 204, 0.13); color: var(--teal); }
+  .pill.lav { background: rgba(139, 92, 246, 0.16); color: #b79bff; }
+  .tag-pill {
+    appearance: none; border: 0; font-family: inherit; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 4px;
+  }
+  .tag-pill .ic { width: 11px; height: 11px; color: var(--ash); transition: color 0.12s; }
+  .tag-pill:hover .ic { color: var(--mist); }
+
+  /* ---------- tabs ---------- */
+  .tabs { display: flex; }
+  .tab {
+    display: inline-flex; align-items: center; gap: 7px; padding: 10px 4px; margin-right: 20px;
+    background: none; border: 0; color: var(--fog); font: inherit; font-size: 13px;
+    cursor: pointer; position: relative;
+  }
+  .tab:hover { color: var(--mist); }
+  .tab.active { color: var(--paper); }
+  .tab.active::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: var(--lime); }
+  .tab .n { color: var(--ash); font-size: 12px; }
+
+  .panel { display: none; }
+  .panel.active { display: flex; flex-direction: column; gap: 16px; }
+
+  /* ---------- cards & sections ---------- */
+  .card { background: var(--carbon); border: 1px solid var(--graphite); border-radius: 12px; padding: 16px; }
+  .card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .card-head .ic { color: var(--ash); }
+  .section-title { font-size: 12px; color: var(--fog); text-transform: uppercase; letter-spacing: 0.06em; margin: 0; }
+  .card-head .note { margin-left: auto; }
+
+  .note { font-size: 12px; display: inline-flex; align-items: center; gap: 6px; color: var(--ash); }
+
+  /* ---------- descriptions ---------- */
+  .desc { display: grid; grid-template-columns: 170px 1fr; border: 1px solid var(--graphite); border-radius: 8px; overflow: hidden; }
+  .desc > div { padding: 8px 12px; border-bottom: 1px solid var(--graphite); font-size: 13px; min-width: 0; }
+  .desc > div:nth-last-child(-n + 2) { border-bottom: 0; }
+  .desc > .k { color: var(--fog); border-right: 1px solid var(--graphite); background: rgba(255, 255, 255, 0.02); }
+  .desc > .v { color: var(--mist); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+  /* ---------- tables ---------- */
+  .tbl-wrap { border: 1px solid var(--graphite); border-radius: 8px; overflow: hidden; }
+  .tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .tbl th {
+    text-align: left; color: var(--fog); font-weight: 400; font-size: 12px;
+    padding: 8px 12px; border-bottom: 1px solid var(--graphite); background: rgba(255, 255, 255, 0.015);
+  }
+  .tbl td { padding: 9px 12px; border-bottom: 1px solid var(--graphite); color: var(--mist); vertical-align: middle; }
+  .tbl tr:last-child td { border-bottom: 0; }
+  .tbl tbody tr { transition: background 0.12s; }
+  .tbl tbody tr:hover { background: var(--obsidian); }
+  .tbl .num { text-align: right; }
+  .ins-text { display: inline-block; max-width: 640px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
+  .env-val { display: inline-block; max-width: 520px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
+
+  .row-link { color: var(--paper); text-decoration: none; }
+  .row-link:hover { color: var(--lime); }
+  .port-link { background: none; border: 0; padding: 0; font: inherit; color: var(--teal); cursor: pointer; }
+  .port-link:hover { text-decoration: underline; }
+  .state { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--mist); }
+  .dot { width: 7px; height: 7px; border-radius: 99px; display: inline-block; }
+
+  /* ---------- code view ---------- */
+  .code {
+    border: 1px solid var(--graphite); border-radius: 8px; background: var(--void);
+    overflow: auto; max-height: calc(100vh - 380px); min-height: 340px;
+  }
+  .code .ln { display: flex; font-family: var(--font-mono); font-size: 12px; line-height: 1.75; letter-spacing: -0.013em; }
+  .code .n {
+    flex: 0 0 48px; text-align: right; padding-right: 14px; color: var(--smoke);
+    user-select: none; position: sticky; left: 0; background: var(--void);
+  }
+  .code .t { flex: 1; padding-right: 16px; white-space: pre; color: var(--mist); }
+  .code.wrap .t { white-space: pre-wrap; word-break: break-word; }
+  .code .kw { color: var(--paper); font-weight: 510; }
+  .code .cmt { color: var(--ash); }
+
+  /* ---------- segmented ---------- */
+  .seg { display: inline-flex; gap: 2px; padding: 2px; border-radius: 6px; background: rgba(255, 255, 255, 0.04); border: 1px solid var(--graphite); }
+  .seg button { border: 0; background: transparent; color: var(--fog); font: inherit; font-size: 12px; padding: 3px 10px; border-radius: 4px; cursor: pointer; }
+  .seg button:hover { color: var(--paper); }
+  .seg button.on { background: var(--graphite); color: var(--paper); }
+
+  /* ---------- switch ---------- */
+  .switch-label { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer; }
+  .switch { width: 28px; height: 16px; border-radius: 99px; background: var(--graphite); position: relative; display: inline-block; transition: background 0.15s; }
+  .switch::after {
+    content: ""; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px;
+    border-radius: 99px; background: var(--fog); transition: left 0.15s;
+  }
+  .switch.on { background: var(--lime); }
+  .switch.on::after { left: 14px; background: #08090a; }
+
+  /* ---------- input ---------- */
+  .input {
+    height: 32px; padding: 0 11px; border-radius: 6px; font: inherit; font-size: 13px;
+    background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.08);
+    color: var(--mist); outline: none;
+  }
+  .input::placeholder { color: var(--ash); }
+  .input:hover { border-color: var(--smoke); }
+  .input:focus { border-color: var(--mist); }
+
+  /* ---------- select ---------- */
+  .select {
+    height: 28px; padding: 0 8px; border-radius: 6px; font-size: 12px;
+    font-family: var(--font-mono); letter-spacing: -0.013em;
+    background: var(--obsidian); border: 1px solid var(--graphite);
+    color: var(--mist); outline: none; cursor: pointer;
+  }
+  .select:hover { border-color: var(--smoke); }
+  .select:focus { border-color: var(--mist); }
+  .select optgroup { background: var(--obsidian); color: var(--ash); font-style: normal; }
+  .select option { background: var(--obsidian); color: var(--mist); }
+
+  /* ---------- dropdown menu ---------- */
+  .menu-host { position: relative; }
+  .menu {
+    position: absolute; top: 38px; right: 0; min-width: 230px; z-index: 30;
+    background: var(--obsidian); border: 1px solid var(--graphite); border-radius: 8px;
+    padding: 4px; display: none; box-shadow: rgba(0, 0, 0, 0.4) 0 8px 24px;
+  }
+  .menu.open { display: block; }
+  .menu button {
+    display: flex; align-items: center; gap: 10px; width: 100%; padding: 7px 10px;
+    border: 0; background: none; color: var(--mist); font: inherit; font-size: 13px;
+    border-radius: 6px; cursor: pointer; text-align: left;
+  }
+  .menu button:hover { background: var(--graphite); }
+  .menu button.danger { color: var(--coral); }
+  .menu hr { border: 0; border-top: 1px solid var(--graphite); margin: 4px 0; }
+
+  /* ---------- toast ---------- */
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translate(-50%, 12px);
+    background: var(--obsidian); border: 1px solid var(--graphite); color: var(--bone);
+    padding: 8px 14px; border-radius: 6px; font-size: 13px; opacity: 0;
+    pointer-events: none; transition: 0.18s; z-index: 99;
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+  .proto-badge {
+    position: fixed; bottom: 14px; right: 14px; z-index: 99;
+    font-family: var(--font-mono); font-size: 11px; color: var(--ash);
+    border: 1px dashed var(--graphite); border-radius: 6px; padding: 3px 8px;
+    background: rgba(8, 9, 10, 0.8);
+  }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <aside class="side">
+    <div class="brand">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <rect x="6.6" y="8.8" width="2.7" height="2.7" rx="0.4"/>
+        <rect x="10.1" y="8.8" width="2.7" height="2.7" rx="0.4"/>
+        <rect x="13.6" y="8.8" width="2.7" height="2.7" rx="0.4"/>
+        <rect x="10.1" y="5.6" width="2.7" height="2.7" rx="0.4"/>
+        <rect x="13.6" y="5.6" width="2.7" height="2.7" rx="0.4"/>
+        <path d="M3 13.2h18l-1.5 4a6 6 0 0 1-5.6 3.8h-3.8A6 6 0 0 1 4.5 17.2L3 13.2z"/>
+      </svg>
+      Container GUI
+    </div>
+    <a class="nav-item" href="#">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.3 7 12 12l8.7-5"/><path d="M12 22V12"/></svg>
+      <span style="flex:1">Containers</span>
+    </a>
+    <a class="nav-item active" href="#">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></svg>
+      <span style="flex:1">Images</span>
+    </a>
+    <a class="nav-item" href="#">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></svg>
+      <span style="flex:1">Volumes</span>
+    </a>
+    <a class="nav-item" href="#">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/></svg>
+      <span style="flex:1">Preferences</span>
+    </a>
+    <div class="side-foot">
+      <span class="mono">desktop-linux</span>
+      <span style="display:inline-flex;align-items:center;gap:6px">
+        <span class="dot" style="background:var(--green)"></span>
+        <span class="mono">8ms</span>
+      </span>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <span style="font-size:14px;font-weight:510;color:var(--paper)">Images</span>
+      <span style="display:inline-flex;align-items:center;gap:8px">
+        <span class="dot" style="width:6px;height:6px;background:var(--green)"></span>
+        <span class="mono dim">unix:///var/run/docker.sock</span>
+        <span class="mono dim">· desktop-linux</span>
+        <span class="mono dim">· 8ms</span>
+      </span>
+    </div>
+
+    <div class="detail-head">
+      <div class="detail-head-inner">
+        <div class="crumbs">
+          <a href="#">Images</a>
+          <span>/</span>
+          <span style="color:var(--fog)">nginx</span>
+        </div>
+
+        <div class="head-row">
+          <button class="btn btn-text icon" style="margin-top:2px" aria-label="Back to images">
+            <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
+          </button>
+          <div style="flex:1;min-width:240px">
+            <div class="detail-title">
+              nginx
+              <button class="pill green tag-pill" data-copy="nginx:latest" title="Copy nginx:latest">latest<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg></button>
+              <button class="pill neutral tag-pill" data-copy="nginx:1" title="Copy nginx:1">1<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg></button>
+              <button class="pill neutral tag-pill" data-copy="nginx:1.27" title="Copy nginx:1.27">1.27<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg></button>
+              <button class="pill neutral tag-pill" data-copy="nginx:1.27.3" title="Copy nginx:1.27.3">1.27.3<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg></button>
+              <button class="pill neutral tag-pill" data-copy="nginx:alpine" title="Copy nginx:alpine">alpine<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg></button>
+              <button class="pill neutral tag-pill" data-copy="nginx:1-alpine" title="Copy nginx:1-alpine">1-alpine<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg></button>
+              <button class="pill green tag-pill" data-copy="nginx:1.27-alpine" title="Copy nginx:1.27-alpine">1.27-alpine<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg></button>
+              <button class="pill neutral tag-pill" data-copy="nginx:1.27.3-alpine" title="Copy nginx:1.27.3-alpine">1.27.3-alpine<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg></button>
+              <button class="pill neutral tag-pill" data-copy="nginx:mainline-alpine" title="Copy nginx:mainline-alpine">mainline-alpine<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg></button>
+              <button class="pill neutral tag-pill" data-copy="nginx:stable-alpine" title="Copy nginx:stable-alpine">stable-alpine<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg></button>
+              <button class="pill neutral tag-pill" data-copy="nginx:alpine3.20" title="Copy nginx:alpine3.20">alpine3.20<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg></button>
+              <button class="pill neutral tag-pill" data-copy="nginx:1-alpine3.20" title="Copy nginx:1-alpine3.20">1-alpine3.20<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg></button>
+              <button class="pill neutral tag-pill" data-copy="nginx:1.27-alpine3.20" title="Copy nginx:1.27-alpine3.20">1.27-alpine3.20<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg></button>
+              <button class="pill neutral tag-pill" data-copy="nginx:1.27.3-alpine3.20" title="Copy nginx:1.27.3-alpine3.20">1.27.3-alpine3.20<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg></button>
+              <button class="pill neutral tag-pill" data-copy="nginx:stable-alpine3.20" title="Copy nginx:stable-alpine3.20">stable-alpine3.20<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg></button>
+            </div>
+            <div class="detail-sub">
+              <button class="copyable mono" data-copy="nginx@sha256:1e4e2a2c8f6b0d9e5a7c4b3d2f1e0a9c8b7d6e5f4a3b2c1d0e9f8a7b6c5d4e3f2a" title="Copy digest">
+                nginx@sha256:1e4e2a2c8f6b
+                <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+              </button>
+              <span class="dim">·</span>
+              <button class="copyable mono" data-copy="sha256:3f8a9b1c4d2e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b" title="Copy image ID">
+                sha256:3f8a9b1c4d2e
+                <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+              </button>
+              <span class="dim">·</span>
+              <span class="mono dim">created 3 weeks ago</span>
+              <span class="dim">·</span>
+              <span class="dim" style="font-size:12px">15 tags alias this image</span>
+            </div>
+          </div>
+
+          <div class="toolbar">
+            <button class="btn">
+              <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+              Pull latest
+            </button>
+            <button class="btn">
+              <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r=".5" fill="currentColor"/></svg>
+              Tag image
+            </button>
+            <div class="menu-host">
+              <button class="btn icon" id="more-btn" aria-label="More actions">
+                <svg class="ic" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>
+              </button>
+              <div class="menu" id="more-menu">
+                <button data-copy="sha256:3f8a9b1c4d2e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b">
+                  <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                  Copy full image ID
+                </button>
+                <button data-copy='{"Id":"sha256:3f8a…","RepoTags":["nginx:1.27-alpine"],"Os":"linux","Architecture":"amd64"}'>
+                  <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 13a2 2 0 1 0 4 0 2 2 0 1 0-4 0"/><path d="M8 21h8"/></svg>
+                  Copy inspect JSON
+                </button>
+                <hr />
+                <button class="danger">
+                  <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
+                  Delete image
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="stats">
+          <div class="stat" title="Total uncompressed size of all layers">
+            <div class="k">Size</div>
+            <div class="v">33.2 MB</div>
+          </div>
+          <div class="stat" title="Layers in the image's build history">
+            <div class="k">Layers</div>
+            <div class="v">15<small>6 with content</small></div>
+          </div>
+          <div class="stat" title="OS / architecture of this image">
+            <div class="k">Platform</div>
+            <div class="v">linux/amd64</div>
+          </div>
+          <div class="stat" title="Containers created from any tag of this image">
+            <div class="k">In use</div>
+            <div class="v">2<small>containers</small></div>
+          </div>
+          <div class="stat" title="When the image was built">
+            <div class="k">Created</div>
+            <div class="v">2026-09-08<small>3 weeks ago</small></div>
+          </div>
+        </div>
+
+        <div class="tabs">
+          <button class="tab active" data-tab="overview">
+            <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+            Overview
+          </button>
+          <button class="tab" data-tab="build">
+            <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>
+            Build <span class="n">15</span>
+          </button>
+          <button class="tab" data-tab="containers">
+            <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.3 7 12 12l8.7-5"/><path d="M12 22V12"/></svg>
+            Containers <span class="n">2</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="page detail-body">
+      <!-- ======================= OVERVIEW ======================= -->
+      <div class="panel active" id="panel-overview">
+        <div class="toolbar">
+          <label class="dim" style="font-size:12px" for="ov-tag-select">Tag</label>
+          <select class="select" id="ov-tag-select"></select>
+          <span class="note">
+            <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+            All tags alias this same image — only the pull reference differs per tag.
+          </span>
+        </div>
+        <div class="card">
+          <div class="card-head">
+            <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+            <span class="section-title">Image</span>
+          </div>
+          <div class="desc">
+            <div class="k">Image ID</div>
+            <div class="v">
+              <button class="copyable mono" data-copy="sha256:3f8a9b1c4d2e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b">
+                sha256:3f8a9b1c4d2e6f7a8b9
+                <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+              </button>
+            </div>
+            <div class="k">Digest</div>
+            <div class="v">
+              <button class="copyable mono" id="ov-digest" data-copy="nginx:latest@sha256:1e4e2a2c8f6b0d9e5a7c4b3d2f1e0a9c8b7d6e5f4a3b2c1d0e9f8a7b6c5d4e3f2a">
+                <span id="ov-digest-text">nginx:latest@sha256:1e4e2a2c8f6b0d9e…</span>
+                <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+              </button>
+            </div>
+            <div class="k">Source</div>
+            <div class="v">
+              <span class="pill teal">pulled</span>
+              <span class="mono" id="ov-source">docker.io/library/nginx:latest</span>
+            </div>
+            <div class="k">Created</div>
+            <div class="v"><span class="mono">2026-09-08 14:22:07</span> <span class="dim" style="font-size:12px">· 3 weeks ago</span></div>
+            <div class="k">Size</div>
+            <div class="v"><span class="mono">33.2 MB</span> <span class="dim" style="font-size:12px">· 15 layers, 6 with content</span></div>
+            <div class="k">Platform</div>
+            <div class="v"><span class="mono">linux/amd64</span></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+            <span class="section-title">Configuration</span>
+          </div>
+          <div class="desc">
+            <div class="k">Entrypoint</div>
+            <div class="v"><span class="mono">["/docker-entrypoint.sh"]</span></div>
+            <div class="k">Command</div>
+            <div class="v"><span class="mono">["nginx", "-g", "daemon off;"]</span></div>
+            <div class="k">Working dir</div>
+            <div class="v"><span class="mono">/</span></div>
+            <div class="k">User</div>
+            <div class="v"><span class="dim">not set · runs as root</span></div>
+            <div class="k">Shell</div>
+            <div class="v"><span class="mono">["/bin/sh", "-c"]</span></div>
+            <div class="k">Exposed ports</div>
+            <div class="v"><span class="mono">80/tcp</span></div>
+            <div class="k">Stop signal</div>
+            <div class="v"><span class="mono">SIGQUIT</span></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+            <span class="section-title">Environment</span>
+            <span class="note">4 variables</span>
+          </div>
+          <div class="tbl-wrap">
+            <table class="tbl">
+              <thead><tr><th style="width:260px">Variable</th><th>Value</th></tr></thead>
+              <tbody>
+                <tr><td class="mono">PATH</td><td class="mono dim"><span class="env-val">/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin</span></td></tr>
+                <tr><td class="mono">NGINX_VERSION</td><td class="mono dim">1.27.3</td></tr>
+                <tr><td class="mono">NJS_VERSION</td><td class="mono dim">0.8.7</td></tr>
+                <tr><td class="mono">PKG_RELEASE</td><td class="mono dim">1</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+            <span class="section-title">Labels</span>
+            <span class="note">1 label</span>
+          </div>
+          <div class="tbl-wrap">
+            <table class="tbl">
+              <thead><tr><th style="width:260px">Key</th><th>Value</th></tr></thead>
+              <tbody>
+                <tr><td class="mono">maintainer</td><td class="mono dim">NGINX Docker Maintainers &lt;docker-maint@nginx.com&gt;</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ======================= BUILD ======================= -->
+      <div class="panel" id="panel-build">
+        <div class="card">
+          <div class="card-head">
+            <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+            <span class="section-title">Build history</span>
+            <span class="note">15 layers</span>
+          </div>
+          <div class="toolbar" style="margin-bottom:12px">
+            <label class="dim" style="font-size:12px" for="build-tag-select">Tag</label>
+            <select class="select" id="build-tag-select"></select>
+            <span class="seg" id="build-seg">
+              <button class="on" data-view="dockerfile">Dockerfile</button>
+              <button data-view="layers">Layers 15</button>
+            </span>
+            <span class="note">
+              <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+              <span id="build-note-text">Reconstructed from layer history. Images do not keep their original Dockerfile.</span>
+            </span>
+            <span class="spacer"></span>
+            <span id="build-text-actions" style="display:inline-flex;align-items:center;gap:8px">
+              <span class="switch-label" id="wrap-toggle">
+                <span class="switch"></span>
+                <span class="dim">Wrap</span>
+              </span>
+              <button class="btn sm icon" id="df-copy-btn" aria-label="Copy Dockerfile" data-copy="FROM alpine:3.20&#10;ENV NGINX_VERSION=1.27.3&#10;CMD [&quot;nginx&quot;, &quot;-g&quot;, &quot;daemon off;&quot;]">
+                <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+              </button>
+              <button class="btn sm icon" aria-label="Save Dockerfile">
+                <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+              </button>
+            </span>
+          </div>
+          <div class="code" id="df-code">
+            <div class="ln"><span class="n">1</span><span class="t"><span class="cmt"># reconstructed · nginx:1.27-alpine</span></span></div>
+            <div class="ln"><span class="n">2</span><span class="t"><span class="kw">FROM</span> alpine:3.20</span></div>
+            <div class="ln"><span class="n">3</span><span class="t"><span class="kw">ENV</span> NGINX_VERSION=1.27.3</span></div>
+            <div class="ln"><span class="n">4</span><span class="t"><span class="kw">ENV</span> NJS_VERSION=0.8.7</span></div>
+            <div class="ln"><span class="n">5</span><span class="t"><span class="kw">ENV</span> PKG_RELEASE=1</span></div>
+            <div class="ln"><span class="n">6</span><span class="t"><span class="kw">RUN</span> set -x &amp;&amp; addgroup -S nginx &amp;&amp; adduser -S -D -H -u 101 -G nginx nginx &amp;&amp; apk add --no-cache nginx nginx-module-njs</span></div>
+            <div class="ln"><span class="n">7</span><span class="t"><span class="kw">COPY</span> docker-entrypoint.sh /</span></div>
+            <div class="ln"><span class="n">8</span><span class="t"><span class="kw">COPY</span> 10-listen-on-ipv6-by-default.sh /docker-entrypoint.d/</span></div>
+            <div class="ln"><span class="n">9</span><span class="t"><span class="kw">COPY</span> 15-local-resolvers.envsh /docker-entrypoint.d/</span></div>
+            <div class="ln"><span class="n">10</span><span class="t"><span class="kw">COPY</span> 20-envsubst-on-templates.sh /docker-entrypoint.d/</span></div>
+            <div class="ln"><span class="n">11</span><span class="t"><span class="kw">COPY</span> 30-tune-worker-processes.sh /docker-entrypoint.d/</span></div>
+            <div class="ln"><span class="n">12</span><span class="t"><span class="kw">EXPOSE</span> 80</span></div>
+            <div class="ln"><span class="n">13</span><span class="t"><span class="kw">ENTRYPOINT</span> ["/docker-entrypoint.sh"]</span></div>
+            <div class="ln"><span class="n">14</span><span class="t"><span class="kw">STOPSIGNAL</span> SIGQUIT</span></div>
+            <div class="ln"><span class="n">15</span><span class="t"><span class="kw">CMD</span> ["nginx", "-g", "daemon off;"]</span></div>
+          </div>
+          <div class="tbl-wrap" id="layers-view" hidden>
+            <table class="tbl">
+              <thead>
+                <tr>
+                  <th style="width:48px">#</th>
+                  <th>Instruction</th>
+                  <th class="num" style="width:110px">Size</th>
+                  <th style="width:160px">Created</th>
+                </tr>
+              </thead>
+              <tbody id="layers-body">
+                <tr><td class="mono dim">1</td><td><span class="mono ins-text">ADD alpine-minirootfs-3.20.3-x86_64.tar.gz /</span></td><td class="mono num">7.81 MB</td><td class="mono dim">2026-09-08 14:20</td></tr>
+                <tr><td class="mono dim">2</td><td><span class="mono ins-text">CMD ["/bin/sh"]</span></td><td class="mono num dim">0 B</td><td class="mono dim">2026-09-08 14:20</td></tr>
+                <tr><td class="mono dim">3</td><td><span class="mono ins-text">ENV NGINX_VERSION=1.27.3</span></td><td class="mono num dim">0 B</td><td class="mono dim">2026-09-08 14:21</td></tr>
+                <tr><td class="mono dim">4</td><td><span class="mono ins-text">ENV NJS_VERSION=0.8.7</span></td><td class="mono num dim">0 B</td><td class="mono dim">2026-09-08 14:21</td></tr>
+                <tr><td class="mono dim">5</td><td><span class="mono ins-text">ENV PKG_RELEASE=1</span></td><td class="mono num dim">0 B</td><td class="mono dim">2026-09-08 14:21</td></tr>
+                <tr><td class="mono dim">6</td><td><span class="mono ins-text">RUN set -x &amp;&amp; addgroup -S nginx &amp;&amp; adduser -S -D -H -u 101 -G nginx nginx &amp;&amp; apk add --no-cache nginx nginx-module-njs</span></td><td class="mono num">25.4 MB</td><td class="mono dim">2026-09-08 14:21</td></tr>
+                <tr><td class="mono dim">7</td><td><span class="mono ins-text">COPY docker-entrypoint.sh /</span></td><td class="mono num">4.06 kB</td><td class="mono dim">2026-09-08 14:22</td></tr>
+                <tr><td class="mono dim">8</td><td><span class="mono ins-text">COPY 10-listen-on-ipv6-by-default.sh /docker-entrypoint.d/</span></td><td class="mono num">1.96 kB</td><td class="mono dim">2026-09-08 14:22</td></tr>
+                <tr><td class="mono dim">9</td><td><span class="mono ins-text">COPY 15-local-resolvers.envsh /docker-entrypoint.d/</span></td><td class="mono num">344 B</td><td class="mono dim">2026-09-08 14:22</td></tr>
+                <tr><td class="mono dim">10</td><td><span class="mono ins-text">COPY 20-envsubst-on-templates.sh /docker-entrypoint.d/</span></td><td class="mono num">3.02 kB</td><td class="mono dim">2026-09-08 14:22</td></tr>
+                <tr><td class="mono dim">11</td><td><span class="mono ins-text">COPY 30-tune-worker-processes.sh /docker-entrypoint.d/</span></td><td class="mono num">1.28 kB</td><td class="mono dim">2026-09-08 14:22</td></tr>
+                <tr><td class="mono dim">12</td><td><span class="mono ins-text">EXPOSE 80</span></td><td class="mono num dim">0 B</td><td class="mono dim">2026-09-08 14:22</td></tr>
+                <tr><td class="mono dim">13</td><td><span class="mono ins-text">ENTRYPOINT ["/docker-entrypoint.sh"]</span></td><td class="mono num dim">0 B</td><td class="mono dim">2026-09-08 14:22</td></tr>
+                <tr><td class="mono dim">14</td><td><span class="mono ins-text">STOPSIGNAL SIGQUIT</span></td><td class="mono num dim">0 B</td><td class="mono dim">2026-09-08 14:22</td></tr>
+                <tr><td class="mono dim">15</td><td><span class="mono ins-text">CMD ["nginx" "-g" "daemon off;"]</span></td><td class="mono num dim">0 B</td><td class="mono dim">2026-09-08 14:22</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="toolbar" style="margin-top:10px">
+            <span class="dim" style="font-size:12px"><span class="mono" id="build-cmd">docker history --no-trunc nginx:latest</span></span>
+            <span class="spacer"></span>
+            <span class="dim" style="font-size:12px">33.2 MB · 15 layers</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ======================= CONTAINERS ======================= -->
+      <div class="panel" id="panel-containers">
+        <div class="card">
+          <div class="toolbar" style="margin-bottom:12px">
+            <span class="note">
+              <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+              Containers created from any tag of this image.
+            </span>
+          </div>
+          <div class="tbl-wrap">
+            <table class="tbl">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th style="width:130px">State</th>
+                  <th style="width:210px">Status</th>
+                  <th style="width:200px">Ports</th>
+                  <th style="width:130px">Created</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>
+                    <a class="row-link" href="#">web-proxy</a>
+                    <span class="pill teal" style="margin-left:8px">homelab/proxy</span>
+                    <div class="mono dim" style="font-size:11px;margin-top:3px">nginx:1.27-alpine</div>
+                  </td>
+                  <td><span class="state"><span class="dot" style="background:var(--green);box-shadow:0 0 0 3px #27a64422"></span>Running</span></td>
+                  <td class="mono dim">up 3 days · healthy</td>
+                  <td class="mono"><span class="dim">0.0.0.0:8080 →</span> <button class="port-link mono">80/tcp</button></td>
+                  <td class="dim">3 days ago</td>
+                </tr>
+                <tr>
+                  <td>
+                    <a class="row-link" href="#">docs-preview</a>
+                    <div class="mono dim" style="font-size:11px;margin-top:3px">nginx:latest</div>
+                  </td>
+                  <td><span class="state"><span class="dot" style="background:var(--coral);box-shadow:0 0 0 3px #eb575722"></span>Exited</span></td>
+                  <td class="mono dim">exited (0) 2 weeks ago</td>
+                  <td class="mono dim">—</td>
+                  <td class="dim">2 weeks ago</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+<div class="proto-badge">design prototype · static data</div>
+
+<script>
+  // --- tab switching ---
+  const tabs = document.querySelectorAll(".tab");
+  function selectTab(key) {
+    tabs.forEach((t) => t.classList.toggle("active", t.dataset.tab === key));
+    document.querySelectorAll(".panel").forEach((p) => p.classList.toggle("active", p.id === "panel-" + key));
+  }
+  tabs.forEach((t) =>
+    t.addEventListener("click", () => {
+      selectTab(t.dataset.tab);
+      history.replaceState(null, "", "#" + t.dataset.tab);
+    })
+  );
+  const ALIAS = { dockerfile: "build", layers: "build" };
+  let initial = location.hash.slice(1);
+  initial = ALIAS[initial] ?? initial;
+  if (initial && document.getElementById("panel-" + initial)) selectTab(initial);
+
+  // --- more menu ---
+  const moreBtn = document.getElementById("more-btn");
+  const moreMenu = document.getElementById("more-menu");
+  moreBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    moreMenu.classList.toggle("open");
+  });
+  document.addEventListener("click", () => moreMenu.classList.remove("open"));
+
+  // --- copy ---
+  const toastEl = document.getElementById("toast");
+  function toast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add("show");
+    clearTimeout(toastEl._t);
+    toastEl._t = setTimeout(() => toastEl.classList.remove("show"), 1800);
+  }
+  document.querySelectorAll("[data-copy]").forEach((el) =>
+    el.addEventListener("click", () => {
+      navigator.clipboard.writeText(el.dataset.copy).then(
+        () => toast("Copied to clipboard"),
+        () => toast("Clipboard unavailable")
+      );
+    })
+  );
+
+  // --- build view segmented ---
+  const buildSeg = document.getElementById("build-seg");
+  const layersView = document.getElementById("layers-view");
+  const buildNoteText = document.getElementById("build-note-text");
+  const buildTextActions = document.getElementById("build-text-actions");
+  const BUILD_NOTES = {
+    dockerfile: "Reconstructed from layer history. Images do not keep their original Dockerfile.",
+    layers: "Oldest layer first. Zero-size layers only record metadata.",
+  };
+  buildSeg.querySelectorAll("button").forEach((b) =>
+    b.addEventListener("click", () => {
+      buildSeg.querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b));
+      const v = b.dataset.view;
+      dfCode.hidden = v !== "dockerfile";
+      layersView.hidden = v !== "layers";
+      buildNoteText.textContent = BUILD_NOTES[v];
+      buildTextActions.style.display = v === "dockerfile" ? "inline-flex" : "none";
+    })
+  );
+
+  // --- wrap toggle ---
+  const wrapToggle = document.getElementById("wrap-toggle");
+  const dfCode = document.getElementById("df-code");
+  wrapToggle.addEventListener("click", () => {
+    const sw = wrapToggle.querySelector(".switch");
+    sw.classList.toggle("on");
+    dfCode.classList.toggle("wrap", sw.classList.contains("on"));
+  });
+
+  // --- build view: one image, one history ---
+  // Every tag in the header aliases this same image ID, so the build history
+  // is a property of the image itself — identical no matter which tag was pulled.
+  const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const DF_KW = new Set(["FROM", "ENV", "RUN", "COPY", "EXPOSE", "ENTRYPOINT", "STOPSIGNAL", "CMD"]);
+  function dfLine(text) {
+    if (text.startsWith("#")) return `<span class="cmt">${esc(text)}</span>`;
+    const sp = text.indexOf(" ");
+    const head = sp === -1 ? text : text.slice(0, sp);
+    if (!DF_KW.has(head)) return esc(text);
+    return `<span class="kw">${head}</span>${esc(text.slice(sp))}`;
+  }
+  const IMAGE_BUILD = {
+    foot: "33.2 MB · 15 layers",
+    df: [
+        "FROM alpine:3.20",
+        "ENV NGINX_VERSION=1.27.3",
+        "ENV NJS_VERSION=0.8.7",
+        "ENV PKG_RELEASE=1",
+        "RUN set -x && addgroup -S nginx && adduser -S -D -H -u 101 -G nginx nginx && apk add --no-cache nginx nginx-module-njs",
+        "COPY docker-entrypoint.sh /",
+        "COPY 10-listen-on-ipv6-by-default.sh /docker-entrypoint.d/",
+        "COPY 15-local-resolvers.envsh /docker-entrypoint.d/",
+        "COPY 20-envsubst-on-templates.sh /docker-entrypoint.d/",
+        "COPY 30-tune-worker-processes.sh /docker-entrypoint.d/",
+        "EXPOSE 80",
+        "ENTRYPOINT [\"/docker-entrypoint.sh\"]",
+        "STOPSIGNAL SIGQUIT",
+        "CMD [\"nginx\", \"-g\", \"daemon off;\"]",
+      ],
+      layers: [
+        ["ADD alpine-minirootfs-3.20.3-x86_64.tar.gz /", "7.81 MB", "2026-09-08 14:20", false],
+        ["CMD [\"/bin/sh\"]", "0 B", "2026-09-08 14:20", true],
+        ["ENV NGINX_VERSION=1.27.3", "0 B", "2026-09-08 14:21", true],
+        ["ENV NJS_VERSION=0.8.7", "0 B", "2026-09-08 14:21", true],
+        ["ENV PKG_RELEASE=1", "0 B", "2026-09-08 14:21", true],
+        ["RUN set -x && addgroup -S nginx && adduser -S -D -H -u 101 -G nginx nginx && apk add --no-cache nginx nginx-module-njs", "25.4 MB", "2026-09-08 14:21", false],
+        ["COPY docker-entrypoint.sh /", "4.06 kB", "2026-09-08 14:22", false],
+        ["COPY 10-listen-on-ipv6-by-default.sh /docker-entrypoint.d/", "1.96 kB", "2026-09-08 14:22", false],
+        ["COPY 15-local-resolvers.envsh /docker-entrypoint.d/", "344 B", "2026-09-08 14:22", false],
+        ["COPY 20-envsubst-on-templates.sh /docker-entrypoint.d/", "3.02 kB", "2026-09-08 14:22", false],
+        ["COPY 30-tune-worker-processes.sh /docker-entrypoint.d/", "1.28 kB", "2026-09-08 14:22", false],
+        ["EXPOSE 80", "0 B", "2026-09-08 14:22", true],
+        ["ENTRYPOINT [\"/docker-entrypoint.sh\"]", "0 B", "2026-09-08 14:22", true],
+        ["STOPSIGNAL SIGQUIT", "0 B", "2026-09-08 14:22", true],
+        ["CMD [\"nginx\" \"-g\" \"daemon off;\"]", "0 B", "2026-09-08 14:22", true],
+      ],
+  };
+
+  const dfCopyBtn = document.getElementById("df-copy-btn");
+  const layersBody = document.getElementById("layers-body");
+  const df = [`# reconstructed · sha256:3f8a9b1c4d2e`, ...IMAGE_BUILD.df];
+  dfCode.innerHTML = df
+    .map((line, i) => `<div class="ln"><span class="n">${i + 1}</span><span class="t">${dfLine(line)}</span></div>`)
+    .join("");
+  layersBody.innerHTML = IMAGE_BUILD.layers
+    .map(
+      ([ins, size, created, zero], i) =>
+        `<tr><td class="mono dim">${i + 1}</td><td><span class="mono ins-text">${esc(ins)}</span></td><td class="mono num${zero ? " dim" : ""}">${size}</td><td class="mono dim">${created}</td></tr>`
+    )
+    .join("");
+  dfCopyBtn.dataset.copy = df.join("\n");
+
+  // --- overview: per-tag pull reference ---
+  // Every tag resolves to the same image, so ID/layers/config are identical.
+  // Only the reference you pull by (repo:tag@digest, registry path) is per-tag.
+  const ALL_TAGS = [
+    "latest", "1", "1.27", "1.27.3", "alpine", "1-alpine", "1.27-alpine",
+    "1.27.3-alpine", "mainline-alpine", "stable-alpine", "alpine3.20",
+    "1-alpine3.20", "1.27-alpine3.20", "1.27.3-alpine3.20", "stable-alpine3.20",
+  ];
+  const TAG_ALIAS_ORDER = ["latest", "stable", "mainline"];
+  const nums = (t) => t.match(/\d+(?:\.\d+)*/g)?.flatMap((s) => s.split(".").map(Number)) ?? [];
+  function cmpTags(a, b) {
+    const na = nums(a), nb = nums(b);
+    if (!na.length && !nb.length) {
+      const ia = TAG_ALIAS_ORDER.findIndex((x) => a.startsWith(x));
+      const ib = TAG_ALIAS_ORDER.findIndex((x) => b.startsWith(x));
+      if (ia !== ib) return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+      return a.localeCompare(b);
+    }
+    for (let i = 0; i < Math.max(na.length, nb.length); i++) {
+      const d = (nb[i] ?? -1) - (na[i] ?? -1); // newer first
+      if (d !== 0) return d;
+    }
+    return a.localeCompare(b);
+  }
+  const ovTagSelect = document.getElementById("ov-tag-select");
+  const buildTagSelect = document.getElementById("build-tag-select");
+  const NAMED_TAGS = ALL_TAGS.filter((t) => !nums(t).length).sort(cmpTags);
+  const NUMBERED_TAGS = ALL_TAGS.filter((t) => nums(t).length).sort(cmpTags);
+  for (const [label, tags] of [["Named", NAMED_TAGS], ["Numbered", NUMBERED_TAGS]]) {
+    for (const sel of [ovTagSelect, buildTagSelect]) {
+      const g = document.createElement("optgroup");
+      g.label = label;
+      tags.forEach((t) => {
+        const o = document.createElement("option");
+        o.value = o.textContent = t;
+        g.appendChild(o);
+      });
+      sel.appendChild(g);
+    }
+  }
+  ovTagSelect.value = "latest";
+  buildTagSelect.value = "latest";
+
+  const ovDigest = document.getElementById("ov-digest");
+  const ovDigestText = document.getElementById("ov-digest-text");
+  const ovSource = document.getElementById("ov-source");
+  const buildCmd = document.getElementById("build-cmd");
+  const MANIFEST_DIGEST = "sha256:1e4e2a2c8f6b0d9e5a7c4b3d2f1e0a9c8b7d6e5f4a3b2c1d0e9f8a7b6c5d4e3f2a";
+  function renderTagRef(tag) {
+    ovDigest.dataset.copy = `nginx:${tag}@${MANIFEST_DIGEST}`;
+    ovDigestText.textContent = `nginx:${tag}@${MANIFEST_DIGEST.slice(0, 19)}…`;
+    ovSource.textContent = `docker.io/library/nginx:${tag}`;
+    buildCmd.textContent = `docker history --no-trunc nginx:${tag}`;
+  }
+  ovTagSelect.addEventListener("change", () => renderTagRef(ovTagSelect.value));
+  buildTagSelect.addEventListener("change", () => renderTagRef(buildTagSelect.value));
+  renderTagRef(ovTagSelect.value);
+</script>
+</body>
+</html>

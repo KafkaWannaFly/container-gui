@@ -68,7 +68,7 @@ pub fn run() {
                 .path()
                 .app_data_dir()
                 .unwrap_or_else(|_| std::env::temp_dir().join("container-gui"))
-                .join("metrics.sqlite3");
+                .join("app.db");
             app.manage(AppState {
                 manager: manager.clone(),
                 streams,
