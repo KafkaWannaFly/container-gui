@@ -44,6 +44,8 @@ import {
   MetricsSeriesSchema,
   type SystemInfo,
   SystemInfoSchema,
+  type VolumeDetail,
+  VolumeDetailSchema,
   type VolumeItem,
   VolumeItemSchema,
 } from "../types/docker";
@@ -259,6 +261,10 @@ export async function pruneImages(danglingOnly = true): Promise<number> {
 
 export function listVolumes(): Promise<VolumeItem[]> {
   return call("list_volumes", {}, z.array(VolumeItemSchema));
+}
+
+export function getVolumeDetail(name: string): Promise<VolumeDetail> {
+  return call("volume_detail", { name }, VolumeDetailSchema);
 }
 
 export function removeVolume(name: string, force = false): Promise<void> {

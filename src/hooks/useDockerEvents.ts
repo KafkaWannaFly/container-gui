@@ -29,6 +29,7 @@ export function useDockerEvents() {
           switch (parsed.data.resourceType) {
             case "container":
               void queryClient.invalidateQueries({ queryKey: ["containers"] });
+              void queryClient.invalidateQueries({ queryKey: queryKeys.volumes() });
               void queryClient.invalidateQueries({
                 queryKey: queryKeys.containerInspect(parsed.data.actorId),
               });

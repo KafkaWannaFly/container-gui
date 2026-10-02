@@ -2,8 +2,14 @@ use tauri::State;
 
 use crate::AppState;
 use crate::error::AppResult;
-use crate::models::dto::VolumeItemDto;
+use crate::models::dto::{VolumeDetailDto, VolumeItemDto};
 use crate::services::volume_service;
+
+#[tauri::command]
+pub async fn volume_detail(state: State<'_, AppState>, name: String) -> AppResult<VolumeDetailDto> {
+    let client = state.manager.required_client().await?;
+    volume_service::volume_detail(&client, &name).await
+}
 
 #[tauri::command]
 pub async fn list_volumes(state: State<'_, AppState>) -> AppResult<Vec<VolumeItemDto>> {

@@ -2,6 +2,7 @@ import { ClearOutlined, CopyOutlined, DeleteOutlined } from "@ant-design/icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { App, Button, Empty, Input, Popconfirm, Table, type TableColumnsType } from "antd";
 import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { MetricCard, Mono, Pill, RowActions } from "../../components/ui";
 import { queryKeys } from "../../lib/queryClient";
 import { listVolumes, pruneVolumes, removeVolume } from "../../services/tauriApi";
@@ -88,7 +89,11 @@ export default function VolumeListPage() {
     {
       title: "Name",
       dataIndex: "name",
-      render: (value: string) => <span style={{ color: "var(--paper)" }}>{value}</span>,
+      render: (value: string) => (
+        <Link to={`/volumes/${encodeURIComponent(value)}`} className="row-link">
+          {value}
+        </Link>
+      ),
     },
     {
       title: "Driver",

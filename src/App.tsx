@@ -9,6 +9,7 @@ import GroupDetailPage from "./pages/containers/group/GroupDetailPage";
 import ImageDetailPage from "./pages/images/detail/ImageDetailPage";
 import ImageListPage from "./pages/images/ImageListPage";
 import SettingsPage from "./pages/settings/SettingsPage";
+import VolumeDetailPage from "./pages/volumes/VolumeDetailPage";
 import VolumeListPage from "./pages/volumes/VolumeListPage";
 import { antdTheme } from "./theme/antdTheme";
 
@@ -27,6 +28,7 @@ export default function App() {
                 <Route path="images" element={<ImageListPage />} />
                 <Route path="images/:id" element={<ImageDetailPage />} />
                 <Route path="volumes" element={<VolumeListPage />} />
+                <Route path="volumes/:name" element={<VolumeDetailPage />} />
                 <Route path="settings" element={<SettingsPage />} />
               </Route>
             </Routes>

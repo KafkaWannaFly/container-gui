@@ -315,7 +315,22 @@ export default function InfoTab({ ctr, image, onCopy }: TabProps) {
               width: 90,
               render: (v: string) => <Pill tone={MOUNT_TONE[v] ?? "neutral"}>{v}</Pill>,
             },
-            { title: "Source", dataIndex: "source", render: (v?: string) => (v ? <Mono>{v}</Mono> : dash) },
+            {
+              title: "Source",
+              dataIndex: "source",
+              render: (value: string | undefined, row) =>
+                value ? (
+                  row.type === "volume" ? (
+                    <Link to={`/volumes/${encodeURIComponent(value)}`} className="row-link mono">
+                      {value}
+                    </Link>
+                  ) : (
+                    <Mono>{value}</Mono>
+                  )
+                ) : (
+                  dash
+                ),
+            },
             { title: "Target", dataIndex: "target", render: (v: string) => <Mono>{v}</Mono> },
             {
               title: "Mode",

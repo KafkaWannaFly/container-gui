@@ -115,6 +115,7 @@ pub fn run() {
             commands::images::remove_image,
             commands::images::prune_images,
             commands::volumes::list_volumes,
+            commands::volumes::volume_detail,
             commands::volumes::remove_volume,
             commands::volumes::prune_volumes,
             commands::system::system_info,

@@ -276,7 +276,7 @@ pre.logs .dim {
   background: transparent;
 }
 
-/* ---------- container detail ---------- */
+/* ---------- resource detail ---------- */
 .detail-head {
   position: sticky;
   top: 48px;
@@ -332,6 +332,41 @@ pre.logs .dim {
   color: var(--paper);
   letter-spacing: -0.014em;
   flex-wrap: wrap;
+}
+
+.volume-heading {
+  flex: 1;
+  min-width: 0;
+}
+
+.volume-value {
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+
+.copyable.volume-value {
+  max-width: 100%;
+  text-align: left;
+}
+
+.volume-crumb {
+  color: var(--fog);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.volume-mounts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.volume-mount {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .detail-sub {

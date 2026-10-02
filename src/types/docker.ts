@@ -69,6 +69,28 @@ export const VolumeItemSchema = z.object({
 });
 export type VolumeItem = z.infer<typeof VolumeItemSchema>;
 
+export const VolumeContainerSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  image: z.string(),
+  state: z.string(),
+  status: z.string(),
+  mounts: z.array(z.object({ destination: z.string(), readOnly: z.boolean().nullable() })),
+});
+export type VolumeContainer = z.infer<typeof VolumeContainerSchema>;
+
+export const VolumeDetailSchema = z.object({
+  name: z.string(),
+  driver: z.string(),
+  mountpoint: z.string(),
+  createdAt: z.string(),
+  scope: z.string(),
+  labels: z.record(z.string(), z.string()),
+  options: z.record(z.string(), z.string()),
+  containers: z.array(VolumeContainerSchema),
+});
+export type VolumeDetail = z.infer<typeof VolumeDetailSchema>;
+
 export const ImageItemSchema = z.object({
   id: z.string(),
   repoTags: z.array(z.string()),

@@ -91,6 +91,37 @@ pub struct VolumeItemDto {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct VolumeMountDto {
+    pub destination: String,
+    pub read_only: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VolumeContainerDto {
+    pub id: String,
+    pub name: String,
+    pub image: String,
+    pub state: String,
+    pub status: String,
+    pub mounts: Vec<VolumeMountDto>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VolumeDetailDto {
+    pub name: String,
+    pub driver: String,
+    pub mountpoint: String,
+    pub created_at: String,
+    pub scope: String,
+    pub labels: std::collections::HashMap<String, String>,
+    pub options: std::collections::HashMap<String, String>,
+    pub containers: Vec<VolumeContainerDto>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ImageItemDto {
     pub id: String,
     pub repo_tags: Vec<String>,

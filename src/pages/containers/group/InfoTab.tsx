@@ -14,6 +14,7 @@ import {
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { Button, Descriptions, Dropdown, type MenuProps, Table, Tooltip } from "antd";
 import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { CopyButton, Mono, Pill, StateDot } from "../../../components/ui";
 import { compactDuration } from "../../../lib/format";
 import type {
@@ -617,7 +618,16 @@ export default function InfoTab({
                 <span style={{ display: "inline-flex", flexDirection: "column", gap: 2 }}>
                   <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                     <Pill tone={row.type === "bind" ? "lav" : "teal"}>{row.type}</Pill>
-                    <Mono>{value}</Mono>
+                    {row.type === "volume" && config.config.volumes?.[value]?.name ? (
+                      <Link
+                        to={`/volumes/${encodeURIComponent(config.config.volumes[value].name)}`}
+                        className="row-link mono"
+                      >
+                        {value}
+                      </Link>
+                    ) : (
+                      <Mono>{value}</Mono>
+                    )}
                     {row.ro ? <Pill tone="neutral">ro</Pill> : null}
                   </span>
                   <span className="mono dim">{row.target}</span>
