@@ -13,6 +13,7 @@ import {
 } from "antd";
 import { format } from "date-fns";
 import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { z } from "zod";
 import CodeView from "../../../components/CodeView";
 import { CollapseAllButton, Section, useSections } from "../../../components/Section";
@@ -67,7 +68,17 @@ export default function ImageTab({ ctr, image, onCopy }: TabProps) {
   const fileBase = name.replace(/[/:@]/g, "_");
 
   const summary: DescriptionsProps["items"] = [
-    { key: "name", label: "Image", children: <Mono>{name}</Mono> },
+    {
+      key: "name",
+      label: "Image",
+      children: ref ? (
+        <Link to={`/images/${encodeURIComponent(ref)}`}>
+          <Mono>{name}</Mono>
+        </Link>
+      ) : (
+        <Mono>{name}</Mono>
+      ),
+    },
     {
       key: "id",
       label: "Image ID",

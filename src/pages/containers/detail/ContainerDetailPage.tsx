@@ -351,7 +351,13 @@ export default function ContainerDetailPage() {
                 ) : null}
               </div>
               <div className="detail-sub">
-                <Mono>{ctr.Config?.Image ?? shortId(ctr.Image ?? "")}</Mono>
+                {imageRef || ctr.Config?.Image ? (
+                  <Link to={`/images/${encodeURIComponent(imageRef || (ctr.Config?.Image ?? ""))}`}>
+                    <Mono>{ctr.Config?.Image ?? shortId(ctr.Image ?? "")}</Mono>
+                  </Link>
+                ) : (
+                  <Mono>{ctr.Config?.Image ?? shortId(ctr.Image ?? "")}</Mono>
+                )}
                 <span className="dim">·</span>
                 <button
                   type="button"
