@@ -7,20 +7,9 @@ import {
   InfoCircleOutlined,
 } from "@ant-design/icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  App,
-  Button,
-  Descriptions,
-  type DescriptionsProps,
-  Empty,
-  Result,
-  Select,
-  Spin,
-  Table,
-  Tabs,
-} from "antd";
+import { App, Button, Descriptions, type DescriptionsProps, Empty, Result, Spin, Table, Tabs } from "antd";
 import { formatDistanceToNow } from "date-fns";
-import { type ReactNode, useMemo, useState } from "react";
+import { type ReactNode, useMemo } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Section, useSections } from "../../../components/Section";
 import { Mono, Pill, StateTag } from "../../../components/ui";
@@ -361,7 +350,6 @@ export default function ImageDetailPage() {
   const queryClient = useQueryClient();
   const { modal, message } = App.useApp();
   const [params, setParams] = useSearchParams();
-  const [picked, setPicked] = useState<string | null>(null);
 
   const tabParam = params.get("tab");
   const tab: TabKey = TAB_KEYS.includes(tabParam as TabKey) ? (tabParam as TabKey) : "overview";
@@ -387,8 +375,7 @@ export default function ImageDetailPage() {
   const repo = refs.length ? splitRef(refs[0]).repo : "<none>";
   const tags = useMemo(() => refs.map((r) => splitRef(r).tag), [refs]);
   const sortedTags = useMemo(() => [...tags].sort(compareTags), [tags]);
-  const tag =
-    picked && tags.includes(picked) ? picked : (sortedTags.find((t) => t === "latest") ?? sortedTags[0]);
+  const tag = sortedTags.find((t) => t === "latest") ?? sortedTags[0];
 
   const containers = useMemo(() => {
     const names = new Set(refs.flatMap((r) => (r.includes(":") ? [r] : [`${r}:latest`])));
@@ -453,9 +440,7 @@ export default function ImageDetailPage() {
     );
   }
 
-  const named = sortedTags.filter((t) => !nums(t).length);
-  const numbered = sortedTags.filter((t) => nums(t).length);
-  const title = repo === "<none>" ? shortId(image.Id) : repo;
+  const title = repo === "<none>" || !tag ? shortId(image.Id) : `${repo}:${tag}`;
 
   const confirmDelete = () =>
     modal.confirm({
@@ -507,25 +492,6 @@ export default function ImageDetailPage() {
             </div>
 
             <div className="toolbar">
-              {tag ? (
-                <>
-                  <label className="dim" style={{ fontSize: 12 }} htmlFor="image-tag">
-                    Tag
-                  </label>
-                  <Select
-                    id="image-tag"
-                    value={tag}
-                    onChange={setPicked}
-                    showSearch
-                    style={{ minWidth: 160 }}
-                    className="mono"
-                    options={[
-                      { label: "Named", options: named.map((t) => ({ value: t, label: t })) },
-                      { label: "Numbered", options: numbered.map((t) => ({ value: t, label: t })) },
-                    ].filter((g) => g.options.length)}
-                  />
-                </>
-              ) : null}
               <Button danger icon={<DeleteOutlined />} loading={remove.isPending} onClick={confirmDelete}>
                 Delete image
               </Button>
@@ -538,20 +504,20 @@ export default function ImageDetailPage() {
                 <button
                   key={t}
                   type="button"
-                  title={`Select ${repo}:${t}`}
-                  onClick={() => setPicked(t)}
-                  style={{
-                    appearance: "none",
-                    border: 0,
-                    padding: 0,
-                    background: "none",
-                    cursor: "pointer",
-                    outline: t === tag ? "1px solid var(--lime)" : "none",
-                    outlineOffset: -1,
-                    borderRadius: 4,
-                  }}
+                  className="tag-pill"
+                  title={`Copy ${repo}:${t}`}
+                  aria-label={`Copy ${repo}:${t}`}
+                  onClick={() =>
+                    void navigator.clipboard.writeText(`${repo}:${t}`).then(
+                      () => message.success("Image reference copied"),
+                      () => message.error("Clipboard unavailable"),
+                    )
+                  }
                 >
-                  <Pill tone={usedTags.has(t) ? "green" : "neutral"}>{t}</Pill>
+                  <Pill tone={usedTags.has(t) ? "green" : "neutral"}>
+                    {t}
+                    <CopyOutlined className="tag-pill-icon" />
+                  </Pill>
                 </button>
               ))}
             </div>

@@ -17,6 +17,7 @@ export const ContainerSummarySchema = z.object({
   id: z.string(),
   names: z.array(z.string()),
   image: z.string(),
+  imageId: z.string().default(""),
   state: z.string(),
   status: z.string(),
   created: z.number(),

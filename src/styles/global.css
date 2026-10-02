@@ -1258,6 +1258,26 @@ pre.logs .dim {
   border-color: var(--smoke);
 }
 
+.tag-pill {
+  appearance: none;
+  border: 0;
+  padding: 0;
+  background: none;
+  cursor: pointer;
+  font: inherit;
+}
+
+.tag-pill-icon {
+  margin-left: 4px;
+  font-size: 11px;
+  color: var(--ash);
+  transition: color 0.12s;
+}
+
+.tag-pill:hover .tag-pill-icon {
+  color: var(--mist);
+}
+
 .g-dag-node.off {
   opacity: 0.45;
 }

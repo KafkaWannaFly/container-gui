@@ -20,6 +20,7 @@ pub struct ContainerSummaryDto {
     pub id: String,
     pub names: Vec<String>,
     pub image: String,
+    pub image_id: String,
     pub state: String,
     pub status: String,
     pub created: i64,

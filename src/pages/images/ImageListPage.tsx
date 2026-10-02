@@ -1,4 +1,5 @@
 import {
+  CaretRightOutlined,
   ClearOutlined,
   CloudDownloadOutlined,
   DeleteOutlined,
@@ -9,31 +10,102 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { App, Button, Empty, Input, Popconfirm, Table, type TableColumnsType } from "antd";
 import { formatDistanceToNow } from "date-fns";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { MetricCard, Mono, Pill, RowActions } from "../../components/ui";
 import { queryKeys } from "../../lib/queryClient";
-import { listImages, pruneImages, removeImage } from "../../services/tauriApi";
+import { listContainers, listImages, pruneImages, removeImage } from "../../services/tauriApi";
 import { formatBytes, type ImageItem, shortId } from "../../types/docker";
 import LayerHistoryModal from "./components/LayerHistoryModal";
 import PullImageModal from "./components/PullImageModal";
 import TagImageModal from "./components/TagImageModal";
 
-interface Row extends ImageItem {
+interface Row {
+  key: string;
+  isGroup: boolean;
+  id: string;
   repo: string;
-  tags: string[];
+  tag: string;
+  // Reference passed to Docker when deleting: `repo:tag` for tagged versions, image ID otherwise.
+  ref: string;
+  size: number;
+  created: number;
   dangling: boolean;
-  used: boolean;
+  sharedWith: number;
+  count: number;
+  children?: Row[];
 }
 
-function describe(image: ImageItem): Row {
-  const valid = image.repoTags.filter((t) => t && !t.startsWith("<none>"));
-  const dangling = valid.length === 0;
-  const repo = dangling ? "<none>" : valid[0].split(":")[0];
-  const tags = dangling
-    ? ["<none>"]
-    : valid.map((t) => (t.includes(":") ? t.slice(t.indexOf(":") + 1) : "latest"));
-  return { ...image, repo, tags, dangling, used: !dangling };
+function splitRef(ref: string): { repo: string; tag: string } {
+  const idx = ref.lastIndexOf(":");
+  const slash = ref.lastIndexOf("/");
+  if (idx > slash) return { repo: ref.slice(0, idx), tag: ref.slice(idx + 1) };
+  return { repo: ref, tag: "latest" };
+}
+
+function buildGroups(images: ImageItem[]): Row[] {
+  const groups = new Map<string, Row[]>();
+  for (const image of images) {
+    const valid = image.repoTags.filter((t) => t && !t.startsWith("<none>"));
+    if (valid.length === 0) {
+      const list = groups.get("<none>") ?? [];
+      list.push({
+        key: image.id,
+        isGroup: false,
+        id: image.id,
+        repo: "<none>",
+        tag: "<none>",
+        ref: image.id,
+        size: image.size,
+        created: image.created,
+        dangling: true,
+        sharedWith: 0,
+        count: 1,
+      });
+      groups.set("<none>", list);
+      continue;
+    }
+    for (const ref of valid) {
+      const { repo, tag } = splitRef(ref);
+      const list = groups.get(repo) ?? [];
+      list.push({
+        key: `${image.id}::${ref}`,
+        isGroup: false,
+        id: image.id,
+        repo,
+        tag,
+        ref,
+        size: image.size,
+        created: image.created,
+        dangling: false,
+        sharedWith: valid.length - 1,
+        count: 1,
+      });
+      groups.set(repo, list);
+    }
+  }
+  return [...groups.entries()]
+    .map(([repo, children]): Row => {
+      children.sort((a, b) => b.created - a.created);
+      // A repository with a single version stays a plain row, like a standalone container.
+      if (children.length === 1) return children[0];
+      const newest = children[0];
+      return {
+        key: `group::${repo}`,
+        isGroup: true,
+        id: newest.id,
+        repo,
+        tag: "",
+        ref: "",
+        size: 0,
+        created: newest.created,
+        dangling: repo === "<none>",
+        sharedWith: 0,
+        count: children.length,
+        children,
+      };
+    })
+    .sort((a, b) => Number(a.dangling) - Number(b.dangling) || a.repo.localeCompare(b.repo));
 }
 
 export default function ImageListPage() {
@@ -42,11 +114,28 @@ export default function ImageListPage() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<React.Key[]>([]);
+  const [expanded, setExpanded] = useState<React.Key[]>([]);
+  const seenGroups = useRef<Set<string>>(new Set());
   const [pullOpen, setPullOpen] = useState(false);
   const [historyRef, setHistoryRef] = useState<string | null>(null);
   const [tagTarget, setTagTarget] = useState<Row | null>(null);
 
   const { data, isLoading } = useQuery({ queryKey: queryKeys.images(), queryFn: listImages });
+  const containers = useQuery({
+    queryKey: queryKeys.containers(true),
+    queryFn: () => listContainers(true),
+  });
+
+  const usageByImage = useMemo(() => {
+    const map = new Map<string, { total: number; running: number }>();
+    for (const c of containers.data ?? []) {
+      const entry = map.get(c.imageId) ?? { total: 0, running: 0 };
+      entry.total += 1;
+      if (c.state === "running" || c.state === "paused") entry.running += 1;
+      map.set(c.imageId, entry);
+    }
+    return map;
+  }, [containers.data]);
 
   const removeMutation = useMutation({
     mutationFn: ({ id, force }: { id: string; force: boolean }) => removeImage(id, force),
@@ -57,18 +146,39 @@ export default function ImageListPage() {
     onError: (err: Error) => message.error(err.message),
   });
 
-  const rows = useMemo(() => (data ?? []).map(describe), [data]);
-  const filtered = rows.filter(
-    (row) => row.repo.toLowerCase().includes(search.toLowerCase()) || row.tags.join(" ").includes(search),
-  );
+  const flatten = (rows: Row[]) => rows.flatMap((r) => (r.isGroup ? (r.children ?? []) : [r]));
+  const images = useMemo(() => data ?? [], [data]);
+  const groups = useMemo(() => buildGroups(images), [images]);
+  const needle = search.toLowerCase();
+  const filtered = useMemo(() => {
+    if (!needle) return groups;
+    return groups.flatMap((row): Row[] => {
+      if (row.repo.toLowerCase().includes(needle)) return [row];
+      if (!row.isGroup) return row.tag.toLowerCase().includes(needle) ? [row] : [];
+      const children = (row.children ?? []).filter((c) => c.tag.toLowerCase().includes(needle));
+      return children.length ? [{ ...row, children, count: children.length }] : [];
+    });
+  }, [groups, needle]);
 
-  const inUse = rows.filter((r) => r.used).length;
-  const totalBytes = rows.reduce((sum, r) => sum + r.size, 0);
-  const dangling = rows.filter((r) => r.dangling);
-  const selectedRows = rows.filter((r) => selected.includes(r.id));
+  // Expand newly discovered groups, keep the user's collapse choices.
+  useEffect(() => {
+    const keys = groups.filter((r) => r.isGroup).map((r) => r.key);
+    setExpanded((prev) => {
+      const kept = prev.filter((key) => keys.includes(String(key)));
+      const added = keys.filter((key) => !seenGroups.current.has(key));
+      for (const key of added) seenGroups.current.add(key);
+      return [...kept, ...added];
+    });
+  }, [groups]);
+
+  const leaves = flatten(groups);
+  const inUse = images.filter((i) => i.repoTags.some((t) => t && !t.startsWith("<none>"))).length;
+  const totalBytes = images.reduce((sum, i) => sum + i.size, 0);
+  const dangling = leaves.filter((r) => r.dangling);
+  const selectedRows = leaves.filter((r) => selected.includes(r.key));
 
   const deleteSelected = () => {
-    void Promise.all(selectedRows.map((r) => removeMutation.mutateAsync({ id: r.id, force: true }))).then(
+    void Promise.all(selectedRows.map((r) => removeMutation.mutateAsync({ id: r.ref, force: true }))).then(
       () => message.success(`Deleted ${selectedRows.length} image(s)`),
       () => undefined,
     );
@@ -92,127 +202,131 @@ export default function ImageListPage() {
 
   const columns: TableColumnsType<Row> = [
     {
-      title: "Repository",
-      dataIndex: "repo",
-      render: (value: string, row) => (
-        <Link
-          to={`/images/${encodeURIComponent(row.id)}`}
-          className="row-link"
-          style={row.dangling ? { color: "var(--ash)" } : undefined}
-        >
-          {value}
-        </Link>
-      ),
-    },
-    {
-      title: "Tags",
-      dataIndex: "tags",
-      width: 260,
+      title: "Name",
+      key: "name",
       render: (_, row) =>
-        row.dangling ? (
-          <span className="dim">
-            <Mono>&lt;none&gt;</Mono>
+        row.isGroup ? (
+          <span style={{ display: "inline-flex", alignItems: "baseline", gap: 8 }}>
+            <span className="row-link" style={row.dangling ? { color: "var(--ash)" } : undefined}>
+              {row.repo}
+            </span>
+            <span className="mono dim">
+              {row.count} {row.dangling ? "image" : "version"}
+              {row.count > 1 ? "s" : ""}
+            </span>
           </span>
         ) : (
-          <span style={{ display: "inline-flex", flexWrap: "wrap", gap: 4 }}>
-            {row.tags.map((tag) => (
-              <Pill key={tag} tone={row.used ? "green" : "neutral"}>
-                {tag}
-              </Pill>
-            ))}
-          </span>
+          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <Link
+              to={`/images/${encodeURIComponent(row.id)}`}
+              className="row-link"
+              style={row.dangling ? { color: "var(--ash)" } : undefined}
+            >
+              {row.dangling ? "<none>" : `${row.repo}:${row.tag}`}
+            </Link>
+            <span className="mono dim">{shortId(row.id)}</span>
+          </div>
         ),
     },
     {
-      title: "Image ID",
-      dataIndex: "id",
-      width: 150,
-      render: (value: string) => <Mono>{shortId(value)}</Mono>,
+      title: "Tags",
+      key: "tags",
+      width: 80,
+      render: (_, row) => {
+        if (row.isGroup) return <span className="dim">—</span>;
+        const count = row.dangling ? 0 : row.sharedWith + 1;
+        return <span className={count ? "mono" : "mono dim"}>{count}</span>;
+      },
+    },
+    {
+      title: "Containers",
+      key: "containers",
+      width: 160,
+      render: (_, row) => {
+        if (row.isGroup) return <span className="dim">—</span>;
+        const usage = usageByImage.get(row.id);
+        if (!usage) return <span className="mono dim">0</span>;
+        return (
+          <span className="mono" style={{ whiteSpace: "nowrap" }}>
+            {usage.total}
+            {usage.running ? <span className="dim"> ({usage.running} running)</span> : null}
+          </span>
+        );
+      },
     },
     {
       title: "Size",
       dataIndex: "size",
       width: 110,
-      render: (value: number) => <span className="mono">{formatBytes(value)}</span>,
+      render: (value: number, row) =>
+        row.isGroup ? <span className="dim">—</span> : <span className="mono">{formatBytes(value)}</span>,
     },
     {
       title: "Created",
       dataIndex: "created",
-      width: 130,
+      width: 170,
       render: (value: number) => (
-        <span className="dim">{formatDistanceToNow(new Date(value * 1000), { addSuffix: true })}</span>
+        <span className="dim" style={{ whiteSpace: "nowrap" }}>
+          {formatDistanceToNow(new Date(value * 1000), { addSuffix: true })}
+        </span>
       ),
-    },
-    {
-      title: "In use",
-      key: "used",
-      width: 100,
-      render: (_, row) =>
-        row.used ? (
-          <Pill tone="green">
-            {row.tags.length} tag{row.tags.length > 1 ? "s" : ""}
-          </Pill>
-        ) : (
-          <Pill>unused</Pill>
-        ),
     },
     {
       title: "",
       key: "actions",
       width: 56,
       align: "right",
-      render: (_, row) => (
-        <RowActions
-          groups={[
-            [
-              {
-                key: "details",
-                label: "Details",
-                icon: <InfoCircleOutlined />,
-                onClick: () => navigate(`/images/${encodeURIComponent(row.id)}`),
-              },
-              {
-                key: "history",
-                label: "Layer history",
-                icon: <HistoryOutlined />,
-                onClick: () => setHistoryRef(row.repoTags[0] ?? row.id),
-              },
-              { key: "tag", label: "Tag image", icon: <TagOutlined />, onClick: () => setTagTarget(row) },
-            ],
-            [
-              {
-                key: "delete",
-                label: "Delete",
-                icon: <DeleteOutlined />,
-                danger: true,
-                onClick: () =>
-                  modal.confirm({
-                    title: "Delete image?",
-                    centered: true,
-                    okText: "Delete",
-                    okType: "danger",
-                    content: (
-                      <span>
-                        <Mono>
-                          {row.repo}:{row.tags[0]}
-                        </Mono>{" "}
-                        will be deleted.
-                      </span>
-                    ),
-                    onOk: () => removeMutation.mutateAsync({ id: row.id, force: true }),
-                  }),
-              },
-            ],
-          ]}
-        />
-      ),
+      render: (_, row) =>
+        row.isGroup ? null : (
+          <RowActions
+            groups={[
+              [
+                {
+                  key: "details",
+                  label: "Details",
+                  icon: <InfoCircleOutlined />,
+                  onClick: () => navigate(`/images/${encodeURIComponent(row.id)}`),
+                },
+                {
+                  key: "history",
+                  label: "Layer history",
+                  icon: <HistoryOutlined />,
+                  onClick: () => setHistoryRef(row.ref),
+                },
+                { key: "tag", label: "Tag image", icon: <TagOutlined />, onClick: () => setTagTarget(row) },
+              ],
+              [
+                {
+                  key: "delete",
+                  label: "Delete",
+                  icon: <DeleteOutlined />,
+                  danger: true,
+                  onClick: () =>
+                    modal.confirm({
+                      title: "Delete image?",
+                      centered: true,
+                      okText: "Delete",
+                      okType: "danger",
+                      content: (
+                        <span>
+                          <Mono>{row.dangling ? shortId(row.id) : row.ref}</Mono> will be deleted
+                          {row.sharedWith > 0 ? "; the image stays because it has other tags." : "."}
+                        </span>
+                      ),
+                      onOk: () => removeMutation.mutateAsync({ id: row.ref, force: true }),
+                    }),
+                },
+              ],
+            ]}
+          />
+        ),
     },
   ];
 
   return (
     <div className="page">
       <div className="metrics">
-        <MetricCard label="Images in use" value={inUse} suffix={`of ${rows.length}`} />
+        <MetricCard label="Images in use" value={inUse} suffix={`of ${images.length}`} />
         <MetricCard label="Total size" value={formatBytes(totalBytes)} />
       </div>
 
@@ -243,7 +357,12 @@ export default function ImageListPage() {
             </Button>
           </Popconfirm>
           <Button icon={<ClearOutlined />} onClick={prune}>
-            Prune dangling{dangling.length ? ` (${dangling.length})` : ""}
+            Prune dangling
+            {dangling.length ? (
+              <span style={{ marginLeft: 6 }}>
+                <Pill>{dangling.length}</Pill>
+              </span>
+            ) : null}
           </Button>
           <Button type="primary" icon={<CloudDownloadOutlined />} onClick={() => setPullOpen(true)}>
             Pull image
@@ -252,15 +371,35 @@ export default function ImageListPage() {
 
         <Table
           size="small"
-          rowKey="id"
+          rowKey="key"
           loading={isLoading}
           columns={columns}
           dataSource={filtered}
-          pagination={{ pageSize: 8, showSizeChanger: false }}
+          pagination={{ pageSize: 10, showSizeChanger: false }}
+          expandable={{
+            expandedRowKeys: expanded,
+            onExpandedRowsChange: (keys) => setExpanded([...keys]),
+            rowExpandable: (row) => row.isGroup,
+            indentSize: 20,
+            expandIcon: ({ expanded: isExpanded, onExpand, record }) =>
+              record.isGroup ? (
+                <CaretRightOutlined
+                  onClick={(event) => onExpand(record, event)}
+                  style={{
+                    cursor: "pointer",
+                    fontSize: 12,
+                    color: "var(--fog)",
+                    marginRight: 2,
+                    transform: isExpanded ? "rotate(90deg)" : "none",
+                    transition: "transform 0.15s ease",
+                  }}
+                />
+              ) : null,
+          }}
           rowSelection={{
             selectedRowKeys: selected,
             onChange: setSelected,
-            getCheckboxProps: (row) => ({ disabled: row.used }),
+            checkStrictly: false,
           }}
           locale={{ emptyText: <Empty description="No images" /> }}
         />

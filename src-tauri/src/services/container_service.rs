@@ -56,6 +56,7 @@ pub async fn list_containers(
                     .map(|name| name.trim_start_matches('/').to_string())
                     .collect(),
                 image: container.image.unwrap_or_default(),
+                image_id: container.image_id.unwrap_or_default(),
                 state: container
                     .state
                     .map(|state| state.to_string())
