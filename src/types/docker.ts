@@ -374,6 +374,13 @@ export const ImageInspectSchema = z.looseObject({
     .looseObject({
       Env: z.array(z.string()).nullish(),
       Labels: z.record(z.string(), z.string()).nullish(),
+      Entrypoint: z.array(z.string()).nullish(),
+      Cmd: z.array(z.string()).nullish(),
+      WorkingDir: z.string().nullish(),
+      User: z.string().nullish(),
+      Shell: z.array(z.string()).nullish(),
+      StopSignal: z.string().nullish(),
+      ExposedPorts: z.record(z.string(), z.unknown()).nullish(),
     })
     .nullish(),
 });

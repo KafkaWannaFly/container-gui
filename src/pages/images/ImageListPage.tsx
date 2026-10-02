@@ -3,12 +3,14 @@ import {
   CloudDownloadOutlined,
   DeleteOutlined,
   HistoryOutlined,
+  InfoCircleOutlined,
   TagOutlined,
 } from "@ant-design/icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { App, Button, Empty, Input, Popconfirm, Table, type TableColumnsType } from "antd";
 import { formatDistanceToNow } from "date-fns";
 import { useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { MetricCard, Mono, Pill, RowActions } from "../../components/ui";
 import { queryKeys } from "../../lib/queryClient";
 import { listImages, pruneImages, removeImage } from "../../services/tauriApi";
@@ -37,6 +39,7 @@ function describe(image: ImageItem): Row {
 export default function ImageListPage() {
   const { modal, message } = App.useApp();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<React.Key[]>([]);
   const [pullOpen, setPullOpen] = useState(false);
@@ -92,7 +95,13 @@ export default function ImageListPage() {
       title: "Repository",
       dataIndex: "repo",
       render: (value: string, row) => (
-        <span style={{ color: row.dangling ? "var(--ash)" : "var(--paper)" }}>{value}</span>
+        <Link
+          to={`/images/${encodeURIComponent(row.id)}`}
+          className="row-link"
+          style={row.dangling ? { color: "var(--ash)" } : undefined}
+        >
+          {value}
+        </Link>
       ),
     },
     {
@@ -156,6 +165,12 @@ export default function ImageListPage() {
         <RowActions
           groups={[
             [
+              {
+                key: "details",
+                label: "Details",
+                icon: <InfoCircleOutlined />,
+                onClick: () => navigate(`/images/${encodeURIComponent(row.id)}`),
+              },
               {
                 key: "history",
                 label: "Layer history",

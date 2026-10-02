@@ -6,6 +6,7 @@ import { queryClient } from "./lib/queryClient";
 import ContainerListPage from "./pages/containers/ContainerListPage";
 import ContainerDetailPage from "./pages/containers/detail/ContainerDetailPage";
 import GroupDetailPage from "./pages/containers/group/GroupDetailPage";
+import ImageDetailPage from "./pages/images/detail/ImageDetailPage";
 import ImageListPage from "./pages/images/ImageListPage";
 import SettingsPage from "./pages/settings/SettingsPage";
 import VolumeListPage from "./pages/volumes/VolumeListPage";
@@ -24,6 +25,7 @@ export default function App() {
                 <Route path="containers/group/:project" element={<GroupDetailPage />} />
                 <Route path="containers/:id" element={<ContainerDetailPage />} />
                 <Route path="images" element={<ImageListPage />} />
+                <Route path="images/:id" element={<ImageDetailPage />} />
                 <Route path="volumes" element={<VolumeListPage />} />
                 <Route path="settings" element={<SettingsPage />} />
               </Route>
