@@ -4,7 +4,7 @@
 # side's output in one block instead of interleaving it; a failure on either
 # side fails the parent target.
 
-.PHONY: i i-front i-back dev test test-front test-back up profiles orphan down fm fm-front fm-back lint lint-front lint-back
+.PHONY: i i-front i-back dev pub-win test test-front test-back up profiles orphan down fm fm-front fm-back lint lint-front lint-back
 
 PAR := $(MAKE) -j2 -Otarget --no-print-directory
 
@@ -26,6 +26,10 @@ check:
 ## Start the Tauri app (runs Vite + the Rust shell).
 dev:
 	pnpm tauri dev
+
+## Build the Windows NSIS installer.
+pub-win:
+	pnpm tauri build --bundles nsis
 
 ## Create the sample containers: one bare, plus the `container-gui` compose
 ## project (a compose group with profiles, scaling, healthchecks and volumes).
