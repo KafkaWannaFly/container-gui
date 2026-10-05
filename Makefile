@@ -23,11 +23,11 @@ i-back:
 check:
 	cargo check --manifest-path src-tauri/Cargo.toml
 
-## Start the Tauri app (runs Vite + the Rust shell).
+## Start the Tauri app with dev icons and title (runs Vite + the Rust shell).
 dev:
-	pnpm tauri dev
+	pnpm tauri:dev
 
-## Build the Windows NSIS installer.
+## Build the Windows NSIS installer with the default release icons and title.
 pub-win:
 	pnpm tauri build --bundles nsis
 
