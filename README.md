@@ -1,21 +1,80 @@
-# Tauri + React + Typescript
+# Container GUI
 
-This template should help get you started developing with Tauri, React and Typescript in Vite.
+A fast, native desktop app for managing Docker containers, Compose projects,
+images, and volumes. Built with [Tauri 2](https://tauri.app), React, and
+[Ant Design](https://ant.design).
 
-## Volume details
+![Containers](assets/containers.png)
 
-Click a volume name in **Volumes** or a named mount in a container or Compose
-project to open its detail page. **Overview** shows
-Docker-reported storage usage, driver, scope, creation time, the engine-host
-mountpoint, Compose project, driver options, and labels. **Containers** includes
-running and stopped containers, their mount destinations, and read/write access.
-Container names link to their detail pages.
+## Features
 
-Volume details update on Docker volume and container events and can also be
-refreshed manually. Deletion is disabled while containers reference the volume;
-deleting an unused volume requires confirmation and permanently removes its data.
-Mountpoints belong to the Docker engine host and may not be accessible locally.
+### Containers
 
-## Recommended IDE Setup
+- Containers grouped by Compose project, with live CPU, memory, and port mappings.
+- Start, stop, pause, restart, and remove, one at a time or in batches; rows show a
+  spinner while an action runs.
+- Container detail tabs: **Info**, **Image**, **Environment**, **Logs** (search,
+  level filter, follow, export), **Monitor**, **Files**, and **Exec** (interactive
+  terminal).
 
-- [VS Code](https://code.visualstudio.com/) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
+![Container monitor](assets/monitor.png)
+
+### Compose projects
+
+- One page per project: services, replica scaling, profiles, networks, and mounts.
+- Dependency graph showing start order and `depends_on` conditions.
+- Aggregated logs, monitoring, and the merged Compose config.
+
+![Compose project](assets/compose-group.png)
+
+### Images
+
+- Images grouped by repository, with tag count, size, and the containers using each one.
+- A colored dot shows usage: green if a running container uses the image, amber if
+  only stopped containers do, grey if unused.
+- Pull, tag, delete, view layer history, and prune dangling images.
+
+![Images](assets/images.png)
+
+### Volumes
+
+- A dot shows whether each volume is mounted or orphaned; hover for the container count.
+- Volume detail page with Docker-reported size, driver, options, labels, and the
+  containers that mount it.
+- Volumes in use can't be deleted, and deleting asks for confirmation. Prune removes
+  every orphaned volume at once.
+
+![Volumes](assets/volumes.png)
+
+## Install
+
+Download the Windows installer from the
+[latest release](https://github.com/KafkaWannaFly/container-gui/releases/latest).
+You need a running Docker Engine, such as Docker Desktop.
+
+## Development
+
+Prerequisites: [Node.js](https://nodejs.org) with [pnpm](https://pnpm.io),
+[Rust](https://rustup.rs), GNU Make, and Docker.
+
+```sh
+make i        # install frontend and backend dependencies
+make dev      # run the app with hot reload
+make test     # type-check the frontend and run backend tests
+make lint     # lint the frontend (Biome) and the backend (Clippy)
+make pub-win  # build the Windows NSIS installer
+```
+
+Sample data for manual testing:
+
+```sh
+make up       # a standalone container plus the `container-gui` Compose project
+make profiles # also enable the `tools` and `ops` profiles
+make down     # remove everything created above
+```
+
+### Recommended IDE setup
+
+[VS Code](https://code.visualstudio.com/) with the
+[Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) and
+[rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer) extensions.
