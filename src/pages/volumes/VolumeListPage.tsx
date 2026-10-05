@@ -1,9 +1,9 @@
 import { ClearOutlined, CopyOutlined, DeleteOutlined } from "@ant-design/icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { App, Button, Empty, Input, Popconfirm, Table, type TableColumnsType } from "antd";
+import { App, Button, Empty, Input, Popconfirm, Spin, Table, type TableColumnsType } from "antd";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { MetricCard, Mono, Pill, RowActions } from "../../components/ui";
+import { MetricCard, Mono, Pill, RowActions, StateDot } from "../../components/ui";
 import { queryKeys } from "../../lib/queryClient";
 import { listVolumes, pruneVolumes, removeVolume } from "../../services/tauriApi";
 import { formatBytes, type VolumeItem } from "../../types/docker";
@@ -14,16 +14,33 @@ export default function VolumeListPage() {
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<React.Key[]>([]);
 
+  const [pending, setPending] = useState<Set<string>>(new Set());
+
   const { data, isLoading } = useQuery({ queryKey: queryKeys.volumes(), queryFn: listVolumes });
 
   const removeMutation = useMutation({
     mutationFn: ({ name, force }: { name: string; force: boolean }) => removeVolume(name, force),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.volumes() });
+    onSuccess: async (_, { name }) => {
+      // Drop the row right away so it doesn't linger until the refetch lands.
+      queryClient.setQueryData<VolumeItem[]>(queryKeys.volumes(), (old) =>
+        old?.filter((v) => v.name !== name),
+      );
       void queryClient.invalidateQueries({ queryKey: queryKeys.system() });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.volumes() });
     },
     onError: (err: Error) => message.error(err.message),
   });
+
+  const removeName = (name: string) => {
+    setPending((prev) => new Set(prev).add(name));
+    return removeMutation.mutateAsync({ name, force: false }).finally(() =>
+      setPending((prev) => {
+        const next = new Set(prev);
+        next.delete(name);
+        return next;
+      }),
+    );
+  };
 
   const rows = useMemo(
     () => (data ?? []).filter((v) => v.name.toLowerCase().includes(search.toLowerCase())),
@@ -43,7 +60,9 @@ export default function VolumeListPage() {
           Data in <Mono>{row.name}</Mono> will be permanently lost.
         </span>
       ),
-      onOk: () => removeMutation.mutateAsync({ name: row.name, force: false }),
+      onOk: () => {
+        void removeName(row.name).catch(() => undefined);
+      },
     });
 
   const prune = () =>
@@ -78,7 +97,7 @@ export default function VolumeListPage() {
 
   const deleteSelected = () => {
     const names = (data ?? []).filter((v) => selected.includes(v.name) && !v.inUse).map((v) => v.name);
-    void Promise.all(names.map((name) => removeMutation.mutateAsync({ name, force: false }))).then(
+    void Promise.all(names.map((name) => removeName(name))).then(
       () => message.success(`Deleted ${names.length} volume(s)`),
       () => undefined,
     );
@@ -89,10 +108,27 @@ export default function VolumeListPage() {
     {
       title: "Name",
       dataIndex: "name",
-      render: (value: string) => (
-        <Link to={`/volumes/${encodeURIComponent(value)}`} className="row-link">
-          {value}
-        </Link>
+      render: (value: string, row) => (
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span
+            style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", minWidth: 10 }}
+          >
+            {pending.has(value) ? (
+              <Spin size="small" />
+            ) : row.inUse ? (
+              <StateDot state="running" label={`Mounted by ${row.refCount} container(s)`} />
+            ) : (
+              <StateDot state="orphaned" label="Orphaned" />
+            )}
+          </span>
+          <Link
+            to={`/volumes/${encodeURIComponent(value)}`}
+            className="row-link"
+            style={{ whiteSpace: "nowrap" }}
+          >
+            {value}
+          </Link>
+        </div>
       ),
     },
     {
@@ -133,20 +169,6 @@ export default function VolumeListPage() {
       render: (value: string) => <span className="dim">{value ? value.slice(0, 10) : "—"}</span>,
     },
     {
-      title: "In use",
-      dataIndex: "inUse",
-      width: 140,
-      render: (_, row) =>
-        row.inUse ? (
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-            <Pill tone="green">mounted</Pill>
-            <Mono>{row.refCount} ref</Mono>
-          </span>
-        ) : (
-          <Pill>orphaned</Pill>
-        ),
-    },
-    {
       title: "",
       key: "actions",
       width: 56,
@@ -168,7 +190,7 @@ export default function VolumeListPage() {
                 label: "Delete",
                 icon: <DeleteOutlined />,
                 danger: true,
-                disabled: row.inUse,
+                disabled: row.inUse || pending.has(row.name),
                 onClick: () => deleteVolume(row),
               },
             ],

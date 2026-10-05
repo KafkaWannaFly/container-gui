@@ -8,11 +8,11 @@ import {
   TagOutlined,
 } from "@ant-design/icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { App, Button, Empty, Input, Popconfirm, Table, type TableColumnsType } from "antd";
+import { App, Button, Empty, Input, Popconfirm, Spin, Table, type TableColumnsType } from "antd";
 import { formatDistanceToNow } from "date-fns";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { MetricCard, Mono, Pill, RowActions } from "../../components/ui";
+import { MetricCard, Mono, Pill, RowActions, StateDot } from "../../components/ui";
 import { queryKeys } from "../../lib/queryClient";
 import { listContainers, listImages, pruneImages, removeImage } from "../../services/tauriApi";
 import { formatBytes, type ImageItem, shortId } from "../../types/docker";
@@ -108,6 +108,18 @@ function buildGroups(images: ImageItem[]): Row[] {
     .sort((a, b) => Number(a.dangling) - Number(b.dangling) || a.repo.localeCompare(b.repo));
 }
 
+function UsageDot({ usage }: { usage?: { total: number; running: number } }) {
+  if (usage?.running) {
+    return <StateDot state="running" label={`In use by ${usage.running} running container(s)`} />;
+  }
+  if (usage?.total) {
+    return (
+      <StateDot state="in-use" color="var(--amber)" label={`Used by ${usage.total} stopped container(s)`} />
+    );
+  }
+  return <StateDot state="unused" label="Unused" />;
+}
+
 export default function ImageListPage() {
   const { modal, message } = App.useApp();
   const queryClient = useQueryClient();
@@ -137,14 +149,36 @@ export default function ImageListPage() {
     return map;
   }, [containers.data]);
 
+  const [pending, setPending] = useState<Set<string>>(new Set());
+
   const removeMutation = useMutation({
     mutationFn: ({ id, force }: { id: string; force: boolean }) => removeImage(id, force),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.images() });
+    onSuccess: async (_, { id }) => {
+      // Drop the deleted ref right away so the row doesn't linger until the refetch lands.
+      queryClient.setQueryData<ImageItem[]>(queryKeys.images(), (old) =>
+        old?.flatMap((image) => {
+          if (image.id === id) return [];
+          if (!image.repoTags.includes(id)) return [image];
+          const repoTags = image.repoTags.filter((t) => t !== id);
+          return repoTags.some((t) => t && !t.startsWith("<none>")) ? [{ ...image, repoTags }] : [];
+        }),
+      );
       void queryClient.invalidateQueries({ queryKey: queryKeys.system() });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.images() });
     },
     onError: (err: Error) => message.error(err.message),
   });
+
+  const removeRef = (ref: string) => {
+    setPending((prev) => new Set(prev).add(ref));
+    return removeMutation.mutateAsync({ id: ref, force: true }).finally(() =>
+      setPending((prev) => {
+        const next = new Set(prev);
+        next.delete(ref);
+        return next;
+      }),
+    );
+  };
 
   const flatten = (rows: Row[]) => rows.flatMap((r) => (r.isGroup ? (r.children ?? []) : [r]));
   const images = useMemo(() => data ?? [], [data]);
@@ -178,7 +212,7 @@ export default function ImageListPage() {
   const selectedRows = leaves.filter((r) => selected.includes(r.key));
 
   const deleteSelected = () => {
-    void Promise.all(selectedRows.map((r) => removeMutation.mutateAsync({ id: r.ref, force: true }))).then(
+    void Promise.all(selectedRows.map((r) => removeRef(r.ref))).then(
       () => message.success(`Deleted ${selectedRows.length} image(s)`),
       () => undefined,
     );
@@ -216,15 +250,28 @@ export default function ImageListPage() {
             </span>
           </span>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            <Link
-              to={`/images/${encodeURIComponent(row.id)}`}
-              className="row-link"
-              style={row.dangling ? { color: "var(--ash)" } : undefined}
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+            <span
+              style={{
+                display: "inline-flex",
+                alignSelf: "stretch",
+                alignItems: "center",
+                justifyContent: "center",
+                minWidth: 10,
+              }}
             >
-              {row.dangling ? "<none>" : `${row.repo}:${row.tag}`}
-            </Link>
-            <span className="mono dim">{shortId(row.id)}</span>
+              {pending.has(row.ref) ? <Spin size="small" /> : <UsageDot usage={usageByImage.get(row.id)} />}
+            </span>
+            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              <Link
+                to={`/images/${encodeURIComponent(row.id)}`}
+                className="row-link"
+                style={row.dangling ? { color: "var(--ash)" } : undefined}
+              >
+                {row.dangling ? "<none>" : `${row.repo}:${row.tag}`}
+              </Link>
+              <span className="mono dim">{shortId(row.id)}</span>
+            </div>
           </div>
         ),
     },
@@ -301,6 +348,7 @@ export default function ImageListPage() {
                   label: "Delete",
                   icon: <DeleteOutlined />,
                   danger: true,
+                  disabled: pending.has(row.ref),
                   onClick: () =>
                     modal.confirm({
                       title: "Delete image?",
@@ -313,7 +361,9 @@ export default function ImageListPage() {
                           {row.sharedWith > 0 ? "; the image stays because it has other tags." : "."}
                         </span>
                       ),
-                      onOk: () => removeMutation.mutateAsync({ id: row.ref, force: true }),
+                      onOk: () => {
+                        void removeRef(row.ref).catch(() => undefined);
+                      },
                     }),
                 },
               ],

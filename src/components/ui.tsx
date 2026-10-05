@@ -12,9 +12,19 @@ export const STATE_COLORS: Record<string, string> = {
   restarting: "var(--amber)",
 };
 
-export function StateDot({ state, size = 10 }: { state: string; size?: number }) {
-  const color = STATE_COLORS[state] ?? "var(--fog)";
-  const label = state ? state.charAt(0).toUpperCase() + state.slice(1) : "Unknown";
+export function StateDot({
+  state,
+  size = 10,
+  color: colorOverride,
+  label: labelOverride,
+}: {
+  state: string;
+  size?: number;
+  color?: string;
+  label?: string;
+}) {
+  const color = colorOverride ?? STATE_COLORS[state] ?? "var(--fog)";
+  const label = labelOverride ?? (state ? state.charAt(0).toUpperCase() + state.slice(1) : "Unknown");
   return (
     <Tooltip title={label}>
       <span
