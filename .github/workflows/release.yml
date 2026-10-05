@@ -1,0 +1,84 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "src-tauri/tauri.conf.json"
+      - ".github/workflows/release.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  detect-version:
+    name: Detect new app version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      should_release: ${{ steps.version.outputs.should_release }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check whether this version is already released
+        id: version
+        shell: bash
+        run: |
+          version="$(node -p "require('./src-tauri/tauri.conf.json').version")"
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Invalid app version in src-tauri/tauri.conf.json: $version"
+            exit 1
+          fi
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if git rev-parse --quiet --verify "refs/tags/v${version}" >/dev/null; then
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
+            echo "Version v${version} already has a tag; skipping release."
+          else
+            echo "should_release=true" >> "$GITHUB_OUTPUT"
+            echo "Version v${version} has not been released; starting release builds."
+          fi
+
+  publish:
+    name: Build Windows release
+    needs: detect-version
+    if: needs.detect-version.outputs.should_release == 'true'
+    permissions:
+      contents: write
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build and publish release
+        uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: v__VERSION__
+          releaseName: Container GUI v__VERSION__
+          releaseBody: Download the installer for your platform from the release assets below.
+          releaseDraft: false
+          prerelease: false
