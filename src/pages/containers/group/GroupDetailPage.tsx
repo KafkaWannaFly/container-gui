@@ -411,9 +411,18 @@ export default function GroupDetailPage() {
   ];
 
   const body = !config ? (
-    <div style={{ display: "flex", justifyContent: "center", padding: 48 }}>
-      <Spin />
-    </div>
+    composeQuery.isError ? (
+      <Result
+        status="warning"
+        title="Could not read the compose project"
+        subTitle={composeQuery.error instanceof Error ? composeQuery.error.message : String(composeQuery.error)}
+        extra={<Button onClick={() => void composeQuery.refetch()}>Retry</Button>}
+      />
+    ) : (
+      <div style={{ display: "flex", justifyContent: "center", padding: 48 }}>
+        <Spin />
+      </div>
+    )
   ) : tab === "info" ? (
     <InfoTab
       config={config}
