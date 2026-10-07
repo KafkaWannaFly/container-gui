@@ -91,14 +91,24 @@ export default function ContainerListPage() {
     queryFn: () => listContainers(true),
   });
 
-  const liveCount = (data ?? []).filter((c) => c.state === "running" || c.state === "paused").length;
+  const liveIds = useMemo(
+    () => new Set((data ?? []).filter((c) => c.state === "running" || c.state === "paused").map((c) => c.id)),
+    [data],
+  );
 
   const stats = useQuery({
     queryKey: queryKeys.containerStats(),
     queryFn: () => metricsLatest(),
     refetchInterval: STATS_INTERVAL_MS,
-    enabled: liveCount > 0,
+    enabled: liveIds.size > 0,
   });
+
+  // A disabled query keeps its last result, and the sampler can lag a stop by
+  // one tick; only count samples for containers that are live right now.
+  const liveStats = useMemo(
+    () => (stats.data ? stats.data.filter((item) => liveIds.has(item.id)) : undefined),
+    [stats.data, liveIds],
+  );
 
   const system = useQuery({
     queryKey: queryKeys.system(),
@@ -142,9 +152,9 @@ export default function ContainerListPage() {
 
   const statsById = useMemo(() => {
     const map = new Map<string, ContainerStats>();
-    for (const item of stats.data ?? []) map.set(item.id, item);
+    for (const item of liveStats ?? []) map.set(item.id, item);
     return map;
-  }, [stats.data]);
+  }, [liveStats]);
 
   // Compose members collapse into one parent row. Single-member projects
   // stay flat so they don't nest for nothing.
@@ -213,12 +223,14 @@ export default function ContainerListPage() {
   const totals = useMemo(() => {
     let cpu = 0;
     let memory = 0;
-    for (const item of stats.data ?? []) {
+    for (const item of liveStats ?? []) {
       cpu += item.cpuPercent ?? 0;
       memory += item.memoryUsage;
     }
     return { cpu, memory };
-  }, [stats.data]);
+  }, [liveStats]);
+  // Nothing live means the totals are known to be zero, sampled or not.
+  const haveTotals = liveStats !== undefined || (data !== undefined && liveIds.size === 0);
 
   const groupTotals = (children: ContainerRow[]) =>
     children.reduce(
@@ -602,12 +614,12 @@ export default function ContainerListPage() {
         <MetricCard label="Running" value={runningCount} suffix={`of ${data?.length ?? 0}`} />
         <MetricCard
           label="Memory"
-          value={stats.data ? formatBytes(totals.memory, 2) : "—"}
+          value={haveTotals ? (totals.memory > 0 ? formatBytes(totals.memory, 2) : "0 B") : "—"}
           suffix={`/ ${system.data ? formatBytes(system.data.memoryTotal, 2) : "—"}`}
         />
         <MetricCard
           label="CPU"
-          value={stats.data ? (totals.cpu / 100).toFixed(2) : "—"}
+          value={haveTotals ? (totals.cpu / 100).toFixed(2) : "—"}
           suffix={`/ ${system.data?.cpus ?? "—"} cpu`}
         />
       </div>

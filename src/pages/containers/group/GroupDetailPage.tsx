@@ -95,7 +95,9 @@ export default function GroupDetailPage() {
   const imageById = useImages(inspectById);
 
   const statsById = useMemo(() => {
-    const ids = new Set(containers.map((ctr) => ctr.id));
+    const ids = new Set(
+      containers.filter((ctr) => ctr.state === "running" || ctr.state === "paused").map((ctr) => ctr.id),
+    );
     const map = new Map<string, ContainerStats>();
     for (const stat of statsQuery.data ?? []) if (ids.has(stat.id)) map.set(stat.id, stat);
     return map;
@@ -415,7 +417,9 @@ export default function GroupDetailPage() {
       <Result
         status="warning"
         title="Could not read the compose project"
-        subTitle={composeQuery.error instanceof Error ? composeQuery.error.message : String(composeQuery.error)}
+        subTitle={
+          composeQuery.error instanceof Error ? composeQuery.error.message : String(composeQuery.error)
+        }
         extra={<Button onClick={() => void composeQuery.refetch()}>Retry</Button>}
       />
     ) : (
@@ -559,7 +563,7 @@ export default function GroupDetailPage() {
             <div className="stat">
               <div className="k">Memory</div>
               <div className="v">
-                {formatBytes(memory, 1)}
+                {memory > 0 ? formatBytes(memory, 1) : "0 B"}
                 {top ? (
                   <small>
                     top: {top.name} {formatBytes(top.memory, 1)}

@@ -166,20 +166,24 @@ export default function MetricCharts({
   const names = shown.map((entry) => entry.name);
   const colors = shown.map((entry) => entry.color);
 
-  const charts = useMemo(
-    () =>
-      METRICS.map((metric) => {
-        const latest = series
-          .map(({ samples }) => (samples.length ? metric.value(samples[samples.length - 1]) : null))
-          .filter((v): v is number => v != null);
-        return {
-          metric,
-          rows: rowsFor(metric, series, stepMs),
-          total: latest.length ? latest.reduce((sum, v) => sum + v, 0) : null,
-        };
-      }),
-    [series, stepMs],
-  );
+  const charts = useMemo(() => {
+    // The headline is "now": a stopped container's last sample is history, not
+    // current usage. Allow one bucket plus a couple of sampler ticks of lag.
+    const freshSince = Date.now() - stepMs - 2 * POLL_MS;
+    const hasSamples = series.some(({ samples }) => samples.length > 0);
+    return METRICS.map((metric) => {
+      const latest = series
+        .map(({ samples }) => samples[samples.length - 1])
+        .filter((sample) => sample != null && sample.ts >= freshSince)
+        .map((sample) => metric.value(sample))
+        .filter((v): v is number => v != null);
+      return {
+        metric,
+        rows: rowsFor(metric, series, stepMs),
+        total: latest.length ? latest.reduce((sum, v) => sum + v, 0) : hasSamples ? 0 : null,
+      };
+    });
+  }, [series, stepMs]);
 
   if (!shown.length) {
     return (
