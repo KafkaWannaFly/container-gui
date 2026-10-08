@@ -1,4 +1,4 @@
-import { Channel, invoke } from "@tauri-apps/api/core";
+import { Channel } from "@tauri-apps/api/core";
 import { z } from "zod";
 import {
   type ComposeActionRequest,
@@ -49,6 +49,7 @@ import {
   type VolumeItem,
   VolumeItemSchema,
 } from "../types/docker";
+import { IPC_METRICS_ENABLED, recordChannelMessage, recordParse, timedInvoke } from "./ipcMetrics";
 
 /**
  * Normalize a Tauri command rejection into a readable Error. Structured
@@ -64,8 +65,12 @@ export function toError(err: unknown): Error {
 
 async function call<T>(cmd: string, args: Record<string, unknown>, schema: z.ZodType<T>): Promise<T> {
   try {
-    const raw = await invoke(cmd, args);
-    return schema.parse(raw);
+    const raw = await timedInvoke(cmd, args);
+    if (!IPC_METRICS_ENABLED) return schema.parse(raw);
+    const start = performance.now();
+    const parsed = schema.parse(raw);
+    recordParse(cmd, performance.now() - start);
+    return parsed;
   } catch (err) {
     throw toError(err);
   }
@@ -73,7 +78,7 @@ async function call<T>(cmd: string, args: Record<string, unknown>, schema: z.Zod
 
 async function callVoid(cmd: string, args: Record<string, unknown> = {}): Promise<void> {
   try {
-    await invoke(cmd, args);
+    await timedInvoke(cmd, args);
   } catch (err) {
     throw toError(err);
   }
@@ -129,16 +134,17 @@ function openStream<T>(
   const channel = new Channel<unknown>();
   let active = true;
   channel.onmessage = (raw) => {
+    recordChannelMessage(cmd, raw);
     if (!active) return;
     const parsed = schema.safeParse(raw);
     if (parsed.success) onMessage(parsed.data);
   };
-  invoke(cmd, { ...args, streamId, [channelArg]: channel }).catch((err) => {
+  timedInvoke(cmd, { ...args, streamId, [channelArg]: channel }, { stream: true }).catch((err) => {
     if (active) onError?.(toError(err));
   });
   return () => {
     active = false;
-    void invoke("stop_stream", { streamId }).catch(() => undefined);
+    void timedInvoke("stop_stream", { streamId }).catch(() => undefined);
   };
 }
 
@@ -224,16 +230,17 @@ export function pullImage(
   const channel = new Channel<unknown>();
   let active = true;
   channel.onmessage = (raw) => {
+    recordChannelMessage("pull_image", raw);
     if (!active) return;
     const parsed = ImagePullProgressSchema.safeParse(raw);
     if (parsed.success) onProgress(parsed.data);
   };
-  invoke("pull_image", { imageName, onProgress: channel })
+  timedInvoke("pull_image", { imageName, onProgress: channel }, { stream: true })
     .catch(() => undefined)
     .finally(() => onEnd?.());
   return () => {
     active = false;
-    void invoke("cancel_pull", { imageName }).catch(() => undefined);
+    void timedInvoke("cancel_pull", { imageName }).catch(() => undefined);
   };
 }
 
@@ -332,9 +339,9 @@ export function startExec(
   let queue: Promise<unknown> = Promise.resolve();
   return {
     write: (data) => {
-      queue = queue.then(() => invoke("exec_input", { streamId, data })).catch(() => undefined);
+      queue = queue.then(() => timedInvoke("exec_input", { streamId, data })).catch(() => undefined);
     },
-    resize: (cols, rows) => void invoke("exec_resize", { streamId, cols, rows }).catch(() => undefined),
+    resize: (cols, rows) => void timedInvoke("exec_resize", { streamId, cols, rows }).catch(() => undefined),
     close,
   };
 }
