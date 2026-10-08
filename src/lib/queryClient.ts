@@ -24,4 +24,5 @@ export const queryKeys = {
   status: () => ["docker-status"] as const,
   system: () => ["system-info"] as const,
   contexts: () => ["docker-contexts"] as const,
+  appInfo: () => ["app-info"] as const,
 };

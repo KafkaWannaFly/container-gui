@@ -28,6 +28,9 @@ dev:
 	pnpm tauri:dev
 
 ## Build the Windows NSIS installer with the default release icons and title.
+## Updater artifacts are signed with the key from `pnpm tauri signer generate`.
+pub-win: export TAURI_SIGNING_PRIVATE_KEY ?= $(or $(USERPROFILE),$(HOME))/.tauri/container-gui.key
+pub-win: export TAURI_SIGNING_PRIVATE_KEY_PASSWORD ?=
 pub-win:
 	pnpm tauri build --bundles nsis
 

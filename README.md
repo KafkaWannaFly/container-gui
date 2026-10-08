@@ -52,6 +52,10 @@ Download the Windows installer from the
 [latest release](https://github.com/KafkaWannaFly/container-gui/releases/latest).
 You need a running Docker Engine, such as Docker Desktop.
 
+Once installed, the app checks GitHub Releases for a newer version at startup
+and can install it in place; you can also check manually under
+**Preferences → About**.
+
 ## Development
 
 Prerequisites: [Node.js](https://nodejs.org) with [pnpm](https://pnpm.io),
@@ -62,8 +66,15 @@ make i        # install frontend and backend dependencies
 make dev      # run with hot reload, dev icons, and the "(Dev)" window title
 make test     # type-check the frontend and run backend tests
 make lint     # lint the frontend (Biome) and the backend (Clippy)
-make pub-win  # build the Windows NSIS installer with release icons
+make pub-win  # build the signed Windows NSIS installer with release icons
 ```
+
+Releases are built by `.github/workflows/release.yml` when the version in
+`src-tauri/tauri.conf.json` changes. It signs the updater artifacts with the
+`TAURI_SIGNING_PRIVATE_KEY` repository secret and publishes `latest.json`, which
+installed apps poll for updates. `make pub-win` expects the same key at
+`~/.tauri/container-gui.key` (override with `TAURI_SIGNING_PRIVATE_KEY`). Keep a
+backup of the key: without it, existing installs cannot be updated.
 
 Sample data for manual testing:
 

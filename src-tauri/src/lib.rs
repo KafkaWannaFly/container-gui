@@ -52,6 +52,11 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(log_plugin());
 
+    #[cfg(desktop)]
+    let builder = builder
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init());
+
     // Debug-only UI automation bridge for agents (`tauri-pilot`). The plugin
     // opens a named pipe; it is never compiled into release builds.
     #[cfg(debug_assertions)]

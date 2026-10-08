@@ -1,7 +1,9 @@
-import { ApiOutlined, LinkOutlined } from "@ant-design/icons";
+import { ApiOutlined, CloudDownloadOutlined, LinkOutlined, SyncOutlined } from "@ant-design/icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { App, Button, Divider, Input, Select, Switch } from "antd";
+import { getTauriVersion, getVersion } from "@tauri-apps/api/app";
+import { App, Button, Divider, Input, Progress, Select, Switch } from "antd";
 import { useEffect, useState } from "react";
+import { useAppUpdater } from "../../hooks/useAppUpdater";
 import { queryKeys } from "../../lib/queryClient";
 import {
   getDockerStatus,
@@ -31,6 +33,45 @@ function kindFromHost(host: string): ConnectionConfig["kind"] {
   return "unix";
 }
 
+function UpdateControls() {
+  const { status, update, percent, error, checkForUpdate, installUpdate } = useAppUpdater();
+  const busy = status === "downloading" || status === "installing";
+
+  return (
+    <div className="toolbar" style={{ marginTop: 12 }}>
+      {status === "available" && update ? (
+        <Button type="primary" icon={<CloudDownloadOutlined />} onClick={() => void installUpdate()}>
+          Install {update.version} & restart
+        </Button>
+      ) : (
+        <Button
+          icon={<SyncOutlined />}
+          loading={status === "checking"}
+          disabled={busy}
+          onClick={() => void checkForUpdate()}
+        >
+          Check for updates
+        </Button>
+      )}
+      {busy ? (
+        <Progress
+          style={{ width: 220, margin: 0 }}
+          size="small"
+          percent={percent ?? 0}
+          status="active"
+          showInfo={percent != null}
+        />
+      ) : null}
+      <span className={status === "error" ? "ping-bad" : "dim"} style={{ fontSize: 12 }}>
+        {status === "up-to-date" && "You're on the latest version"}
+        {status === "available" && update && `Version ${update.version} is available`}
+        {status === "installing" && "Installing… the app will restart"}
+        {status === "error" && (error ?? "Update failed")}
+      </span>
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   const { message } = App.useApp();
   const queryClient = useQueryClient();
@@ -47,6 +88,11 @@ export default function SettingsPage() {
 
   const contexts = useQuery({ queryKey: queryKeys.contexts(), queryFn: listDockerContexts });
   const status = useQuery({ queryKey: queryKeys.status(), queryFn: getDockerStatus });
+  const appInfo = useQuery({
+    queryKey: queryKeys.appInfo(),
+    queryFn: async () => ({ version: await getVersion(), tauri: await getTauriVersion() }),
+    staleTime: Number.POSITIVE_INFINITY,
+  });
 
   useEffect(() => {
     if (contexts.data?.length && !context) {
@@ -185,10 +231,11 @@ export default function SettingsPage() {
       <div className="card">
         <div className="section-title">About</div>
         <div className="mono dim" style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
-          <span>container-gui 0.1.0</span>
-          <span>tauri 2.11</span>
+          <span>container-gui {appInfo.data?.version ?? "—"}</span>
+          <span>tauri {appInfo.data?.tauri ?? "—"}</span>
           <span>docker engine {status.data?.engineVersion ?? "—"}</span>
         </div>
+        <UpdateControls />
       </div>
     </div>
   );

@@ -9,6 +9,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Button, Result, Spin } from "antd";
 import { useMemo } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
+import UpdateNotifier from "../components/UpdateNotifier";
 import { Glyph } from "../components/ui";
 import { useDockerEvents } from "../hooks/useDockerEvents";
 import { queryKeys } from "../lib/queryClient";
@@ -90,6 +91,7 @@ export default function MainLayout() {
 
   return (
     <div className="app-shell">
+      <UpdateNotifier />
       <aside className="side">
         <div className="brand">
           <Glyph />
