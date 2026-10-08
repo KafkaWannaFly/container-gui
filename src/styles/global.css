@@ -430,11 +430,22 @@ pre.logs .dim {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 12px;
 }
 
-.card-head.closed {
-  margin-bottom: 0;
+/* Spacing lives inside the collapsible body so it folds with the content. */
+.sec-body {
+  padding-top: 12px;
+}
+
+/* Animated tree-table child rows (AnimatedTree.tsx): vertical padding moves
+   inside the folding wrapper so the row can shrink to nothing. */
+.ant-table-tbody > tr > td.tt-cell {
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
+
+.tt-cell-inner {
+  padding-block: var(--ant-table-cell-padding-block-sm, 8px);
 }
 
 .card-head .section-title {
@@ -467,7 +478,7 @@ pre.logs .dim {
 .sec-chev {
   font-size: 12px;
   color: var(--ash);
-  transition: transform 0.15s;
+  transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 

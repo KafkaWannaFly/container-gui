@@ -3,6 +3,7 @@ import { Button } from "antd";
 import type { ReactNode } from "react";
 import { z } from "zod";
 import { usePersistentState } from "../hooks/usePersistentState";
+import { Collapse } from "./Collapse";
 
 /**
  * Collapsed section ids for one page, persisted across sessions. Returns
@@ -44,14 +45,16 @@ export function Section({ id, title, extra, closed, onToggle, children }: Sectio
   const open = !closed.includes(id);
   return (
     <div className="card">
-      <div className={`card-head${open ? "" : " closed"}`}>
+      <div className="card-head">
         <button type="button" className="sec-head" aria-expanded={open} onClick={() => onToggle(id)}>
           <RightOutlined className="sec-chev" rotate={open ? 90 : 0} />
           <h3 className="section-title">{title}</h3>
         </button>
         {extra}
       </div>
-      {open ? children : null}
+      <Collapse open={open}>
+        <div className="sec-body">{children}</div>
+      </Collapse>
     </div>
   );
 }

@@ -1,5 +1,4 @@
 import {
-  CaretRightOutlined,
   DeleteOutlined,
   FileTextOutlined,
   InfoCircleOutlined,
@@ -27,6 +26,7 @@ import {
 import { formatDistanceToNow } from "date-fns";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useAnimatedTree } from "../../components/AnimatedTree";
 import { CopyButton, MetricCard, Mono, RowActions, StateDot } from "../../components/ui";
 import { queryKeys } from "../../lib/queryClient";
 import type { ContainerActionKind } from "../../services/tauriApi";
@@ -204,6 +204,13 @@ export default function ContainerListPage() {
       return [...kept, ...added];
     });
   }, [tree]);
+
+  const treeTable = useAnimatedTree({
+    data: tree,
+    expanded,
+    setExpanded,
+    isGroup: (row) => row.kind === "group",
+  });
 
   // antd tree selection (checkStrictly: false) keeps the group key selected
   // alongside its children; only real container ids may reach the API.
@@ -713,26 +720,9 @@ export default function ContainerListPage() {
             onChange: (keys) => setSelected([...keys]),
             checkStrictly: false,
           }}
-          expandable={{
-            expandedRowKeys: expanded,
-            onExpandedRowsChange: (keys) => setExpanded([...keys]),
-            rowExpandable: (row) => row.kind === "group",
-            indentSize: 20,
-            expandIcon: ({ expanded: isExpanded, onExpand, record }) =>
-              record.kind === "group" ? (
-                <CaretRightOutlined
-                  onClick={(event) => onExpand(record, event)}
-                  style={{
-                    cursor: "pointer",
-                    fontSize: 12,
-                    color: "var(--fog)",
-                    marginRight: 2,
-                    transform: isExpanded ? "rotate(90deg)" : "none",
-                    transition: "transform 0.15s ease",
-                  }}
-                />
-              ) : null,
-          }}
+          expandable={treeTable.expandable}
+          components={treeTable.components}
+          onRow={treeTable.onRow}
           columns={columns}
           dataSource={tree}
           pagination={{ pageSize: 12, showSizeChanger: false }}

@@ -1,5 +1,4 @@
 import {
-  CaretRightOutlined,
   ClearOutlined,
   CloudDownloadOutlined,
   DeleteOutlined,
@@ -12,6 +11,7 @@ import { App, Button, Empty, Input, Popconfirm, Spin, Table, type TableColumnsTy
 import { formatDistanceToNow } from "date-fns";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useAnimatedTree } from "../../components/AnimatedTree";
 import { MetricCard, Mono, Pill, RowActions, StateDot } from "../../components/ui";
 import { queryKeys } from "../../lib/queryClient";
 import { listContainers, listImages, pruneImages, removeImage } from "../../services/tauriApi";
@@ -204,6 +204,13 @@ export default function ImageListPage() {
       return [...kept, ...added];
     });
   }, [groups]);
+
+  const treeTable = useAnimatedTree({
+    data: filtered,
+    expanded,
+    setExpanded,
+    isGroup: (row) => !!row.isGroup,
+  });
 
   const leaves = flatten(groups);
   const inUse = images.filter((i) => i.repoTags.some((t) => t && !t.startsWith("<none>"))).length;
@@ -426,26 +433,9 @@ export default function ImageListPage() {
           columns={columns}
           dataSource={filtered}
           pagination={{ pageSize: 10, showSizeChanger: false }}
-          expandable={{
-            expandedRowKeys: expanded,
-            onExpandedRowsChange: (keys) => setExpanded([...keys]),
-            rowExpandable: (row) => row.isGroup,
-            indentSize: 20,
-            expandIcon: ({ expanded: isExpanded, onExpand, record }) =>
-              record.isGroup ? (
-                <CaretRightOutlined
-                  onClick={(event) => onExpand(record, event)}
-                  style={{
-                    cursor: "pointer",
-                    fontSize: 12,
-                    color: "var(--fog)",
-                    marginRight: 2,
-                    transform: isExpanded ? "rotate(90deg)" : "none",
-                    transition: "transform 0.15s ease",
-                  }}
-                />
-              ) : null,
-          }}
+          expandable={treeTable.expandable}
+          components={treeTable.components}
+          onRow={treeTable.onRow}
           rowSelection={{
             selectedRowKeys: selected,
             onChange: setSelected,

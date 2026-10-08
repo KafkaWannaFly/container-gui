@@ -1,11 +1,6 @@
-import {
-  ColumnHeightOutlined,
-  DownOutlined,
-  RightOutlined,
-  VerticalAlignMiddleOutlined,
-} from "@ant-design/icons";
+import { ColumnHeightOutlined, DownOutlined, VerticalAlignMiddleOutlined } from "@ant-design/icons";
 import { Button, Checkbox, Dropdown } from "antd";
-import { type ReactNode, useState } from "react";
+import { useState } from "react";
 import type { ContainerSummary } from "../../../types/docker";
 
 /** "Containers ▾" chip with a checklist, shared by the Logs and Monitor tabs.
@@ -104,41 +99,7 @@ export function ContainerFilter({
   );
 }
 
-/** Collapsible card used by every group tab. */
-export function Section({
-  id,
-  title,
-  extra,
-  closed,
-  onToggle,
-  children,
-}: {
-  id: string;
-  title: ReactNode;
-  extra?: ReactNode;
-  closed: string[];
-  onToggle: (id: string) => void;
-  children: ReactNode;
-}) {
-  const open = !closed.includes(id);
-  return (
-    <div className="card">
-      <div className={`card-head${open ? "" : " closed"}`}>
-        <button
-          type="button"
-          className="sec-head"
-          aria-expanded={open}
-          onClick={() => onToggle(id)}
-        >
-          <RightOutlined className="sec-chev" rotate={open ? 90 : 0} />
-          <h3 className="section-title">{title}</h3>
-        </button>
-        {extra}
-      </div>
-      {open ? children : null}
-    </div>
-  );
-}
+export { Section } from "../../../components/Section";
 
 export function useSections(ids: string[]) {
   const [closed, setClosed] = useState<string[]>([]);
