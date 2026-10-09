@@ -119,17 +119,29 @@ export function useAnimatedTree<T extends { key: Key }>({
     );
   }, [parentOf]);
 
-  const toggle = (key: Key) => {
-    if (expanded.includes(key)) {
-      setClosing((prev) => (prev.includes(key) ? prev : [...prev, key]));
-      setExpanded((prev) => prev.filter((k) => k !== key));
-      return;
+  // One caret or the whole table share this bookkeeping.
+  const setOpen = (keys: Key[], open: boolean) => {
+    const targets = keys.filter((key) => expanded.includes(key) !== open);
+    if (targets.length === 0) return;
+    if (open) {
+      for (const key of targets) {
+        // Still mounted while closing: those rows just reverse, no mount animation.
+        if (!closing.includes(key)) opening.current.add(key);
+      }
+      setClosing((prev) => prev.filter((key) => !targets.includes(key)));
+      setExpanded((prev) => [...prev, ...targets.filter((key) => !prev.includes(key))]);
+    } else {
+      for (const key of targets) opening.current.delete(key);
+      setClosing((prev) => [...prev, ...targets.filter((key) => !prev.includes(key))]);
+      setExpanded((prev) => prev.filter((key) => !targets.includes(key)));
     }
-    // Still mounted while closing: those rows just reverse, no mount animation.
-    if (!closing.includes(key)) opening.current.add(key);
-    setClosing((prev) => prev.filter((k) => k !== key));
-    setExpanded((prev) => [...prev, key]);
   };
+
+  const toggle = (key: Key) => setOpen([key], !expanded.includes(key));
+
+  const groupKeys = data.filter(isGroup).map((row) => row.key);
+  const allExpanded = groupKeys.length > 0 && groupKeys.every((key) => expanded.includes(key));
+  const toggleAll = () => setOpen(groupKeys, !allExpanded);
 
   const finish = (key: Key, open: boolean) => {
     if (open) {
@@ -174,5 +186,12 @@ export function useAnimatedTree<T extends { key: Key }>({
     return { treeAnim } as HTMLAttributes<HTMLElement>;
   };
 
-  return { expandable, components: TREE_COMPONENTS, onRow };
+  return {
+    expandable,
+    components: TREE_COMPONENTS,
+    onRow,
+    allExpanded,
+    hasGroups: groupKeys.length > 0,
+    toggleAll,
+  };
 }

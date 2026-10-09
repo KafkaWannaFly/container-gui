@@ -1,11 +1,11 @@
 import { ClearOutlined, CopyOutlined, DeleteOutlined } from "@ant-design/icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { App, Button, Empty, Input, Popconfirm, Spin, Table, type TableColumnsType } from "antd";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { MetricCard, Mono, Pill, RowActions, StateDot } from "../../components/ui";
 import { queryKeys } from "../../lib/queryClient";
-import { listVolumes, pruneVolumes, removeVolume } from "../../services/tauriApi";
+import { listVolumes, pruneVolumes, refreshVolumeSizes, removeVolume } from "../../services/tauriApi";
 import { formatBytes, type VolumeItem } from "../../types/docker";
 
 export default function VolumeListPage() {
@@ -17,6 +17,17 @@ export default function VolumeListPage() {
   const [pending, setPending] = useState<Set<string>>(new Set());
 
   const { data, isLoading } = useQuery({ queryKey: queryKeys.volumes(), queryFn: listVolumes });
+
+  // Sizes come from the cache right away; each visit re-measures in the background.
+  const refresh = useMutation({
+    mutationFn: refreshVolumeSizes,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.volumes() }),
+    onError: (err: Error) => message.error(err.message),
+  });
+  const refreshSizes = refresh.mutate;
+  useEffect(() => {
+    refreshSizes();
+  }, [refreshSizes]);
 
   const removeMutation = useMutation({
     mutationFn: ({ name, force }: { name: string; force: boolean }) => removeVolume(name, force),
@@ -47,7 +58,8 @@ export default function VolumeListPage() {
     [data, search],
   );
   const orphans = (data ?? []).filter((v) => !v.inUse);
-  const reclaimable = orphans.reduce((sum, v) => sum + v.sizeBytes, 0);
+  const reclaimable = orphans.reduce((sum, v) => sum + (v.sizeBytes ?? 0), 0);
+  const unmeasured = orphans.filter((v) => v.sizeBytes === null).length;
 
   const deleteVolume = (row: VolumeItem) =>
     modal.confirm({
@@ -160,7 +172,19 @@ export default function VolumeListPage() {
       title: "Size",
       dataIndex: "sizeBytes",
       width: 100,
-      render: (value: number) => <span className="mono">{formatBytes(value)}</span>,
+      render: (value: number | null, row) => {
+        if (value === null) {
+          return refresh.isPending ? <Spin size="small" /> : <span className="dim">—</span>;
+        }
+        const measured = row.sizeMeasuredAt
+          ? `Measured ${new Date(row.sizeMeasuredAt).toLocaleString()}`
+          : undefined;
+        return (
+          <span className="mono" title={measured}>
+            {value === 0 ? "0 B" : formatBytes(value)}
+          </span>
+        );
+      },
     },
     {
       title: "Created",
@@ -211,7 +235,11 @@ export default function VolumeListPage() {
         <MetricCard
           label="Reclaimable"
           value={formatBytes(reclaimable)}
-          suffix={`${orphans.length} orphaned`}
+          suffix={
+            unmeasured
+              ? `${orphans.length} orphaned · ${unmeasured} unmeasured`
+              : `${orphans.length} orphaned`
+          }
         />
       </div>
 
@@ -225,6 +253,11 @@ export default function VolumeListPage() {
             style={{ width: 240 }}
           />
           <span className="spacer" />
+          {refresh.isPending ? (
+            <span className="dim" style={{ fontSize: 12 }}>
+              Measuring sizes…
+            </span>
+          ) : null}
           {selected.length > 0 ? (
             <span className="dim" style={{ fontSize: 12 }}>
               {selected.length} selected

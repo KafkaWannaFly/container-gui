@@ -63,7 +63,8 @@ export const VolumeItemSchema = z.object({
   driver: z.string(),
   mountpoint: z.string(),
   createdAt: z.string(),
-  sizeBytes: z.number(),
+  sizeBytes: z.number().nullable(),
+  sizeMeasuredAt: z.number().nullable(),
   inUse: z.boolean(),
   refCount: z.number(),
 });

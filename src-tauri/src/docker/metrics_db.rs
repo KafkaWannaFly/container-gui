@@ -5,12 +5,8 @@
 //! different daemons never mix. The schema lives in `migrations/`.
 
 use std::collections::HashMap;
-use std::path::Path;
-use std::time::Duration;
 
-use sqlx::sqlite::{
-    SqliteConnectOptions, SqliteJournalMode, SqlitePool, SqlitePoolOptions, SqliteSynchronous,
-};
+use sqlx::sqlite::SqlitePool;
 use sqlx::{FromRow, QueryBuilder, Sqlite};
 
 use crate::models::dto::MetricSampleDto;
@@ -76,50 +72,9 @@ pub struct MetricsDb {
 }
 
 impl MetricsDb {
-    /// Open (or create) the database at `path`. Falls back to an
-    /// in-memory database so a locked or corrupt file never stops metrics.
-    pub async fn open_or_memory(path: &Path) -> Self {
-        if let Some(dir) = path.parent() {
-            let _ = std::fs::create_dir_all(dir);
-        }
-        let file = SqliteConnectOptions::new()
-            .filename(path)
-            .create_if_missing(true)
-            // WAL keeps a second app instance (dev + release) from blocking us.
-            .journal_mode(SqliteJournalMode::Wal)
-            .synchronous(SqliteSynchronous::Normal)
-            .busy_timeout(Duration::from_secs(2));
-        match Self::open(file).await {
-            Ok(db) => db,
-            Err(err) => {
-                log::warn!(
-                    "[metrics] can't open {}: {err}; history won't persist",
-                    path.display()
-                );
-                Self::memory().await
-            }
-        }
-    }
-
-    pub async fn memory() -> Self {
-        Self::open(SqliteConnectOptions::new().in_memory(true))
-            .await
-            .expect("in-memory SQLite")
-    }
-
-    /// Only the sampler uses the database, one query at a time, so a
-    /// single connection is enough. It's kept open for the app's lifetime,
-    /// which an in-memory database needs: closing it would drop the data.
-    async fn open(options: SqliteConnectOptions) -> Result<Self, sqlx::Error> {
-        let pool = SqlitePoolOptions::new()
-            .max_connections(1)
-            .min_connections(1)
-            .idle_timeout(None)
-            .max_lifetime(None)
-            .connect_with(options)
-            .await?;
-        sqlx::migrate!().run(&pool).await?;
-        Ok(Self { pool })
+    /// Takes the app's shared pool; see `crate::db`.
+    pub fn new(pool: SqlitePool) -> Self {
+        Self { pool }
     }
 
     pub async fn insert(
@@ -192,16 +147,12 @@ impl MetricsDb {
             .await?;
         Ok(done.rows_affected())
     }
-
-    #[cfg(test)]
-    async fn close(self) {
-        self.pool.close().await;
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::db;
 
     fn sample(ts: i64) -> MetricSampleDto {
         MetricSampleDto {
@@ -224,7 +175,7 @@ mod tests {
 
     #[tokio::test]
     async fn round_trips_per_endpoint_and_prunes() {
-        let db = MetricsDb::memory().await;
+        let db = MetricsDb::new(db::memory().await);
         db.insert(
             "one",
             &[("a".into(), sample(1_000)), ("a".into(), sample(3_000))],
@@ -250,7 +201,7 @@ mod tests {
 
     #[tokio::test]
     async fn rewriting_a_tick_is_idempotent() {
-        let db = MetricsDb::memory().await;
+        let db = MetricsDb::new(db::memory().await);
         db.insert("one", &[("a".into(), sample(1_000))])
             .await
             .unwrap();
@@ -262,7 +213,7 @@ mod tests {
 
     #[tokio::test]
     async fn inserts_more_rows_than_one_statement_allows() {
-        let db = MetricsDb::memory().await;
+        let db = MetricsDb::new(db::memory().await);
         let many: Vec<_> = (0..2_500)
             .map(|i| (format!("c{i}"), sample(1_000)))
             .collect();
@@ -274,15 +225,17 @@ mod tests {
     async fn file_database_survives_reopen() {
         let dir = std::env::temp_dir().join(format!("cgui-metrics-{}", std::process::id()));
         let path = dir.join("app.db");
-        let db = MetricsDb::open_or_memory(&path).await;
-        db.insert("one", &[("a".into(), sample(1_000))])
+        let pool = db::open_or_memory(&path).await;
+        MetricsDb::new(pool.clone())
+            .insert("one", &[("a".into(), sample(1_000))])
             .await
             .unwrap();
-        db.close().await;
+        pool.close().await;
 
-        let db = MetricsDb::open_or_memory(&path).await;
+        let pool = db::open_or_memory(&path).await;
+        let db = MetricsDb::new(pool.clone());
         assert_eq!(db.load("one", 0).await.unwrap()["a"], vec![sample(1_000)]);
-        db.close().await;
+        pool.close().await;
         let _ = std::fs::remove_dir_all(dir);
     }
 }

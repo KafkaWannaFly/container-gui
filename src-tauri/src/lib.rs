@@ -1,4 +1,5 @@
 mod commands;
+mod db;
 mod docker;
 mod error;
 mod models;
@@ -8,7 +9,9 @@ use std::sync::Arc;
 
 use tauri::Manager;
 
+use docker::metrics_db::MetricsDb;
 use docker::state::{DockerSessionManager, StreamRegistry};
+use docker::volume_cache::VolumeSizeCache;
 
 /// Shared application state handed to every Tauri command.
 pub struct AppState {
@@ -16,6 +19,7 @@ pub struct AppState {
     pub streams: Arc<StreamRegistry>,
     pub execs: Arc<services::exec_service::ExecRegistry>,
     pub metrics: Arc<docker::metrics::MetricsStore>,
+    pub volumes: Arc<VolumeSizeCache>,
 }
 
 /// Configure application logging. Dev builds write to `<project>/logs` (easy
@@ -68,17 +72,22 @@ pub fn run() {
             let manager = Arc::new(DockerSessionManager::new(handle.clone()));
             let streams = Arc::new(StreamRegistry::default());
             let metrics = Arc::new(docker::metrics::MetricsStore::default());
-            // The sampler opens it; a failure falls back to an in-memory database.
-            let metrics_db = app
+            // Composition root: one pool for the app's SQLite file, then each
+            // repository is built once and handed the pool. The app data dir
+            // falls back to temp, and the pool to in-memory, when unusable.
+            let data_dir = app
                 .path()
                 .app_data_dir()
-                .unwrap_or_else(|_| std::env::temp_dir().join("container-gui"))
-                .join("app.db");
+                .unwrap_or_else(|_| std::env::temp_dir().join("container-gui"));
+            let pool = tauri::async_runtime::block_on(db::open_or_memory(&data_dir.join("app.db")));
+            let metrics_db = MetricsDb::new(pool.clone());
+            let volumes = Arc::new(VolumeSizeCache::new(pool));
             app.manage(AppState {
                 manager: manager.clone(),
                 streams,
                 execs: Arc::default(),
                 metrics: metrics.clone(),
+                volumes,
             });
 
             // Connect first, then start the event worker so it subscribes
@@ -120,6 +129,7 @@ pub fn run() {
             commands::images::remove_image,
             commands::images::prune_images,
             commands::volumes::list_volumes,
+            commands::volumes::refresh_volume_sizes,
             commands::volumes::volume_detail,
             commands::volumes::remove_volume,
             commands::volumes::prune_volumes,

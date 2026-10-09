@@ -1,16 +1,17 @@
-//! Volume listing, removal and pruning. In-use detection comes from the
-//! daemon's own `UsageData.refCount`, which is reliable even for volumes
-//! mounted by containers outside this UI.
+//! Volume listing, removal and pruning. In-use detection counts the containers
+//! (including stopped ones) that mount each named volume, matching the daemon's
+//! refCount. Sizes come from a cache, because Docker's disk-usage walk is slow.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use bollard::Docker;
-use bollard::models::{ContainerSummary, VolumeUsageData};
+use bollard::models::ContainerSummary;
 use bollard::query_parameters::{
     DataUsageOptionsBuilder, ListContainersOptionsBuilder, ListVolumesOptionsBuilder,
     PruneVolumesOptionsBuilder, RemoveVolumeOptionsBuilder,
 };
 
+use crate::docker::volume_cache::CachedSize;
 use crate::error::AppResult;
 use crate::models::dto::{VolumeContainerDto, VolumeDetailDto, VolumeItemDto, VolumeMountDto};
 
@@ -84,37 +85,30 @@ fn volume_containers(containers: Vec<ContainerSummary>, name: &str) -> Vec<Volum
         .collect()
 }
 
-pub async fn list_volumes(client: &Docker) -> AppResult<Vec<VolumeItemDto>> {
-    let options = ListVolumesOptionsBuilder::new().build();
-    let response = client.list_volumes(Some(options)).await?;
-
-    // `GET /volumes` never includes `UsageData`; only the disk-usage endpoint does.
-    let usage_options = DataUsageOptionsBuilder::new().verbose(true).build();
-    let mut usage_by_name: HashMap<String, VolumeUsageData> = client
-        .df(Some(usage_options))
-        .await?
-        .volume_usage
-        .and_then(|usage| usage.items)
-        .unwrap_or_default()
-        .into_iter()
-        .filter_map(|item| {
-            let name = item.get("Name")?.as_str()?.to_string();
-            let usage = serde_json::from_value(item.get("UsageData")?.clone()).ok()?;
-            Some((name, usage))
-        })
-        .collect();
+/// Fast list: no disk-usage walk. Sizes come from `cached`, and are `None`
+/// for volumes that have never been measured.
+pub async fn list_volumes(
+    client: &Docker,
+    cached: &HashMap<String, CachedSize>,
+) -> AppResult<Vec<VolumeItemDto>> {
+    let volumes_options = ListVolumesOptionsBuilder::new().build();
+    let containers_options = ListContainersOptionsBuilder::new().all(true).build();
+    let (response, containers) = tokio::try_join!(
+        client.list_volumes(Some(volumes_options)),
+        client.list_containers(Some(containers_options)),
+    )?;
+    let ref_counts = volume_ref_counts(&containers);
 
     Ok(response
         .volumes
         .unwrap_or_default()
         .into_iter()
         .map(|volume| {
-            let usage = usage_by_name
-                .remove(&volume.name)
-                .or(volume.usage_data)
-                .unwrap_or_default();
-            let ref_count = usage.ref_count.max(0);
+            let ref_count = ref_counts.get(&volume.name).copied().unwrap_or(0);
+            let measured = cached.get(&volume.name);
             VolumeItemDto {
+                size_bytes: measured.map(|size| size.size_bytes),
+                size_measured_at: measured.map(|size| size.measured_at),
                 name: volume.name,
                 driver: volume.driver,
                 mountpoint: volume.mountpoint,
@@ -122,12 +116,50 @@ pub async fn list_volumes(client: &Docker) -> AppResult<Vec<VolumeItemDto>> {
                     .created_at
                     .map(|created| created.to_rfc3339())
                     .unwrap_or_default(),
-                size_bytes: usage.size.max(0),
                 in_use: ref_count > 0,
                 ref_count,
             }
         })
         .collect())
+}
+
+/// Number of containers mounting each named volume. A container that mounts
+/// the same volume twice counts once.
+fn volume_ref_counts(containers: &[ContainerSummary]) -> HashMap<String, i64> {
+    let mut counts = HashMap::new();
+    for container in containers {
+        let names: HashSet<&str> = container
+            .mounts
+            .iter()
+            .flatten()
+            .filter(|mount| mount.typ.as_ref().is_some_and(|typ| typ == "volume"))
+            .filter_map(|mount| mount.name.as_deref())
+            .collect();
+        for name in names {
+            *counts.entry(name.to_string()).or_insert(0) += 1;
+        }
+    }
+    counts
+}
+
+/// Slow: asks the daemon to walk every volume's disk usage. Returns only the
+/// volumes whose size is known (Docker reports `-1` when it isn't).
+pub async fn measure_volume_sizes(client: &Docker) -> AppResult<Vec<(String, i64)>> {
+    let options = DataUsageOptionsBuilder::new().verbose(true).build();
+    let sizes = client
+        .df(Some(options))
+        .await?
+        .volume_usage
+        .and_then(|usage| usage.items)
+        .unwrap_or_default()
+        .into_iter()
+        .filter_map(|item| {
+            let name = item.get("Name")?.as_str()?.to_string();
+            let size = item.get("UsageData")?.get("Size")?.as_i64()?;
+            (size >= 0).then_some((name, size))
+        })
+        .collect();
+    Ok(sizes)
 }
 
 pub async fn remove_volume(client: &Docker, name: &str, force: bool) -> AppResult<()> {

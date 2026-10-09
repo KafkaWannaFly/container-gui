@@ -8,7 +8,6 @@
 //! derived from the previous reading we took ourselves.
 
 use std::collections::{HashMap, HashSet, VecDeque};
-use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -194,11 +193,10 @@ impl MetricsStore {
 
 /// Start the sampler. Runs for the app's lifetime; skips ticks while
 /// disconnected and when a poll overruns the interval. Each tick is also
-/// written to the SQLite database at `db_path`, and history is reloaded
-/// from it when the endpoint changes (including the first tick after launch).
-pub fn spawn(manager: Arc<DockerSessionManager>, store: Arc<MetricsStore>, db_path: PathBuf) {
+/// written through `db`, and history is reloaded from it when the endpoint
+/// changes (including the first tick after launch).
+pub fn spawn(manager: Arc<DockerSessionManager>, store: Arc<MetricsStore>, db: MetricsDb) {
     tauri::async_runtime::spawn(async move {
-        let db = MetricsDb::open_or_memory(&db_path).await;
         let mut ticker = interval(INTERVAL);
         ticker.set_missed_tick_behavior(MissedTickBehavior::Skip);
         let mut ticks: u64 = 0;
@@ -574,7 +572,7 @@ mod tests {
 
     #[tokio::test]
     async fn restored_history_is_readable_but_never_used_for_deltas() {
-        let db = MetricsDb::memory().await;
+        let db = MetricsDb::new(crate::db::memory().await);
         let first = MetricsStore::default();
         first.set_endpoint("one".into());
         let mut added = first.record(0, ids(&["a"]), vec![("a".into(), reading(0, 0, 0))]);

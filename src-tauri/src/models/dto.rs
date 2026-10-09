@@ -84,7 +84,9 @@ pub struct VolumeItemDto {
     pub driver: String,
     pub mountpoint: String,
     pub created_at: String,
-    pub size_bytes: i64,
+    /// `None` until the first disk-usage measurement completes.
+    pub size_bytes: Option<i64>,
+    pub size_measured_at: Option<i64>,
     pub in_use: bool,
     pub ref_count: i64,
 }

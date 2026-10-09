@@ -39,6 +39,9 @@ images, and volumes. Built with [Tauri 2](https://tauri.app), React, and
 ### Volumes
 
 - A dot shows whether each volume is mounted or orphaned; hover for the container count.
+- Volume sizes are measured by Docker, which is slow on large data sets. The list
+  loads immediately from the last cached sizes, and a background refresh updates the
+  cache and the page when it finishes.
 - Volume detail page with Docker-reported size, driver, options, labels, and the
   containers that mount it.
 - Volumes in use can't be deleted, and deleting asks for confirmation. Prune removes

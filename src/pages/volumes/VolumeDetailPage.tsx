@@ -136,7 +136,14 @@ export default function VolumeDetailPage() {
       ),
       onOk: () => remove.mutateAsync(),
     });
-  const size = summary ? (summary.sizeBytes === 0 ? "0 B" : formatBytes(summary.sizeBytes)) : "Unknown";
+  const size =
+    summary === undefined
+      ? "Unknown"
+      : summary.sizeBytes === null
+        ? "Not measured yet"
+        : summary.sizeBytes === 0
+          ? "0 B"
+          : formatBytes(summary.sizeBytes);
   const labels = Object.entries(volume.labels).sort(([a], [b]) => a.localeCompare(b));
   const options = Object.entries(volume.options).sort(([a], [b]) => a.localeCompare(b));
   const project = volume.labels["com.docker.compose.project"];

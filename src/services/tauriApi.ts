@@ -270,6 +270,11 @@ export function listVolumes(): Promise<VolumeItem[]> {
   return call("list_volumes", {}, z.array(VolumeItemSchema));
 }
 
+/** Slow disk-usage pass; updates the cached sizes that `listVolumes` returns. */
+export function refreshVolumeSizes(): Promise<void> {
+  return callVoid("refresh_volume_sizes", {});
+}
+
 export function getVolumeDetail(name: string): Promise<VolumeDetail> {
   return call("volume_detail", { name }, VolumeDetailSchema);
 }

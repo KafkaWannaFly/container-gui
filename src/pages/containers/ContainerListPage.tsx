@@ -1,11 +1,13 @@
 import {
   DeleteOutlined,
+  ExpandAltOutlined,
   FileTextOutlined,
   InfoCircleOutlined,
   MinusCircleOutlined,
   PauseCircleOutlined,
   PlayCircleOutlined,
   ReloadOutlined,
+  ShrinkOutlined,
   StopOutlined,
   SyncOutlined,
 } from "@ant-design/icons";
@@ -17,7 +19,7 @@ import {
   Empty,
   Input,
   Popconfirm,
-  Segmented,
+  Select,
   Spin,
   Table,
   type TableColumnsType,
@@ -156,8 +158,7 @@ export default function ContainerListPage() {
     return map;
   }, [liveStats]);
 
-  // Compose members collapse into one parent row. Single-member projects
-  // stay flat so they don't nest for nothing.
+  // Every compose project collapses into one parent row, even with a single container.
   const tree = useMemo<Row[]>(() => {
     const buckets = new Map<string, ContainerRow[]>();
     const order: ({ type: "container"; row: ContainerRow } | { type: "group"; project: string })[] = [];
@@ -183,26 +184,18 @@ export default function ContainerListPage() {
         continue;
       }
       const children = buckets.get(entry.project) ?? [];
-      if (children.length >= 2) {
-        result.push({ kind: "group", key: `compose:${entry.project}`, project: entry.project, children });
-      } else {
-        result.push(...children);
-      }
+      result.push({ kind: "group", key: `compose:${entry.project}`, project: entry.project, children });
     }
     return result;
   }, [rows]);
 
   // Expand newly discovered groups, keep the user's collapse choices.
+  // `seenGroups` changes outside the updater: StrictMode runs updaters twice.
   useEffect(() => {
     const keys = tree.flatMap((row) => (row.kind === "group" ? [row.key] : []));
-    setExpanded((prev) => {
-      const kept = prev.filter((key) => keys.includes(String(key)));
-      const added = keys.filter((key) => !seenGroups.current.has(key));
-      added.forEach((key) => {
-        seenGroups.current.add(key);
-      });
-      return [...kept, ...added];
-    });
+    const added = keys.filter((key) => !seenGroups.current.has(key));
+    for (const key of added) seenGroups.current.add(key);
+    setExpanded((prev) => [...prev.filter((key) => keys.includes(String(key))), ...added]);
   }, [tree]);
 
   const treeTable = useAnimatedTree({
@@ -278,7 +271,9 @@ export default function ContainerListPage() {
             <Link to={`/containers/group/${encodeURIComponent(row.project)}`} className="row-link">
               {row.project}
             </Link>
-            <span className="mono dim">{row.children.length} containers</span>
+            <span className="mono dim">
+              {row.children.length} container{row.children.length === 1 ? "" : "s"}
+            </span>
           </span>
         ) : (
           <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
@@ -517,8 +512,8 @@ export default function ContainerListPage() {
                         okType: "danger",
                         content: (
                           <span>
-                            <Mono>{row.project}</Mono> and its {row.children.length} containers will be
-                            stopped and deleted.
+                            <Mono>{row.project}</Mono> and its {row.children.length} container
+                            {row.children.length === 1 ? "" : "s"} will be stopped and deleted.
                           </span>
                         ),
                         onOk: () => runGroupBatch(row.children, "remove"),
@@ -640,16 +635,24 @@ export default function ContainerListPage() {
             onChange={(e) => setSearch(e.target.value)}
             style={{ width: 240 }}
           />
-          <Segmented
+          <Select
             value={state}
             onChange={(value) => setState(String(value))}
+            style={{ width: 150 }}
             options={[
-              { label: "All", value: "all" },
+              { label: "All statuses", value: "all" },
               { label: "Running", value: "running" },
               { label: "Paused", value: "paused" },
               { label: "Exited", value: "exited" },
             ]}
           />
+          <Tooltip title={treeTable.allExpanded ? "Collapse all" : "Expand all"}>
+            <Button
+              icon={treeTable.allExpanded ? <ShrinkOutlined /> : <ExpandAltOutlined />}
+              disabled={!treeTable.hasGroups}
+              onClick={treeTable.toggleAll}
+            />
+          </Tooltip>
           <span className="spacer" />
           <span
             className="dim"

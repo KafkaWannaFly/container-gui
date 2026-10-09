@@ -2,12 +2,14 @@ import {
   ClearOutlined,
   CloudDownloadOutlined,
   DeleteOutlined,
+  ExpandAltOutlined,
   HistoryOutlined,
   InfoCircleOutlined,
+  ShrinkOutlined,
   TagOutlined,
 } from "@ant-design/icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { App, Button, Empty, Input, Popconfirm, Spin, Table, type TableColumnsType } from "antd";
+import { App, Button, Empty, Input, Popconfirm, Spin, Table, type TableColumnsType, Tooltip } from "antd";
 import { formatDistanceToNow } from "date-fns";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -195,14 +197,12 @@ export default function ImageListPage() {
   }, [groups, needle]);
 
   // Expand newly discovered groups, keep the user's collapse choices.
+  // `seenGroups` changes outside the updater: StrictMode runs updaters twice.
   useEffect(() => {
     const keys = groups.filter((r) => r.isGroup).map((r) => r.key);
-    setExpanded((prev) => {
-      const kept = prev.filter((key) => keys.includes(String(key)));
-      const added = keys.filter((key) => !seenGroups.current.has(key));
-      for (const key of added) seenGroups.current.add(key);
-      return [...kept, ...added];
-    });
+    const added = keys.filter((key) => !seenGroups.current.has(key));
+    for (const key of added) seenGroups.current.add(key);
+    setExpanded((prev) => [...prev.filter((key) => keys.includes(String(key))), ...added]);
   }, [groups]);
 
   const treeTable = useAnimatedTree({
@@ -396,6 +396,13 @@ export default function ImageListPage() {
             onChange={(e) => setSearch(e.target.value)}
             style={{ width: 260 }}
           />
+          <Tooltip title={treeTable.allExpanded ? "Collapse all" : "Expand all"}>
+            <Button
+              icon={treeTable.allExpanded ? <ShrinkOutlined /> : <ExpandAltOutlined />}
+              disabled={!treeTable.hasGroups}
+              onClick={treeTable.toggleAll}
+            />
+          </Tooltip>
           <span className="spacer" />
           {selected.length > 0 ? (
             <span className="dim" style={{ fontSize: 12 }}>
