@@ -1,30 +1,21 @@
-use std::path::PathBuf;
-
 use tauri::State;
 
-use crate::AppState;
-use crate::error::{AppError, AppResult};
+use crate::app::AppState;
+use crate::error::AppResult;
 use crate::models::dto::{DirListingDto, FileContentDto, FsChangeDto};
-use crate::services::files_service;
-
-/// Entries per listing by default; the UI can ask for more.
-const DEFAULT_LIST_LIMIT: usize = 1_000;
-const MAX_LIST_LIMIT: usize = 20_000;
-/// Preview cap: large files are downloaded, not rendered.
-const DEFAULT_PREVIEW_BYTES: u64 = 1024 * 1024;
 
 /// Write text the UI already holds (env export, Dockerfile, file preview) to
 /// the path the user chose in the save dialog. Returns the full path.
 #[tauri::command]
-pub async fn save_text_to_file(dest: String, contents: String) -> AppResult<String> {
-    tokio::fs::write(&dest, contents)
-        .await
-        .map_err(|err| AppError::Message(format!("Could not write {dest}: {err}")))?;
-    Ok(dest)
+pub async fn save_text_to_file(
+    state: State<'_, AppState>,
+    dest: String,
+    contents: String,
+) -> AppResult<String> {
+    state.files.save_text(dest, contents).await
 }
 
-/// List one directory (running containers only). Uses `find`/`stat`, or the
-/// archive endpoint when the image has no shell.
+/// List one directory (running containers only).
 #[tauri::command]
 pub async fn list_container_dir(
     state: State<'_, AppState>,
@@ -32,9 +23,7 @@ pub async fn list_container_dir(
     path: String,
     limit: Option<usize>,
 ) -> AppResult<DirListingDto> {
-    let client = state.manager.required_client().await?;
-    let limit = limit.unwrap_or(DEFAULT_LIST_LIMIT).clamp(1, MAX_LIST_LIMIT);
-    files_service::list_dir(&client, &id, &path, limit).await
+    state.files.list_dir(&id, &path, limit).await
 }
 
 /// Read up to `max_bytes` of a path; works on stopped containers too.
@@ -45,9 +34,7 @@ pub async fn read_container_file(
     path: String,
     max_bytes: Option<u64>,
 ) -> AppResult<FileContentDto> {
-    let client = state.manager.required_client().await?;
-    let max = max_bytes.unwrap_or(DEFAULT_PREVIEW_BYTES);
-    files_service::read_file(&client, &id, &path, max).await
+    state.files.read_file(&id, &path, max_bytes).await
 }
 
 #[tauri::command]
@@ -55,8 +42,7 @@ pub async fn container_changes(
     state: State<'_, AppState>,
     id: String,
 ) -> AppResult<Vec<FsChangeDto>> {
-    let client = state.manager.required_client().await?;
-    files_service::changes(&client, &id).await
+    state.files.changes(&id).await
 }
 
 /// Save a file (or a directory as .tar) to the path the user chose in the
@@ -69,11 +55,5 @@ pub async fn save_container_path(
     as_archive: bool,
     dest: String,
 ) -> AppResult<String> {
-    let client = state.manager.required_client().await?;
-    let dest = PathBuf::from(dest);
-    if let Err(err) = files_service::save_path(&client, &id, &path, &dest, as_archive).await {
-        let _ = tokio::fs::remove_file(&dest).await;
-        return Err(err);
-    }
-    Ok(dest.display().to_string())
+    state.files.save_path(&id, &path, as_archive, dest).await
 }

@@ -1,30 +1,29 @@
-use tauri::State;
+use std::sync::Arc;
 
-use crate::AppState;
+use tauri::State;
+use tauri::ipc::Channel;
+
+use crate::app::AppState;
 use crate::error::AppResult;
 use crate::models::dto::{ImageItemDto, ImagePullProgressDto, LayerHistoryItemDto};
-use crate::services::image_service;
 
 #[tauri::command]
 pub async fn list_images(state: State<'_, AppState>) -> AppResult<Vec<ImageItemDto>> {
-    let client = state.manager.required_client().await?;
-    image_service::list_images(&client).await
+    state.images.list().await
 }
 
 #[tauri::command]
 pub async fn pull_image(
     state: State<'_, AppState>,
     image_name: String,
-    on_progress: tauri::ipc::Channel<ImagePullProgressDto>,
+    on_progress: Channel<ImagePullProgressDto>,
 ) -> AppResult<()> {
-    let client = state.manager.required_client().await?;
-    image_service::spawn_pull(client, state.streams.clone(), image_name, on_progress);
-    Ok(())
+    state.images.pull(image_name, Arc::new(on_progress)).await
 }
 
 #[tauri::command]
 pub async fn cancel_pull(state: State<'_, AppState>, image_name: String) -> AppResult<()> {
-    state.streams.cancel_pull(&image_name);
+    state.images.cancel_pull(&image_name);
     Ok(())
 }
 
@@ -33,8 +32,7 @@ pub async fn image_history(
     state: State<'_, AppState>,
     image: String,
 ) -> AppResult<Vec<LayerHistoryItemDto>> {
-    let client = state.manager.required_client().await?;
-    image_service::image_history(&client, &image).await
+    state.images.history(&image).await
 }
 
 /// Raw image inspect JSON (config, digests, platform).
@@ -43,8 +41,7 @@ pub async fn inspect_image(
     state: State<'_, AppState>,
     image: String,
 ) -> AppResult<serde_json::Value> {
-    let client = state.manager.required_client().await?;
-    image_service::inspect_image(&client, &image).await
+    state.images.inspect(&image).await
 }
 
 #[tauri::command]
@@ -54,18 +51,15 @@ pub async fn tag_image(
     repo: String,
     tag: String,
 ) -> AppResult<()> {
-    let client = state.manager.required_client().await?;
-    image_service::tag_image(&client, &id, &repo, &tag).await
+    state.images.tag(&id, &repo, &tag).await
 }
 
 #[tauri::command]
 pub async fn remove_image(state: State<'_, AppState>, id: String, force: bool) -> AppResult<()> {
-    let client = state.manager.required_client().await?;
-    image_service::remove_image(&client, &id, force).await
+    state.images.remove(&id, force).await
 }
 
 #[tauri::command]
 pub async fn prune_images(state: State<'_, AppState>, dangling_only: bool) -> AppResult<i64> {
-    let client = state.manager.required_client().await?;
-    image_service::prune_images(&client, dangling_only).await
+    state.images.prune(dangling_only).await
 }

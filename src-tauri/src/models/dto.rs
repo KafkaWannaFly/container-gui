@@ -297,16 +297,6 @@ pub enum ConnectionKind {
     Tcp,
 }
 
-impl ConnectionKind {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            ConnectionKind::Unix => "unix",
-            ConnectionKind::Npipe => "npipe",
-            ConnectionKind::Tcp => "tcp",
-        }
-    }
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ConnectionConfig {
@@ -319,19 +309,10 @@ pub struct ConnectionConfig {
 pub enum ConnectionState {
     Connected,
     Standby,
+    #[allow(dead_code, reason = "part of the frontend's status schema")]
     Connecting,
+    #[allow(dead_code, reason = "part of the frontend's status schema")]
     Error,
-}
-
-impl ConnectionState {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            ConnectionState::Connected => "connected",
-            ConnectionState::Standby => "standby",
-            ConnectionState::Connecting => "connecting",
-            ConnectionState::Error => "error",
-        }
-    }
 }
 
 #[derive(Debug, Clone, Serialize)]

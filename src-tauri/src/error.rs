@@ -45,6 +45,15 @@ impl AppError {
         }
     }
 
+    /// Message for an error reported inside a stream event: the engine's own
+    /// text, without the `Docker error:` prefix.
+    pub fn detail(&self) -> String {
+        match self {
+            AppError::Docker(err) => err.to_string(),
+            other => other.to_string(),
+        }
+    }
+
     /// Translate a Bollard error, attaching the endpoint we were talking to
     /// so socket/pipe failures become actionable.
     pub fn from_bollard(err: bollard::errors::Error, endpoint: &str) -> Self {

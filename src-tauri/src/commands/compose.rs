@@ -1,22 +1,24 @@
 use tauri::State;
 
-use crate::AppState;
+use crate::app::AppState;
 use crate::error::AppResult;
 use crate::models::dto::{ComposeActionRequest, ComposeProjectDto, ComposeRunDto};
-use crate::services::compose_service;
 
 /// Merged config, raw files and metadata for one compose project.
 #[tauri::command]
 pub async fn compose_project(
-    _state: State<'_, AppState>,
+    state: State<'_, AppState>,
     workdir: String,
     files: Vec<String>,
 ) -> AppResult<ComposeProjectDto> {
-    compose_service::project(&workdir, &files).await
+    state.compose.project(&workdir, &files).await
 }
 
 /// Run an allow-listed `docker compose` lifecycle action.
 #[tauri::command]
-pub async fn compose_action(request: ComposeActionRequest) -> AppResult<ComposeRunDto> {
-    compose_service::run_action(request).await
+pub async fn compose_action(
+    state: State<'_, AppState>,
+    request: ComposeActionRequest,
+) -> AppResult<ComposeRunDto> {
+    state.compose.run_action(request).await
 }

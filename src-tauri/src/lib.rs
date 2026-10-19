@@ -1,26 +1,11 @@
+mod app;
 mod commands;
-mod db;
-mod docker;
 mod error;
 mod models;
+mod repositories;
 mod services;
 
-use std::sync::Arc;
-
 use tauri::Manager;
-
-use docker::metrics_db::MetricsDb;
-use docker::state::{DockerSessionManager, StreamRegistry};
-use docker::volume_cache::VolumeSizeCache;
-
-/// Shared application state handed to every Tauri command.
-pub struct AppState {
-    pub manager: Arc<DockerSessionManager>,
-    pub streams: Arc<StreamRegistry>,
-    pub execs: Arc<services::exec_service::ExecRegistry>,
-    pub metrics: Arc<docker::metrics::MetricsStore>,
-    pub volumes: Arc<VolumeSizeCache>,
-}
 
 /// Configure application logging. Dev builds write to `<project>/logs` (easy
 /// to tail); release builds keep the plugin defaults (stdout + OS log dir).
@@ -68,36 +53,16 @@ pub fn run() {
 
     builder
         .setup(|app| {
-            let handle = app.handle().clone();
-            let manager = Arc::new(DockerSessionManager::new(handle.clone()));
-            let streams = Arc::new(StreamRegistry::default());
-            let metrics = Arc::new(docker::metrics::MetricsStore::default());
-            // Composition root: one pool for the app's SQLite file, then each
-            // repository is built once and handed the pool. The app data dir
-            // falls back to temp, and the pool to in-memory, when unusable.
+            // The app data dir falls back to temp, and the pool to in-memory,
+            // when unusable.
             let data_dir = app
                 .path()
                 .app_data_dir()
                 .unwrap_or_else(|_| std::env::temp_dir().join("container-gui"));
-            let pool = tauri::async_runtime::block_on(db::open_or_memory(&data_dir.join("app.db")));
-            let metrics_db = MetricsDb::new(pool.clone());
-            let volumes = Arc::new(VolumeSizeCache::new(pool));
-            app.manage(AppState {
-                manager: manager.clone(),
-                streams,
-                execs: Arc::default(),
-                metrics: metrics.clone(),
-                volumes,
-            });
-
-            // Connect first, then start the event worker so it subscribes
-            // against a live client.
-            tauri::async_runtime::spawn(async move {
-                manager.connect_default().await;
-                docker::events::spawn(handle, manager.clone());
-                docker::metrics::spawn(manager, metrics, metrics_db);
-            });
-
+            let composition =
+                tauri::async_runtime::block_on(app::bootstrap::build(app.handle(), &data_dir));
+            composition.start_workers();
+            app.manage(composition.state);
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

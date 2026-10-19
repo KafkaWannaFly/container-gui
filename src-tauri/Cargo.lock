@@ -675,8 +675,10 @@ name = "container-gui"
 version = "0.6.1"
 dependencies = [
  "astral-tokio-tar",
+ "async-trait",
  "bollard",
  "bon",
+ "bytes",
  "futures-util",
  "log",
  "serde",

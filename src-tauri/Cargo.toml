@@ -32,6 +32,8 @@ futures-util = "0.3"
 astral-tokio-tar = "0.7.0"
 tokio-util = { version = "0.7.19", features = ["io"] }
 sqlx = { version = "0.9.0", default-features = false, features = ["sqlite-bundled", "runtime-tokio", "macros", "migrate"] }
+async-trait = "0.1.92"
+bytes = "1.12.1"
 
 [dev-dependencies]
 tokio = { version = "1.53", features = ["full", "test-util"] }

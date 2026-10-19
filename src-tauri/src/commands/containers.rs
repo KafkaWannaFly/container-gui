@@ -1,20 +1,20 @@
-use tauri::State;
+use std::sync::Arc;
 
-use crate::AppState;
+use tauri::State;
+use tauri::ipc::Channel;
+
+use crate::app::AppState;
 use crate::error::AppResult;
 use crate::models::dto::{
     ContainerSummaryDto, LogEventDto, LogStreamOptions, MetricsLatestDto, MetricsSeriesDto,
 };
-use crate::services::container_service::{self, ContainerListFilter};
 
 #[tauri::command]
 pub async fn list_containers(
     state: State<'_, AppState>,
     all: bool,
 ) -> AppResult<Vec<ContainerSummaryDto>> {
-    let client = state.manager.required_client().await?;
-    let filter = ContainerListFilter::builder().all(all).build();
-    container_service::list_containers(&client, &filter).await
+    state.containers.list(all).await
 }
 
 /// Newest collector sample per live container (all, or just `ids`).
@@ -35,8 +35,7 @@ pub async fn metrics_series(
     since: Option<i64>,
     max_points: Option<usize>,
 ) -> AppResult<MetricsSeriesDto> {
-    let now = crate::docker::metrics::now_ms();
-    Ok(state.metrics.series(&ids, since, max_points, now))
+    Ok(state.metrics.series(&ids, since, max_points))
 }
 
 #[tauri::command]
@@ -44,8 +43,7 @@ pub async fn inspect_container(
     state: State<'_, AppState>,
     id: String,
 ) -> AppResult<serde_json::Value> {
-    let client = state.manager.required_client().await?;
-    container_service::inspect_container(&client, &id).await
+    state.containers.inspect(&id).await
 }
 
 #[tauri::command]
@@ -54,9 +52,7 @@ pub async fn container_action(
     id: String,
     action: String,
 ) -> AppResult<()> {
-    let client = state.manager.required_client().await?;
-    let action = container_service::ContainerAction::parse(&action)?;
-    container_service::execute_action(&client, &id, action).await
+    state.containers.action(&id, &action).await
 }
 
 #[tauri::command]
@@ -65,18 +61,12 @@ pub async fn stream_container_logs(
     id: String,
     stream_id: String,
     options: LogStreamOptions,
-    on_event: tauri::ipc::Channel<LogEventDto>,
+    on_event: Channel<LogEventDto>,
 ) -> AppResult<()> {
-    let client = state.manager.required_client().await?;
-    container_service::spawn_log_stream(
-        client,
-        state.streams.clone(),
-        id,
-        stream_id,
-        options,
-        on_event,
-    );
-    Ok(())
+    state
+        .containers
+        .stream_logs(id, stream_id, options, Arc::new(on_event))
+        .await
 }
 
 /// Write the container's full log (both streams, with timestamps) to the path
@@ -88,10 +78,7 @@ pub async fn save_container_logs(
     id: String,
     dest: String,
 ) -> AppResult<String> {
-    let client = state.manager.required_client().await?;
-    let dest = std::path::PathBuf::from(dest);
-    container_service::write_logs(&client, &id, &dest).await?;
-    Ok(dest.display().to_string())
+    state.containers.save_logs(&id, &dest).await
 }
 
 /// Cancel any log or exec stream by the id its caller registered.

@@ -1,15 +1,16 @@
-use tauri::State;
+use std::sync::Arc;
 
-use crate::AppState;
+use tauri::State;
+use tauri::ipc::Channel;
+
+use crate::app::AppState;
 use crate::error::AppResult;
 use crate::models::dto::{ExecEventDto, ExecProbeDto, ExecStartOptions};
-use crate::services::exec_service;
 
 /// Shells, users and distro available inside a running container.
 #[tauri::command]
 pub async fn exec_probe(state: State<'_, AppState>, id: String) -> AppResult<ExecProbeDto> {
-    let client = state.manager.required_client().await?;
-    exec_service::probe(&client, &id).await
+    state.exec.probe(&id).await
 }
 
 /// Start an interactive session; output arrives on `on_event`, input goes
@@ -20,19 +21,12 @@ pub async fn exec_start(
     id: String,
     stream_id: String,
     options: ExecStartOptions,
-    on_event: tauri::ipc::Channel<ExecEventDto>,
+    on_event: Channel<ExecEventDto>,
 ) -> AppResult<()> {
-    let client = state.manager.required_client().await?;
-    exec_service::start(
-        client,
-        state.streams.clone(),
-        state.execs.clone(),
-        id,
-        stream_id,
-        options,
-        on_event,
-    )
-    .await
+    state
+        .exec
+        .start(id, stream_id, options, Arc::new(on_event))
+        .await
 }
 
 #[tauri::command]
@@ -41,7 +35,7 @@ pub async fn exec_input(
     stream_id: String,
     data: String,
 ) -> AppResult<()> {
-    state.execs.write(&stream_id, data.into_bytes())
+    state.exec.input(&stream_id, data.into_bytes())
 }
 
 #[tauri::command]
@@ -51,6 +45,5 @@ pub async fn exec_resize(
     cols: u16,
     rows: u16,
 ) -> AppResult<()> {
-    let client = state.manager.required_client().await?;
-    exec_service::resize(&client, &state.execs, &stream_id, cols, rows).await
+    state.exec.resize(&stream_id, cols, rows).await
 }
