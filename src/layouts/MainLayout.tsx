@@ -50,7 +50,6 @@ function ConnectionBadge() {
 
 export default function MainLayout() {
   const location = useLocation();
-  useDockerEvents();
 
   const {
     data: status,
@@ -66,6 +65,11 @@ export default function MainLayout() {
   // Detail routes (/containers/:id) keep their section's title.
   const section = `/${location.pathname.split("/")[1] ?? ""}`;
   const title = TITLES[section] ?? "Container GUI";
+  // Preferences hosts the backend switcher, so it must stay reachable while Docker is down.
+  const preferences = section === "/settings";
+  const showStandby = standby && !preferences;
+  const showSpinner = status == null && !preferences;
+  useDockerEvents(preferences);
 
   const nav = useMemo(
     () =>
@@ -120,7 +124,7 @@ export default function MainLayout() {
           <ConnectionBadge />
         </div>
 
-        {standby ? (
+        {showStandby ? (
           <div style={{ display: "flex", justifyContent: "center", paddingTop: 80 }}>
             <Result
               status="warning"
@@ -135,7 +139,7 @@ export default function MainLayout() {
               }
             />
           </div>
-        ) : status == null ? (
+        ) : showSpinner ? (
           <div style={{ display: "flex", justifyContent: "center", paddingTop: 120 }}>
             <Spin />
           </div>

@@ -8,8 +8,9 @@ import { DockerEventSchema, DockerStatusSchema } from "../types/docker";
 /**
  * Bridges the backend Docker event stream into React Query cache
  * invalidation, and surfaces connection state changes as notifications.
+ * `quiet` suppresses the standby notifications (e.g. on the Preferences page).
  */
-export function useDockerEvents() {
+export function useDockerEvents(quiet = false) {
   const queryClient = useQueryClient();
   const { notification } = App.useApp();
 
@@ -55,7 +56,7 @@ export function useDockerEvents() {
           const status = parsed.data;
           queryClient.setQueryData(queryKeys.status(), status);
           if (status.state === "standby" || status.state === "error") {
-            if (lastStandby !== status.message) {
+            if (!quiet && lastStandby !== status.message) {
               lastStandby = status.message;
               notification.error({
                 message: "Docker engine unreachable",
@@ -87,7 +88,7 @@ export function useDockerEvents() {
       });
       unlisteners = [];
     };
-  }, [queryClient, notification]);
+  }, [queryClient, notification, quiet]);
 }
 
 /**
