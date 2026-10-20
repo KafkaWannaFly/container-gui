@@ -2,7 +2,7 @@ import { ApiOutlined, CloudDownloadOutlined, LinkOutlined, SyncOutlined } from "
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getTauriVersion, getVersion } from "@tauri-apps/api/app";
 import { App, Button, Divider, Input, Progress, Select, Switch } from "antd";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAppUpdater } from "../../hooks/useAppUpdater";
 import { queryKeys } from "../../lib/queryClient";
 import {
@@ -78,6 +78,7 @@ export default function SettingsPage() {
   const [context, setContext] = useState<string | undefined>();
   const [kind, setKind] = useState<string>("context");
   const [value, setValue] = useState("");
+  const initialized = useRef(false);
   const [ping, setPing] = useState<DockerStatus | null>(null);
   const [toggles, setToggles] = useState<Record<string, boolean>>({
     autoRefresh: true,
@@ -98,9 +99,17 @@ export default function SettingsPage() {
     if (contexts.data?.length && !context) {
       const def = contexts.data.find((c) => c.name === "default") ?? contexts.data[0];
       setContext(def.name);
-      setValue(def.host);
+      if (!initialized.current) setValue(def.host);
     }
   }, [contexts.data, context]);
+
+  useEffect(() => {
+    const endpoint = status.data?.endpoint;
+    if (!endpoint || initialized.current) return;
+    initialized.current = true;
+    setKind(kindFromHost(endpoint));
+    setValue(endpoint);
+  }, [status.data?.endpoint]);
 
   const config = (): ConnectionConfig => {
     if (kind !== "context") return { kind: kind as ConnectionConfig["kind"], value };
