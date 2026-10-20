@@ -12,6 +12,7 @@ import {
   ReloadOutlined,
 } from "@ant-design/icons";
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { useDebounceFn } from "ahooks";
 import { Button, Descriptions, Dropdown, type MenuProps, Table, Tooltip } from "antd";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
@@ -88,6 +89,7 @@ export default function InfoTab({
 }) {
   const { closed, onToggle, button } = useSections(SECTIONS);
   const [flash, setFlash] = useState<string | null>(null);
+  const { run: clearFlash } = useDebounceFn(() => setFlash(null), { wait: 1200 });
 
   const nameOf = (ctr: ContainerSummary) => (ctr.names[0] ?? ctr.id.slice(0, 12)).replace(/^\//, "");
   const created = containers.reduce(
@@ -579,7 +581,7 @@ export default function InfoTab({
           states={serviceStates}
           onPick={(name) => {
             setFlash(name);
-            setTimeout(() => setFlash(null), 1200);
+            clearFlash();
           }}
         />
       </Section>

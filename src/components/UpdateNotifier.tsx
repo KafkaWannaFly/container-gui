@@ -1,3 +1,4 @@
+import { useMount } from "ahooks";
 import { App, Button, Progress } from "antd";
 import { useEffect } from "react";
 import { useAppUpdater } from "../hooks/useAppUpdater";
@@ -9,9 +10,9 @@ export default function UpdateNotifier() {
   const { notification } = App.useApp();
   const { status, update, percent, error, checkForUpdate, installUpdate } = useAppUpdater();
 
-  useEffect(() => {
+  useMount(() => {
     if (!import.meta.env.DEV) void checkForUpdate();
-  }, [checkForUpdate]);
+  });
 
   useEffect(() => {
     if (!update) return;

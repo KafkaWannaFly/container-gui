@@ -121,7 +121,7 @@ export default function ContainerListPage() {
   const actionMutation = useMutation({
     mutationFn: ({ id, action }: { id: string; action: ActionKind }) => containerAction(id, action),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["containers"] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.containersPrefix() });
       void queryClient.invalidateQueries({ queryKey: queryKeys.system() });
     },
     onError: (err: Error) => message.error(err.message),
@@ -669,7 +669,7 @@ export default function ContainerListPage() {
             <Tooltip title="Refresh">
               <Button
                 icon={<SyncOutlined />}
-                onClick={() => void queryClient.invalidateQueries({ queryKey: ["containers"] })}
+                onClick={() => void queryClient.invalidateQueries({ queryKey: queryKeys.containersPrefix() })}
               />
             </Tooltip>
             <Tooltip title="Start">

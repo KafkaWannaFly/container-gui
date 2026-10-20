@@ -16,6 +16,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 import { Mono, StateDot } from "../../../components/ui";
 import { usePersistentState } from "../../../hooks/usePersistentState";
+import { queryKeys } from "../../../lib/queryClient";
 import { type ExecSession, execProbe, startExec } from "../../../services/tauriApi";
 import { cheatSheet } from "./cheatsheet";
 import { containerName, type TabProps } from "./model";
@@ -51,7 +52,7 @@ export default function ExecTab({ ctr, onCopy }: TabProps) {
   const execRef = useRef<ExecSession | null>(null);
 
   const probe = useQuery({
-    queryKey: ["exec-probe", id],
+    queryKey: queryKeys.execProbe(id),
     queryFn: () => execProbe(id),
     enabled: running,
     retry: false,

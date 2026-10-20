@@ -1,7 +1,8 @@
 import { CloudDownloadOutlined } from "@ant-design/icons";
 import { useQueryClient } from "@tanstack/react-query";
+import { useUnmount } from "ahooks";
 import { App, Button, Divider, Input, Modal, Progress } from "antd";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Mono } from "../../../components/ui";
 import { queryKeys } from "../../../lib/queryClient";
 import { pullImage } from "../../../services/tauriApi";
@@ -30,15 +31,16 @@ export default function PullImageModal({ open, onClose }: Props) {
   const [layers, setLayers] = useState<Record<string, LayerState>>({});
   const disposeRef = useRef<(() => void) | null>(null);
 
-  useEffect(() => {
-    if (!open) {
-      disposeRef.current?.();
-      disposeRef.current = null;
-      setPulling(false);
-    }
-  }, [open]);
-
-  useEffect(() => () => disposeRef.current?.(), []);
+  const stop = () => {
+    disposeRef.current?.();
+    disposeRef.current = null;
+    setPulling(false);
+  };
+  const close = () => {
+    stop();
+    onClose();
+  };
+  useUnmount(() => disposeRef.current?.());
 
   const onProgress = (progress: ImagePullProgress) => {
     const id = progress.id || progress.status;
@@ -73,11 +75,11 @@ export default function PullImageModal({ open, onClose }: Props) {
   return (
     <Modal
       open={open}
-      onCancel={onClose}
+      onCancel={close}
       title="Pull image"
       width={560}
       footer={[
-        <Button key="cancel" onClick={onClose} disabled={pulling}>
+        <Button key="cancel" onClick={close} disabled={pulling}>
           Close
         </Button>,
         <Button key="pull" type="primary" icon={<CloudDownloadOutlined />} loading={pulling} onClick={start}>

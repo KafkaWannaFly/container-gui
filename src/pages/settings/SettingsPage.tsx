@@ -2,7 +2,7 @@ import { ApiOutlined, CloudDownloadOutlined, LinkOutlined, SyncOutlined } from "
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getTauriVersion, getVersion } from "@tauri-apps/api/app";
 import { App, Button, Divider, Input, Progress, Select, Switch } from "antd";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useAppUpdater } from "../../hooks/useAppUpdater";
 import { queryKeys } from "../../lib/queryClient";
 import {
@@ -75,10 +75,10 @@ function UpdateControls() {
 export default function SettingsPage() {
   const { message } = App.useApp();
   const queryClient = useQueryClient();
-  const [context, setContext] = useState<string | undefined>();
-  const [kind, setKind] = useState<string>("context");
-  const [value, setValue] = useState("");
-  const initialized = useRef(false);
+  // Form fields fall back to what the backend reports until the user edits them.
+  const [contextChoice, setContext] = useState<string | undefined>();
+  const [kindChoice, setKind] = useState<string | undefined>();
+  const [valueChoice, setValue] = useState<string | undefined>();
   const [ping, setPing] = useState<DockerStatus | null>(null);
   const [toggles, setToggles] = useState<Record<string, boolean>>({
     autoRefresh: true,
@@ -95,21 +95,11 @@ export default function SettingsPage() {
     staleTime: Number.POSITIVE_INFINITY,
   });
 
-  useEffect(() => {
-    if (contexts.data?.length && !context) {
-      const def = contexts.data.find((c) => c.name === "default") ?? contexts.data[0];
-      setContext(def.name);
-      if (!initialized.current) setValue(def.host);
-    }
-  }, [contexts.data, context]);
-
-  useEffect(() => {
-    const endpoint = status.data?.endpoint;
-    if (!endpoint || initialized.current) return;
-    initialized.current = true;
-    setKind(kindFromHost(endpoint));
-    setValue(endpoint);
-  }, [status.data?.endpoint]);
+  const defaultContext = contexts.data?.find((c) => c.name === "default") ?? contexts.data?.[0];
+  const endpoint = status.data?.endpoint;
+  const context = contextChoice ?? defaultContext?.name;
+  const kind = kindChoice ?? (endpoint ? kindFromHost(endpoint) : "context");
+  const value = valueChoice ?? endpoint ?? defaultContext?.host ?? "";
 
   const config = (): ConnectionConfig => {
     if (kind !== "context") return { kind: kind as ConnectionConfig["kind"], value };
@@ -131,7 +121,7 @@ export default function SettingsPage() {
     onSuccess: (result) => {
       setPing(result);
       queryClient.setQueryData(queryKeys.status(), result);
-      void queryClient.invalidateQueries({ queryKey: ["containers"] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.containersPrefix() });
       void queryClient.invalidateQueries({ queryKey: queryKeys.images() });
       void queryClient.invalidateQueries({ queryKey: queryKeys.volumes() });
       void queryClient.invalidateQueries({ queryKey: queryKeys.system() });

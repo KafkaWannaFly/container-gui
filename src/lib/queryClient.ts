@@ -11,6 +11,7 @@ export const queryClient = new QueryClient({
 });
 
 export const queryKeys = {
+  containersPrefix: () => ["containers"] as const,
   containers: (all = true) => ["containers", all] as const,
   containerStats: () => ["container-stats"] as const,
   metricsSeries: (ids: string[], maxPoints: number) => ["metrics-series", ids, maxPoints] as const,
@@ -25,4 +26,11 @@ export const queryKeys = {
   system: () => ["system-info"] as const,
   contexts: () => ["docker-contexts"] as const,
   appInfo: () => ["app-info"] as const,
+  containerChanges: (id: string) => ["container-changes", id] as const,
+  containerFile: (id: string, path: string | null) => ["container-file", id, path] as const,
+  containerDirs: (id: string) => ["container-dir", id] as const,
+  containerDir: (id: string, startedAt: string | undefined, path: string, limit: number) =>
+    ["container-dir", id, startedAt, path, limit] as const,
+  execProbe: (id: string) => ["exec-probe", id] as const,
+  updaterCheck: () => ["updater-check"] as const,
 };

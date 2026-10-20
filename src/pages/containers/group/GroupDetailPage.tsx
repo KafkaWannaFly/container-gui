@@ -116,7 +116,7 @@ export default function GroupDetailPage() {
   }, [services, containers]);
 
   const invalidate = () => {
-    void queryClient.invalidateQueries({ queryKey: ["containers"] });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.containersPrefix() });
     void queryClient.invalidateQueries({ queryKey: ["compose-project"] });
     void queryClient.invalidateQueries({ queryKey: queryKeys.containerStats() });
     void queryClient.invalidateQueries({ queryKey: ["metrics-series"] });

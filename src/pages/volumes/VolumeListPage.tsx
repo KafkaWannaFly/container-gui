@@ -1,7 +1,8 @@
 import { ClearOutlined, CopyOutlined, DeleteOutlined } from "@ant-design/icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMount } from "ahooks";
 import { App, Button, Empty, Input, Popconfirm, Spin, Table, type TableColumnsType } from "antd";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { MetricCard, Mono, Pill, RowActions, StateDot } from "../../components/ui";
 import { queryKeys } from "../../lib/queryClient";
@@ -24,10 +25,7 @@ export default function VolumeListPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.volumes() }),
     onError: (err: Error) => message.error(err.message),
   });
-  const refreshSizes = refresh.mutate;
-  useEffect(() => {
-    refreshSizes();
-  }, [refreshSizes]);
+  useMount(() => refresh.mutate());
 
   const removeMutation = useMutation({
     mutationFn: ({ name, force }: { name: string; force: boolean }) => removeVolume(name, force),

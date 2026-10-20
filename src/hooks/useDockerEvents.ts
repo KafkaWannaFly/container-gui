@@ -1,9 +1,39 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { listen } from "@tauri-apps/api/event";
+import { useLatest } from "ahooks";
 import { App } from "antd";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { z } from "zod";
 import { queryKeys } from "../lib/queryClient";
 import { DockerEventSchema, DockerStatusSchema } from "../types/docker";
+
+/**
+ * Subscribe to a Tauri event for the lifetime of the component. Payloads that
+ * fail `schema` are dropped. The handler is read through a ref, so changing it
+ * never re-subscribes.
+ */
+export function useTauriEvent<T>(name: string, schema: z.ZodType<T>, handler: (payload: T) => void) {
+  const latest = useLatest(handler);
+  useEffect(() => {
+    // Closure state, not refs: StrictMode mounts this effect twice in dev and
+    // a shared `disposed` ref would make the second run unlisten itself.
+    let disposed = false;
+    let unlisten: (() => void) | undefined;
+    listen<unknown>(name, (event) => {
+      const parsed = schema.safeParse(event.payload);
+      if (parsed.success) latest.current(parsed.data);
+    })
+      .then((fn) => {
+        if (disposed) fn();
+        else unlisten = fn;
+      })
+      .catch(() => {});
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
+  }, [name, schema, latest]);
+}
 
 /**
  * Bridges the backend Docker event stream into React Query cache
@@ -13,99 +43,47 @@ import { DockerEventSchema, DockerStatusSchema } from "../types/docker";
 export function useDockerEvents(quiet = false) {
   const queryClient = useQueryClient();
   const { notification } = App.useApp();
+  const lastStandby = useRef<string | null>(null);
 
-  useEffect(() => {
-    // Closure state, not refs: StrictMode mounts this effect twice in dev and
-    // a shared `disposed` ref would make the second run unlisten itself.
-    let disposed = false;
-    let unlisteners: UnlistenFn[] = [];
-    let lastStandby: string | null = null;
+  useTauriEvent("docker://event", DockerEventSchema, (event) => {
+    switch (event.resourceType) {
+      case "container":
+        void queryClient.invalidateQueries({ queryKey: queryKeys.containersPrefix() });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.volumes() });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.containerInspect(event.actorId) });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.system() });
+        break;
+      case "volume":
+        void queryClient.invalidateQueries({ queryKey: queryKeys.volumes() });
+        break;
+      case "image":
+        void queryClient.invalidateQueries({ queryKey: queryKeys.images() });
+        break;
+    }
+  });
 
-    void (async () => {
-      let eventUnlisten: UnlistenFn;
-      try {
-        eventUnlisten = await listen<unknown>("docker://event", (event) => {
-          const parsed = DockerEventSchema.safeParse(event.payload);
-          if (!parsed.success) return;
-          switch (parsed.data.resourceType) {
-            case "container":
-              void queryClient.invalidateQueries({ queryKey: ["containers"] });
-              void queryClient.invalidateQueries({ queryKey: queryKeys.volumes() });
-              void queryClient.invalidateQueries({
-                queryKey: queryKeys.containerInspect(parsed.data.actorId),
-              });
-              void queryClient.invalidateQueries({ queryKey: queryKeys.system() });
-              break;
-            case "volume":
-              void queryClient.invalidateQueries({ queryKey: queryKeys.volumes() });
-              break;
-            case "image":
-              void queryClient.invalidateQueries({ queryKey: queryKeys.images() });
-              break;
-          }
+  useTauriEvent("docker://status", DockerStatusSchema, (status) => {
+    queryClient.setQueryData(queryKeys.status(), status);
+    if (status.state === "standby" || status.state === "error") {
+      if (!quiet && lastStandby.current !== status.message) {
+        lastStandby.current = status.message ?? null;
+        notification.error({
+          message: "Docker engine unreachable",
+          description: status.message ?? "Retrying in the background…",
+          placement: "bottomRight",
         });
-      } catch {
-        return;
       }
-
-      let statusUnlisten: UnlistenFn;
-      try {
-        statusUnlisten = await listen<unknown>("docker://status", (event) => {
-          const parsed = DockerStatusSchema.safeParse(event.payload);
-          if (!parsed.success) return;
-          const status = parsed.data;
-          queryClient.setQueryData(queryKeys.status(), status);
-          if (status.state === "standby" || status.state === "error") {
-            if (!quiet && lastStandby !== status.message) {
-              lastStandby = status.message;
-              notification.error({
-                message: "Docker engine unreachable",
-                description: status.message ?? "Retrying in the background…",
-                placement: "bottomRight",
-              });
-            }
-          } else if (status.state === "connected") {
-            lastStandby = null;
-          }
-        });
-      } catch {
-        eventUnlisten();
-        return;
-      }
-
-      if (disposed) {
-        eventUnlisten();
-        statusUnlisten();
-      } else {
-        unlisteners = [eventUnlisten, statusUnlisten];
-      }
-    })();
-
-    return () => {
-      disposed = true;
-      unlisteners.forEach((unlisten) => {
-        unlisten();
-      });
-      unlisteners = [];
-    };
-  }, [queryClient, notification, quiet]);
+    } else if (status.state === "connected") {
+      lastStandby.current = null;
+    }
+  });
 }
 
-/**
- * Tracks the latest connection status, seeded by polling and updated by
- * backend `docker://status` events.
- */
+/** Increments each time the backend reports a (re)connection to the engine. */
 export function useReconnectSignal(): number {
   const [signal, setSignal] = useState(0);
-  useEffect(() => {
-    let unlisten: UnlistenFn | undefined;
-    void listen<unknown>("docker://status", (event) => {
-      const parsed = DockerStatusSchema.safeParse(event.payload);
-      if (parsed.success && parsed.data.state === "connected") setSignal((n) => n + 1);
-    }).then((fn) => {
-      unlisten = fn;
-    });
-    return () => unlisten?.();
-  }, []);
+  useTauriEvent("docker://status", DockerStatusSchema, (status) => {
+    if (status.state === "connected") setSignal((n) => n + 1);
+  });
   return signal;
 }

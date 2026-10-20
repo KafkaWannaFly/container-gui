@@ -17,9 +17,10 @@ import {
   StopOutlined,
 } from "@ant-design/icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInterval, useUpdate } from "ahooks";
 import { App, Button, Dropdown, type MenuProps, Result, Spin, Tabs, Tooltip } from "antd";
 import { formatDistanceToNow } from "date-fns";
-import { lazy, type ReactNode, Suspense, useEffect, useState } from "react";
+import { lazy, type ReactNode, Suspense, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Mono, Pill, StateDot } from "../../../components/ui";
 import { compactDuration, isZeroTime } from "../../../lib/format";
@@ -56,15 +57,6 @@ function useLiveStats(id: string, live: boolean): MetricSample | null {
     enabled: live,
   });
   return live ? (data?.[0] ?? null) : null;
-}
-
-/** Re-render every `ms` so relative times (uptime) stay current. */
-function useTick(ms: number) {
-  const [, setTick] = useState(0);
-  useEffect(() => {
-    const timer = setInterval(() => setTick((n) => n + 1), ms);
-    return () => clearInterval(timer);
-  }, [ms]);
 }
 
 function statusLine(ctr: ContainerInspect): string {
@@ -173,7 +165,8 @@ export default function ContainerDetailPage() {
   const { modal, message } = App.useApp();
   const [params, setParams] = useSearchParams();
   const [pending, setPending] = useState<ContainerActionKind | null>(null);
-  useTick(30_000);
+  // Re-render so relative times (uptime) stay current.
+  useInterval(useUpdate(), 30_000);
 
   const tabParam = params.get("tab");
   const tab: TabKey = TAB_KEYS.includes(tabParam as TabKey) ? (tabParam as TabKey) : "info";
@@ -203,7 +196,7 @@ export default function ContainerDetailPage() {
     onSettled: () => {
       setPending(null);
       void queryClient.invalidateQueries({ queryKey: queryKeys.containerInspect(id) });
-      void queryClient.invalidateQueries({ queryKey: ["containers"] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.containersPrefix() });
     },
     onError: (err: Error) => message.error(err.message),
   });

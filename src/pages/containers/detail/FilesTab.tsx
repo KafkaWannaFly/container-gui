@@ -15,7 +15,8 @@ import {
   ReloadOutlined,
   SearchOutlined,
 } from "@ant-design/icons";
-import { useQuery } from "@tanstack/react-query";
+import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSize } from "ahooks";
 import {
   App,
   Button,
@@ -30,12 +31,13 @@ import {
   type TreeDataNode,
 } from "antd";
 import { format } from "date-fns";
-import { Fragment, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 import CodeView, { detectLanguage } from "../../../components/CodeView";
 import { Mono, Pill } from "../../../components/ui";
 import { usePersistentState } from "../../../hooks/usePersistentState";
 import { useSaveFile } from "../../../hooks/useSaveFile";
+import { queryKeys } from "../../../lib/queryClient";
 import {
   containerChanges,
   listContainerDir,
@@ -95,17 +97,8 @@ async function readResolved(id: string, start: string): Promise<Opened> {
 /** Track an element's height for antd's virtual Tree/Table, which need a number. */
 function useHeight<T extends HTMLElement>() {
   const ref = useRef<T>(null);
-  const [height, setHeight] = useState(400);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const observer = new ResizeObserver(([entry]) =>
-      setHeight(Math.max(120, Math.floor(entry.contentRect.height))),
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-  return [ref, height] as const;
+  const size = useSize(ref);
+  return [ref, size ? Math.max(120, Math.floor(size.height)) : 400] as const;
 }
 
 function EntryIcon({ entry }: { entry: FsEntry }) {
@@ -160,12 +153,14 @@ function FsNote({
 
 export default function FilesTab({ ctr, onCopy, onOpenTab }: TabProps) {
   const { message } = App.useApp();
+  const queryClient = useQueryClient();
   const id = ctr.Id;
   const running = !!ctr.State?.Running;
   const [cwd, setCwd] = useState("/");
   const [open, setOpen] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string[]>(["/"]);
-  const [dirs, setDirs] = useState<Record<string, DirState>>({});
+  const [limits, setLimits] = useState<Record<string, number>>({});
+  const [growing, setGrowing] = useState<string | null>(null);
   const [q, setQ] = useState("");
   const [pathInput, setPathInput] = useState("");
   const [showHidden, setShowHidden] = usePersistentState("files.hidden", z.boolean(), false);
@@ -175,33 +170,58 @@ export default function FilesTab({ ctr, onCopy, onOpenTab }: TabProps) {
   const [bodyRef, bodyHeight] = useHeight<HTMLDivElement>();
   const save = useSaveFile();
 
-  const load = useCallback(
-    async (path: string, limit = PAGE) => {
-      setDirs((d) => ({ ...d, [path]: { ...d[path], loading: true, limit } }));
-      try {
-        const listing = await listContainerDir(id, path, limit);
-        setDirs((d) => ({ ...d, [path]: { listing, loading: false, limit } }));
-      } catch (err) {
-        setDirs((d) => ({ ...d, [path]: { error: toError(err).message, loading: false, limit } }));
-      }
-    },
-    [id],
-  );
+  // Directories requested so far (tree expansion, cwd) and their entry limits.
+  // `startedAt` is in the query key so a restarted container starts fresh.
+  const startedAt = ctr.State?.StartedAt;
+  const paths = useMemo(() => [...new Set(["/", cwd, ...Object.keys(limits)])], [cwd, limits]);
+  const dirQueries = useQueries({
+    queries: paths.map((path) => {
+      const limit = limits[path] ?? PAGE;
+      return {
+        queryKey: queryKeys.containerDir(id, startedAt, path, limit),
+        queryFn: () => listContainerDir(id, path, limit),
+        enabled: running,
+        staleTime: Number.POSITIVE_INFINITY,
+        retry: false,
+      };
+    }),
+  });
+  const dirs = useMemo(() => {
+    const result: Record<string, DirState> = {};
+    paths.forEach((path, i) => {
+      const query = dirQueries[i];
+      if (!running || !query) return;
+      result[path] = {
+        listing: query.data,
+        error: query.error ? toError(query.error).message : undefined,
+        loading: query.isFetching,
+        limit: limits[path] ?? PAGE,
+      };
+    });
+    return result;
+  }, [paths, dirQueries, limits, running]);
 
-  // A fresh start for another container or after it (re)starts.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: StartedAt marks a new container process
-  useEffect(() => {
-    setDirs({});
-    if (running) void load("/");
-  }, [id, running, ctr.State?.StartedAt, load]);
-
-  // Load the directory being viewed if the tree hasn't already.
-  useEffect(() => {
-    if (running && !dirs[cwd]) void load(cwd);
-  }, [cwd, dirs, running, load]);
+  const requestDir = (path: string) => setLimits((l) => (path in l ? l : { ...l, [path]: PAGE }));
+  const reloadDirs = () => queryClient.invalidateQueries({ queryKey: queryKeys.containerDirs(id) });
+  // Prefetch the bigger listing first so the current one stays on screen meanwhile.
+  const loadMore = async (path: string) => {
+    setGrowing(path);
+    try {
+      await queryClient.fetchQuery({
+        queryKey: queryKeys.containerDir(id, startedAt, path, MAX_PAGE),
+        queryFn: () => listContainerDir(id, path, MAX_PAGE),
+        staleTime: Number.POSITIVE_INFINITY,
+      });
+      setLimits((l) => ({ ...l, [path]: MAX_PAGE }));
+    } catch (err) {
+      message.error(toError(err).message);
+    } finally {
+      setGrowing(null);
+    }
+  };
 
   const changes = useQuery({
-    queryKey: ["container-changes", id],
+    queryKey: queryKeys.containerChanges(id),
     queryFn: () => containerChanges(id),
     staleTime: 30_000,
   });
@@ -220,7 +240,7 @@ export default function FilesTab({ ctr, onCopy, onOpenTab }: TabProps) {
       .sort((a, b) => (b.Destination?.length ?? 0) - (a.Destination?.length ?? 0))[0];
 
   const opened = useQuery({
-    queryKey: ["container-file", id, open],
+    queryKey: queryKeys.containerFile(id, open),
     queryFn: () => readResolved(id, open as string),
     enabled: open != null,
     staleTime: 10_000,
@@ -228,12 +248,13 @@ export default function FilesTab({ ctr, onCopy, onOpenTab }: TabProps) {
   });
 
   // A link that turned out to point at a directory navigates there.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `go` only sets state; run when the result changes
   useEffect(() => {
     if (opened.data?.kind === "dir") {
       setOpen(null);
       go(opened.data.path);
     }
-  });
+  }, [opened.data]);
 
   const expandTo = (path: string) => setExpanded((e) => [...new Set([...e, ...ancestors(path)])]);
   const go = (path: string) => {
@@ -254,10 +275,9 @@ export default function FilesTab({ ctr, onCopy, onOpenTab }: TabProps) {
   };
 
   const refresh = () => {
-    setDirs({});
+    void reloadDirs();
     void changes.refetch();
     if (open) void opened.refetch();
-    if (running) for (const path of new Set([cwd, ...expanded])) void load(path);
   };
 
   const visible = (e: FsEntry) => showHidden || !e.name.startsWith(".");
@@ -535,7 +555,7 @@ export default function FilesTab({ ctr, onCopy, onOpenTab }: TabProps) {
               style={{ width: 360 }}
             />
           ) : (
-            <Button icon={<ReloadOutlined />} onClick={() => void load(cwd, cwdState.limit)}>
+            <Button icon={<ReloadOutlined />} onClick={() => void reloadDirs()}>
               Retry
             </Button>
           )}
@@ -552,8 +572,8 @@ export default function FilesTab({ ctr, onCopy, onOpenTab }: TabProps) {
               <Button
                 type="link"
                 size="small"
-                loading={cwdState.loading}
-                onClick={() => void load(cwd, MAX_PAGE)}
+                loading={cwdState.loading || growing === cwd}
+                onClick={() => void loadMore(cwd)}
               >
                 Load up to {MAX_PAGE.toLocaleString()}
               </Button>
@@ -696,7 +716,7 @@ export default function FilesTab({ ctr, onCopy, onOpenTab }: TabProps) {
               expandedKeys={expanded}
               loadedKeys={loadedKeys}
               onExpand={(keys) => setExpanded(keys.map(String))}
-              loadData={(node) => load(String(node.key))}
+              loadData={async (node) => requestDir(String(node.key))}
               selectedKeys={[open ?? cwd]}
               onSelect={(_, info) => {
                 const node = info.node as unknown as { key: string; entry: FsEntry };

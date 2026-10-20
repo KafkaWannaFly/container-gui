@@ -1,6 +1,9 @@
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { check, type Update } from "@tauri-apps/plugin-updater";
-import { useCallback, useState } from "react";
+import { useMemoizedFn } from "ahooks";
+import { useState } from "react";
+import { queryKeys } from "../lib/queryClient";
 
 export type UpdaterStatus =
   | "idle"
@@ -15,57 +18,67 @@ export type UpdaterStatus =
  * Drives the Tauri updater: check the GitHub `latest.json` endpoint, then
  * download, install and relaunch. On Windows the NSIS installer closes the
  * app itself during `install`, so `relaunch` only runs on other platforms.
+ * The check is a manual query, so every consumer shares its result.
  */
 export function useAppUpdater() {
-  const [status, setStatus] = useState<UpdaterStatus>("idle");
-  const [update, setUpdate] = useState<Update | null>(null);
   const [percent, setPercent] = useState<number | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [installing, setInstalling] = useState(false);
 
-  const checkForUpdate = useCallback(async () => {
-    setStatus("checking");
-    setError(null);
-    try {
-      const found = await check();
-      setUpdate(found);
-      setStatus(found ? "available" : "up-to-date");
-      return found;
-    } catch (err) {
-      setError(String(err));
-      setStatus("error");
-      return null;
-    }
-  }, []);
+  const checkQuery = useQuery({
+    queryKey: queryKeys.updaterCheck(),
+    queryFn: () => check(),
+    enabled: false,
+    retry: false,
+    staleTime: Number.POSITIVE_INFINITY,
+  });
+  const update = checkQuery.data ?? null;
 
-  const installUpdate = useCallback(
-    async (target?: Update) => {
-      const pending = target ?? update;
-      if (!pending) return;
-      setStatus("downloading");
-      setError(null);
+  const install = useMutation({
+    mutationFn: async (target: Update) => {
       setPercent(null);
+      setInstalling(false);
       let total = 0;
       let received = 0;
-      try {
-        await pending.downloadAndInstall((event) => {
-          if (event.event === "Started") {
-            total = event.data.contentLength ?? 0;
-            setPercent(total ? 0 : null);
-          } else if (event.event === "Progress") {
-            received += event.data.chunkLength;
-            if (total) setPercent(Math.min(100, Math.round((received / total) * 100)));
-          } else {
-            setStatus("installing");
-          }
-        });
-        await relaunch();
-      } catch (err) {
-        setError(String(err));
-        setStatus("error");
-      }
+      await target.downloadAndInstall((event) => {
+        if (event.event === "Started") {
+          total = event.data.contentLength ?? 0;
+          setPercent(total ? 0 : null);
+        } else if (event.event === "Progress") {
+          received += event.data.chunkLength;
+          if (total) setPercent(Math.min(100, Math.round((received / total) * 100)));
+        } else {
+          setInstalling(true);
+        }
+      });
+      await relaunch();
     },
-    [update],
-  );
+  });
 
-  return { status, update, percent, error, checkForUpdate, installUpdate };
+  let status: UpdaterStatus = "idle";
+  if (install.isPending) status = installing ? "installing" : "downloading";
+  else if (checkQuery.isFetching) status = "checking";
+  else if (install.isError || checkQuery.isError) status = "error";
+  else if (update) status = "available";
+  else if (checkQuery.data === null) status = "up-to-date";
+
+  const failure = install.error ?? checkQuery.error;
+
+  const checkForUpdate = useMemoizedFn(async () => {
+    install.reset();
+    return (await checkQuery.refetch()).data ?? null;
+  });
+
+  const installUpdate = useMemoizedFn(async (target?: Update) => {
+    const pending = target ?? update;
+    if (pending) await install.mutateAsync(pending).catch(() => {});
+  });
+
+  return {
+    status,
+    update,
+    percent,
+    error: failure ? String(failure) : null,
+    checkForUpdate,
+    installUpdate,
+  };
 }
