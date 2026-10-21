@@ -240,8 +240,9 @@ fn resident_memory(usage: u64, stats: Option<&HashMap<String, u64>>) -> i64 {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use serde_json::json;
+
+    use super::*;
 
     #[test]
     fn resident_memory_excludes_page_cache() {

@@ -66,7 +66,6 @@ export default function ExecTab({ ctr, onCopy }: TabProps) {
   const activeUser = user ?? users[0];
 
   // One xterm per session; the exec is started with the terminal's size.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: `session` restarts on Reconnect; shell/user apply to the next session
   useEffect(() => {
     const host = hostRef.current;
     if (!host || !running || !activeShell) return;
@@ -123,7 +122,7 @@ export default function ExecTab({ ctr, onCopy }: TabProps) {
       termRef.current = null;
       execRef.current = null;
     };
-  }, [id, running, activeShell != null, session]);
+  }, [id, running, activeShell, activeUser, session]);
 
   const disconnect = () => {
     execRef.current?.close();

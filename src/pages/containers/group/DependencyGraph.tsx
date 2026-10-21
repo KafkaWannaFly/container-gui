@@ -92,7 +92,7 @@ export default function DependencyGraph({
               {ci === cols.length - 1 ? "Starts first" : ci === 0 ? "Starts last" : `#${cols.length - ci}`}
             </span>
           ))}
-          <svg width={width} height={height} role="img" aria-label="Service dependency graph">
+          <svg width={width} height={height} aria-label="Service dependency graph">
             <defs>
               <marker
                 id="g-arr"

@@ -4,13 +4,12 @@
 
 mod service;
 
-pub use service::ExecService;
-
 use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
 use futures_util::StreamExt;
+pub use service::ExecService;
 
 use crate::error::{AppError, AppResult};
 use crate::models::dto::{ExecEventDto, ExecProbeDto, ExecStartOptions};

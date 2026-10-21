@@ -48,8 +48,9 @@ fn now_secs() -> i64 {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use bollard::models::{EventActor, EventMessageTypeEnum};
+
+    use super::*;
 
     #[test]
     fn maps_engine_events_to_dto() {

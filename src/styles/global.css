@@ -657,6 +657,7 @@ pre.logs .dim {
 
 .lg-json {
   display: inline;
+  list-style: none;
   background: none;
   border: 0;
   padding: 0;
@@ -666,6 +667,10 @@ pre.logs .dim {
   cursor: pointer;
   white-space: inherit;
   word-break: inherit;
+}
+
+.lg-json::-webkit-details-marker {
+  display: none;
 }
 
 .lg-json:hover {

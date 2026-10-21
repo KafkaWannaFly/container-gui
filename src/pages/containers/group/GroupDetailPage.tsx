@@ -38,7 +38,6 @@ import EnvTab from "./EnvTab";
 import { useImages, useInspects } from "./hooks";
 import InfoTab from "./InfoTab";
 import LogsTab from "./LogsTab";
-import MonitorTab from "./MonitorTab";
 import {
   activeProfiles as activeProfilesOf,
   filesOf,
@@ -48,6 +47,7 @@ import {
   svcState,
   workdirOf,
 } from "./model";
+import MonitorTab from "./MonitorTab";
 
 const STATS_INTERVAL_MS = 2_000;
 

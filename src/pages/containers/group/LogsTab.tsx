@@ -3,8 +3,9 @@ import { Button, Empty, Input, Segmented, Select, Switch, Tooltip } from "antd";
 import { format } from "date-fns";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { StateDot } from "../../../components/ui";
+import { useTauriEvent } from "../../../hooks/useDockerEvents";
 import { streamContainerLogs } from "../../../services/tauriApi";
-import { type ContainerSummary, middleEllipsis } from "../../../types/docker";
+import { type ContainerSummary, DockerEventSchema, middleEllipsis } from "../../../types/docker";
 import { ContainerFilter } from "./components";
 import { svcColor } from "./model";
 
@@ -50,10 +51,10 @@ export default function LogsTab({
     solo ? containers.filter((c) => c.id !== solo).map((c) => c.id) : [],
   );
   const [lines, setLines] = useState<GLine[]>([]);
+  const [pinned, setPinned] = useState<GLine[]>([]);
   const [cleared, setCleared] = useState(0);
 
   const seqRef = useRef(0);
-  const pinnedRef = useRef<GLine[]>([]);
   const paneRef = useRef<HTMLDivElement | null>(null);
 
   const nameOf = useMemo(() => {
@@ -93,34 +94,25 @@ export default function LogsTab({
     };
   }, [containers, tail]);
 
-  // Lifecycle events: derived from state transitions, no backend event feed.
-  // ponytail: session-only, from what we observe — swap for docker events if needed.
-  const prevStates = useRef<Map<string, string> | null>(null);
-  useEffect(() => {
-    const prev = prevStates.current;
-    const next = new Map(states);
-    if (prev) {
-      for (const [id, state] of next) {
-        const before = prev.get(id);
-        if (before && before !== state) {
-          const name = nameOf.get(id) ?? id.slice(0, 12);
-          pinnedRef.current.push({
-            seq: seqRef.current++,
-            id,
-            ts: new Date().toISOString(),
-            level: "event",
-            text: `${name}: ${before} → ${state}`,
-          });
-        }
-      }
-    }
-    prevStates.current = next;
-  }, [states, nameOf]);
+  useTauriEvent("docker://event", DockerEventSchema, (event) => {
+    if (event.resourceType !== "container" || !nameOf.has(event.actorId)) return;
+    const name = nameOf.get(event.actorId) ?? event.actorId.slice(0, 12);
+    setPinned((prev) => [
+      ...prev.slice(-39),
+      {
+        seq: seqRef.current++,
+        id: event.actorId,
+        ts: new Date(event.time * 1000).toISOString(),
+        level: "event",
+        text: `${name}: ${event.action}`,
+      },
+    ]);
+  });
 
   const shownKeys = containers.filter((ctr) => !hidden.includes(ctr.id));
   const shownSet = useMemo(() => new Set(shownKeys.map((ctr) => ctr.id)), [shownKeys]);
 
-  const allLines = useMemo(() => [...lines, ...pinnedRef.current.slice(-40)], [lines]);
+  const allLines = useMemo(() => [...lines, ...pinned], [lines, pinned]);
 
   const rows = useMemo(
     () =>
@@ -143,7 +135,6 @@ export default function LogsTab({
   }
 
   // Follow sticks to the bottom of every pane.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: re-scroll whenever lines or layout change
   useEffect(() => {
     if (!follow || !paneRef.current) return;
     for (const pane of paneRef.current.querySelectorAll("[data-pane]")) {

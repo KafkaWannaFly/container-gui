@@ -65,15 +65,15 @@ test-front:
 test-back:
 	cargo test --manifest-path src-tauri/Cargo.toml --lib
 
-## Format frontend (Biome) and backend (rustfmt) in parallel.
+## Format frontend (Oxfmt) and backend (rustfmt) in parallel.
 fm:
 	@$(PAR) fm-front fm-back
 fm-front:
 	pnpm format
 fm-back:
-	cargo fmt --manifest-path src-tauri/Cargo.toml
+	cargo +nightly fmt --manifest-path src-tauri/Cargo.toml
 
-## Lint frontend (Biome) and backend (clippy, warnings as errors) in parallel.
+## Lint frontend (Oxlint) and backend (clippy, warnings as errors) in parallel.
 lint:
 	@$(PAR) lint-front lint-back
 lint-front:

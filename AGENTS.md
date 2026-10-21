@@ -28,7 +28,7 @@
 - Run the desktop app with `make dev`; it uses `src-tauri/tauri.dev.conf.json`, the dev icons/title, and Vite port `1420` (`strictPort`).
 - Use `make test` for the repository test target: it runs `pnpm build` (the frontend type check/build) and `cargo test --manifest-path src-tauri/Cargo.toml --lib` in parallel.
 - Focused checks: `pnpm build`, `pnpm lint`, `cargo test --manifest-path src-tauri/Cargo.toml --lib <test-filter>`, and `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings`.
-- Run `make lint` before completing cross-stack work; it runs Biome plus Clippy with warnings treated as errors. Format both sides with `make fm`.
+- Run `make lint` before completing cross-stack work; it runs Oxlint plus Clippy with warnings treated as errors. Format both sides with `make fm`.
 - Use `make up`, `make profiles`, `make orphan`, and `make down` only for Docker-backed manual testing. The fixture is the fixed-name `container-gui` Compose project in `test-data/compose.yaml`; `make down` removes its volumes and the `cgui-edge` network.
 
 ## Frontend and IPC Contract
@@ -47,5 +47,5 @@
 
 ## Formatting
 
-- Biome only includes `src/**`, `vite.config.ts`, and TypeScript configs. It uses two spaces, LF, double quotes, semicolons, trailing commas, and a 110-column line width; Rust uses rustfmt's four spaces.
+- Oxlint and Oxfmt only include `src/**`, `vite.config.ts`, and TypeScript configs. Oxfmt uses two spaces, LF, double quotes, semicolons, trailing commas, and a 110-column line width; Rust uses `cargo +nightly fmt` (four spaces, `StdExternalCrate` import grouping, and `Module` import granularity).
 - The repository-local `opencode.json` provides the Ant Design MCP server. Use it for current Ant Design component/API work.

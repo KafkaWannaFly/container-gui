@@ -239,23 +239,6 @@ export default function FilesTab({ ctr, onCopy, onOpenTab }: TabProps) {
       .filter((m) => m.Destination && (path === m.Destination || path.startsWith(`${m.Destination}/`)))
       .sort((a, b) => (b.Destination?.length ?? 0) - (a.Destination?.length ?? 0))[0];
 
-  const opened = useQuery({
-    queryKey: queryKeys.containerFile(id, open),
-    queryFn: () => readResolved(id, open as string),
-    enabled: open != null,
-    staleTime: 10_000,
-    retry: false,
-  });
-
-  // A link that turned out to point at a directory navigates there.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: `go` only sets state; run when the result changes
-  useEffect(() => {
-    if (opened.data?.kind === "dir") {
-      setOpen(null);
-      go(opened.data.path);
-    }
-  }, [opened.data]);
-
   const expandTo = (path: string) => setExpanded((e) => [...new Set([...e, ...ancestors(path)])]);
   const go = (path: string) => {
     setCwd(path);
@@ -263,6 +246,19 @@ export default function FilesTab({ ctr, onCopy, onOpenTab }: TabProps) {
     setQ("");
     expandTo(path);
   };
+
+  const opened = useQuery({
+    queryKey: queryKeys.containerFile(id, open),
+    queryFn: async () => {
+      const result = await readResolved(id, open as string);
+      // A link that turned out to point at a directory navigates there.
+      if (result.kind === "dir") go(result.path);
+      return result;
+    },
+    enabled: open != null,
+    staleTime: (query) => (query.state.data?.kind === "dir" ? 0 : 10_000),
+    retry: false,
+  });
   const visit = (path: string, entry?: FsEntry) => {
     if (entry?.kind === "dir" || path === "/") {
       go(path);
@@ -313,43 +309,43 @@ export default function FilesTab({ ctr, onCopy, onOpenTab }: TabProps) {
       await save(archive ? `${base}.tar` : base, (dest) => saveContainerPath(id, target, archive, dest));
     };
     return (
-      // biome-ignore lint/a11y/noStaticElementInteractions: stops row activation; the button inside is the control
-      <span onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
-        <Dropdown
-          trigger={["click"]}
-          placement="bottomRight"
-          menu={{
-            items: [
-              { key: "path", label: "Copy path", icon: <CopyOutlined /> },
-              {
-                key: "content",
-                label: "Copy contents",
-                icon: <FileTextOutlined />,
-                disabled: isDir || (entry.kind !== "file" && entry.kind !== "link"),
-              },
-              {
-                key: "download",
-                label: isDir ? "Download as .tar" : "Download",
-                icon: <DownloadOutlined />,
-                disabled: !["file", "dir", "link"].includes(entry.kind),
-              },
-            ],
-            onClick: ({ key }) => {
-              if (key === "path") onCopy(path, "Path");
-              if (key === "content") void copyContents();
-              if (key === "download") void download();
+      <Dropdown
+        trigger={["click"]}
+        placement="bottomRight"
+        menu={{
+          items: [
+            { key: "path", label: "Copy path", icon: <CopyOutlined /> },
+            {
+              key: "content",
+              label: "Copy contents",
+              icon: <FileTextOutlined />,
+              disabled: isDir || (entry.kind !== "file" && entry.kind !== "link"),
             },
-          }}
-        >
-          <Button
-            className="fs-act"
-            type="text"
-            size="small"
-            icon={<MoreOutlined />}
-            aria-label={`Actions for ${entry.name}`}
-          />
-        </Dropdown>
-      </span>
+            {
+              key: "download",
+              label: isDir ? "Download as .tar" : "Download",
+              icon: <DownloadOutlined />,
+              disabled: !["file", "dir", "link"].includes(entry.kind),
+            },
+          ],
+          onClick: ({ key, domEvent }) => {
+            domEvent.stopPropagation();
+            if (key === "path") onCopy(path, "Path");
+            if (key === "content") void copyContents();
+            if (key === "download") void download();
+          },
+        }}
+      >
+        <Button
+          className="fs-act"
+          type="text"
+          size="small"
+          icon={<MoreOutlined />}
+          aria-label={`Actions for ${entry.name}`}
+          onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => e.stopPropagation()}
+        />
+      </Dropdown>
     );
   };
 
@@ -432,10 +428,9 @@ export default function FilesTab({ ctr, onCopy, onOpenTab }: TabProps) {
   const masked = !!file?.content && isSensitive(data?.path ?? "") && !revealed;
 
   // Scroll back to the top when switching what's shown.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: reset on navigation only
   useEffect(() => {
     bodyRef.current?.scrollTo(0, 0);
-  }, [cwd, open]);
+  }, [cwd, open, bodyRef]);
 
   const downloadOpened = () => {
     if (data?.kind !== "content") return;

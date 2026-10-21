@@ -68,7 +68,7 @@ Prerequisites: [Node.js](https://nodejs.org) with [pnpm](https://pnpm.io),
 make i        # install frontend and backend dependencies
 make dev      # run with hot reload, dev icons, and the "(Dev)" window title
 make test     # type-check the frontend and run backend tests
-make lint     # lint the frontend (Biome) and the backend (Clippy)
+make lint     # lint the frontend (Oxlint) and the backend (Clippy)
 make pub-win  # build the signed Windows NSIS installer with release icons
 ```
 

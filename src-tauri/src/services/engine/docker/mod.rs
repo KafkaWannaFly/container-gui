@@ -10,10 +10,9 @@ mod images;
 mod system;
 mod volumes;
 
-pub use connector::DockerConnector;
-
 use bollard::Docker;
 use bollard::container::LogOutput;
+pub use connector::DockerConnector;
 use futures_util::{Stream, StreamExt};
 
 use crate::models::engine::{OutputChunk, OutputKind};

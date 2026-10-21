@@ -1,9 +1,8 @@
 //! Pure metric math: rates from consecutive readings, and downsampling.
 
+use super::INTERVAL_MS;
 use crate::models::dto::MetricSampleDto;
 use crate::models::engine::StatsReading;
-
-use super::INTERVAL_MS;
 
 pub fn sample_of(
     ts: i64,

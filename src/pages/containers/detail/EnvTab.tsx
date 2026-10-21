@@ -235,7 +235,6 @@ export default function EnvTab({ ctr, image, onCopy }: TabProps) {
       ) : (
         <pre className="code-view">
           {serialize(view, rows, shown).map((line, i) => (
-            // biome-ignore lint/suspicious/noArrayIndexKey: lines are positional and re-derived each render
             <Tinted key={i} kind={view} line={line} />
           ))}
         </pre>

@@ -10,11 +10,10 @@
 mod calc;
 mod service;
 
-pub use service::MetricsService;
-
 use std::time::Duration;
 
 use async_trait::async_trait;
+pub use service::MetricsService;
 
 use crate::models::dto::{MetricsLatestDto, MetricsSeriesDto};
 

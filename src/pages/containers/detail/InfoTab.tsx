@@ -5,7 +5,7 @@ import { formatDistanceToNow } from "date-fns";
 import { Link } from "react-router-dom";
 import { CollapseAllButton, Section, useSections } from "../../../components/Section";
 import { CopyButton, Mono, Pill, StateDot } from "../../../components/ui";
-import { compactDuration, isZeroTime, localTime, nsDuration, shellJoin } from "../../../lib/format";
+import { isZeroTime, localTime, nsDuration, shellJoin, uptimeSince } from "../../../lib/format";
 import { formatBytes, type NetworkEndpoint, portUrl, shortId } from "../../../types/docker";
 import { composeOf, cpuLimit, pidsLimit, platformOf, type TabProps } from "./model";
 
@@ -91,11 +91,7 @@ export default function InfoTab({ ctr, image, onCopy }: TabProps) {
       ) : (
         <span>
           <Mono>{localTime(started)}</Mono>{" "}
-          {state?.Running ? (
-            <span className="dim">
-              (up {compactDuration(Date.now() - new Date(started as string).getTime())})
-            </span>
-          ) : null}
+          {state?.Running ? <span className="dim">(up {uptimeSince(started)})</span> : null}
         </span>
       ),
     },

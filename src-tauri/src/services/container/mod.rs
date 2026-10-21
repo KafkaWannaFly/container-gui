@@ -3,11 +3,10 @@
 mod logs;
 mod service;
 
-pub use service::ContainerService;
-
 use std::sync::Arc;
 
 use async_trait::async_trait;
+pub use service::ContainerService;
 
 use crate::error::AppResult;
 use crate::models::dto::{ContainerSummaryDto, LogEventDto, LogStreamOptions};

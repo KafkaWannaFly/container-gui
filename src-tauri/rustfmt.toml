@@ -1,5 +1,5 @@
-# Follows the official Rust Style Guide (rustfmt defaults); only stable options,
-# so `cargo fmt` works on the stable toolchain without warnings.
+# Follows the official Rust Style Guide (rustfmt defaults) plus nightly import
+# grouping/merging options (`cargo +nightly fmt`).
 # Reference: https://rust-lang.github.io/rustfmt/
 
 # Pin both so bare `rustfmt` (IDE format-on-save) matches `cargo fmt`, which
@@ -14,3 +14,8 @@ newline_style = "Unix"
 # (same as clippy's redundant_field_names / the 2018+ idiom).
 use_field_init_shorthand = true
 use_try_shorthand = true
+
+# Nightly-only: group imports into std, external crates, and local crate/super/self,
+# and merge imports from the same module into a single `use` statement.
+group_imports = "StdExternalCrate"
+imports_granularity = "Module"

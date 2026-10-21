@@ -38,37 +38,29 @@ export function ContainerFilter({
               minWidth: 280,
             }}
           >
-            {/* biome-ignore lint/a11y/noStaticElementInteractions: dropdown row toggles a checkbox */}
-            {/* biome-ignore lint/a11y/useKeyWithClickEvents: dropdown row toggles a checkbox */}
-            <div
-              className="g-inactive-row"
-              onClick={() => setHidden(hidden.length === 0 ? containers.map((ctr) => ctr.id) : [])}
-            >
+            <label className="g-inactive-row" style={{ cursor: "pointer" }}>
               <Checkbox
-                tabIndex={-1}
                 checked={hidden.length === 0}
                 indeterminate={hidden.length > 0 && shown.length > 0}
+                onChange={() => setHidden(hidden.length === 0 ? containers.map((ctr) => ctr.id) : [])}
               />
               <span>All containers</span>
               <span className="n mono" style={{ marginLeft: "auto", color: "var(--ash)" }}>
                 {shown.length} / {containers.length}
               </span>
-            </div>
+            </label>
             {containers.map((ctr) => (
-              // biome-ignore lint/a11y/noStaticElementInteractions: dropdown row toggles a checkbox
-              // biome-ignore lint/a11y/useKeyWithClickEvents: dropdown row toggles a checkbox
-              <div key={ctr.id} className="g-inactive-row" onClick={() => toggle(ctr.id)}>
-                <Checkbox tabIndex={-1} checked={!hidden.includes(ctr.id)} />
-                <span style={{ width: 8, height: 8, borderRadius: 99, background: colorOf(ctr) }} />
-                <span>{nameOf(ctr)}</span>
+              <div key={ctr.id} className="g-inactive-row">
+                <label style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, cursor: "pointer" }}>
+                  <Checkbox checked={!hidden.includes(ctr.id)} onChange={() => toggle(ctr.id)} />
+                  <span style={{ width: 8, height: 8, borderRadius: 99, background: colorOf(ctr) }} />
+                  <span>{nameOf(ctr)}</span>
+                </label>
                 <button
                   type="button"
                   className="link-btn"
                   style={{ marginLeft: "auto", fontSize: 12 }}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    only(ctr.id);
-                  }}
+                  onClick={() => only(ctr.id)}
                 >
                   only
                 </button>

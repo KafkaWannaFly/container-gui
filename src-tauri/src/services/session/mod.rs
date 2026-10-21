@@ -3,12 +3,11 @@
 
 mod service;
 
-pub use service::EngineSession;
-
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use async_trait::async_trait;
+pub use service::EngineSession;
 use tokio::sync::watch;
 
 use crate::error::{AppError, AppResult};

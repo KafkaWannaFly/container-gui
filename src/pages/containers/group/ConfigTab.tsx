@@ -32,7 +32,6 @@ function YamlView({ text }: { text: string }) {
           const comment = /^(\s*)(#.*)$/.exec(line);
           const kv = /^(\s*-?\s*)([\w.-]+)(:)(.*)$/.exec(line);
           return (
-            // biome-ignore lint/suspicious/noArrayIndexKey: config lines are positional
             <div key={i} className="g-ln">
               <span className="n">{i + 1}</span>
               <span className="t">

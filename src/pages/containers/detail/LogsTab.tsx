@@ -148,20 +148,12 @@ function LogRow({ line, opts }: { line: ParsedLine; opts: Options }) {
       ) : null}
       <span className="lg-lvl">{line.level.toUpperCase()}</span>
       {json ? (
-        <>
-          {/* A span, not a button: buttons are always inline-block and would break the line. */}
-          {/* biome-ignore lint/a11y/useSemanticElements: see above; role and key handling keep it accessible */}
-          <span
-            role="button"
-            tabIndex={0}
+        <details style={{ display: "inline" }} open={open}>
+          <summary
             className="lg-json"
-            aria-expanded={open}
-            onClick={() => setOpen((o) => !o)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                setOpen((o) => !o);
-              }
+            onClick={(e) => {
+              e.preventDefault();
+              setOpen((o) => !o);
             }}
           >
             {json.msg ? highlight(json.msg, opts.q) : null}
@@ -171,9 +163,9 @@ function LogRow({ line, opts }: { line: ParsedLine; opts: Options }) {
                 {k}={highlight(v, opts.q)}
               </span>
             ))}
-          </span>
+          </summary>
           {open ? <pre className="lg-pretty">{JSON.stringify(json.raw, null, 2)}</pre> : null}
-        </>
+        </details>
       ) : (
         <span>{highlight(line.text, opts.q)}</span>
       )}
@@ -192,51 +184,63 @@ export default function LogsTab({ ctr }: TabProps) {
   const [displayOpen, setDisplayOpen] = useState(false);
   const [tail, setTail] = useState("500");
   const [cutoff, setCutoff] = useState(() => clearedAt.get(id) ?? "");
-  const [ended, setEnded] = useState<{ error: string | null } | null>(null);
-  const [version, setVersion] = useState(0);
-  const buffer = useRef<ParsedLine[]>([]);
   const listRef = useRef<VirtuosoHandle>(null);
   const save = useSaveFile();
 
   // Restart the stream when the container (re)starts so new output shows up.
   const startedAt = ctr.State?.StartedAt;
+  const streamKey = `${id}:${tail}:${startedAt ?? ""}`;
+  const [stream, setStream] = useState<{
+    key: string;
+    lines: ParsedLine[];
+    ended: { error: string | null } | null;
+  }>({ key: streamKey, lines: [], ended: null });
+  const lines = useMemo(
+    () => (stream.key === streamKey ? stream.lines : []),
+    [stream.key, stream.lines, streamKey],
+  );
+  const ended = stream.key === streamKey ? stream.ended : null;
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: `startedAt` re-subscribes after a restart
   useEffect(() => {
-    buffer.current = [];
-    setVersion((v) => v + 1);
-    setEnded(null);
+    const buf: ParsedLine[] = [];
     let seq = 0;
     let frame = 0;
-    const bump = () => {
+    const flush = () => {
       frame = 0;
-      setVersion((v) => v + 1);
+      setStream((prev) => ({
+        key: streamKey,
+        lines: buf.slice(),
+        ended: prev.key === streamKey ? prev.ended : null,
+      }));
     };
     const dispose = streamContainerLogs(
       id,
       { tail: tail === "all" ? null : Number(tail) },
       {
-        onLines: (lines) => {
-          const buf = buffer.current;
-          for (const line of lines) buf.push(parseLine(line, seq++));
+        onLines: (batch) => {
+          for (const line of batch) buf.push(parseLine(line, seq++));
           if (buf.length > MAX_LINES) buf.splice(0, buf.length - MAX_LINES + DROP_CHUNK);
           // Coalesce bursts into one render per frame.
-          if (!frame) frame = requestAnimationFrame(bump);
+          if (!frame) frame = requestAnimationFrame(flush);
         },
-        onEnd: (error) => setEnded({ error }),
+        onEnd: (error) =>
+          setStream((prev) => ({
+            key: streamKey,
+            lines: prev.key === streamKey ? prev.lines : buf.slice(),
+            ended: { error },
+          })),
       },
     );
     return () => {
       dispose();
       if (frame) cancelAnimationFrame(frame);
     };
-  }, [id, tail, startedAt]);
+  }, [id, tail, streamKey]);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: `version` signals buffer mutation
   const { rows, visible, counts } = useMemo(() => {
     const counts: Record<Level, number> = { debug: 0, info: 0, warn: 0, error: 0 };
     const visible: ParsedLine[] = [];
-    for (const line of buffer.current) {
+    for (const line of lines) {
       if (cutoff && line.sortKey <= cutoff) continue;
       counts[line.level] += 1;
       visible.push(line);
@@ -248,9 +252,9 @@ export default function LogsTab({ ctr }: TabProps) {
         (!needle || line.text.toLowerCase().includes(needle)),
     );
     return { rows, visible, counts };
-  }, [version, q, level, cutoff]);
+  }, [lines, q, level, cutoff]);
 
-  const hidden = buffer.current.length - visible.length;
+  const hidden = lines.length - visible.length;
   const hasJson = useMemo(() => rows.some((line) => line.json), [rows]);
 
   // Turning Follow back on jumps to the newest line.
@@ -259,7 +263,7 @@ export default function LogsTab({ ctr }: TabProps) {
   }, [follow]);
 
   const clear = () => {
-    const last = buffer.current[buffer.current.length - 1]?.sortKey ?? "";
+    const last = lines[lines.length - 1]?.sortKey ?? "";
     clearedAt.set(id, last);
     setCutoff(last);
   };
@@ -291,7 +295,6 @@ export default function LogsTab({ ctr }: TabProps) {
   const toggleLevel = (next: Level) => setLevel((cur) => (cur === next ? "all" : next));
   const filtered = q || level !== "all";
   const running = !!ctr.State?.Running;
-  const stamp = format(new Date(), "yyyyMMdd-HHmmss");
 
   return (
     <div className="card">
@@ -412,7 +415,9 @@ export default function LogsTab({ ctr }: TabProps) {
             aria-label="Download"
             icon={<DownloadOutlined />}
             onClick={() =>
-              void save(`${containerName(ctr)}-${stamp}.log`, (dest) => saveContainerLogs(id, dest))
+              void save(`${containerName(ctr)}-${format(new Date(), "yyyyMMdd-HHmmss")}.log`, (dest) =>
+                saveContainerLogs(id, dest),
+              )
             }
           />
         </Tooltip>
@@ -465,7 +470,7 @@ export default function LogsTab({ ctr }: TabProps) {
         <span className="dim" style={{ fontSize: 12 }}>
           {rows.length} lines{filtered ? ` (filtered from ${visible.length})` : ""}
           {zone ? ` · times in UTC${zoneOffset(zone)}${zoneCities(stamps, zone)}` : ""}
-          {buffer.current.length >= MAX_LINES - DROP_CHUNK ? ` · keeping the newest ${MAX_LINES} lines` : ""}
+          {lines.length >= MAX_LINES - DROP_CHUNK ? ` · keeping the newest ${MAX_LINES} lines` : ""}
         </span>
         <span className="spacer" />
         <span className="dim" style={{ fontSize: 12 }}>

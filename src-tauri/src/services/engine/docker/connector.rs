@@ -6,14 +6,13 @@ use std::sync::Arc;
 use bollard::{API_DEFAULT_VERSION, Docker};
 use tap::Tap;
 
+use super::DockerEngine;
 use crate::error::{AppError, AppResult};
 use crate::repositories::IDockerContextRepository;
 use crate::services::engine::target::{
     ConnectionTarget, normalize_npipe, normalize_tcp, redact_endpoint, target_from_host,
 };
 use crate::services::engine::{IEngine, IEngineConnector};
-
-use super::DockerEngine;
 
 const REQUEST_TIMEOUT_SECS: u64 = 120;
 

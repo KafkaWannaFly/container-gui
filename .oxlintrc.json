@@ -1,0 +1,30 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": [
+    "eslint",
+    "typescript",
+    "unicorn",
+    "oxc",
+    "react",
+    "jsx-a11y"
+  ],
+  "categories": {
+    "correctness": "error"
+  },
+  "options": {
+    "denyWarnings": true,
+    "reportUnusedDisableDirectives": "error"
+  },
+  "env": {
+    "browser": true,
+    "builtin": true
+  },
+  "ignorePatterns": [
+    "*",
+    "!src",
+    "!src/**",
+    "!vite.config.ts",
+    "!tsconfig.json",
+    "!tsconfig.node.json"
+  ]
+}

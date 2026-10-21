@@ -437,13 +437,7 @@ export default function InfoTab({
           },
         ];
         return (
-          // biome-ignore lint/a11y/noStaticElementInteractions: row action cluster wraps buttons
-          // biome-ignore lint/a11y/useKeyWithClickEvents: row action cluster wraps buttons
-          <span
-            className="row-act"
-            style={{ display: "inline-flex", alignItems: "center", gap: 0 }}
-            onClick={(event) => event.stopPropagation()}
-          >
+          <span className="row-act" style={{ display: "inline-flex", alignItems: "center", gap: 0 }}>
             {state === "running" ? (
               <Tooltip title="Stop">
                 <Button
@@ -452,7 +446,10 @@ export default function InfoTab({
                   size="small"
                   aria-label="Stop"
                   icon={<PoweroffOutlined />}
-                  onClick={() => act(ctr, "stop")}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    act(ctr, "stop");
+                  }}
                 />
               </Tooltip>
             ) : state === "exited" || state === "created" || state === "dead" ? (
@@ -463,12 +460,25 @@ export default function InfoTab({
                   size="small"
                   aria-label="Start"
                   icon={<PlayCircleOutlined />}
-                  onClick={() => act(ctr, "start")}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    act(ctr, "start");
+                  }}
                 />
               </Tooltip>
             ) : null}
-            <Dropdown trigger={["click"]} placement="bottomRight" menu={{ items }}>
-              <Button type="text" size="small" icon={<MoreOutlined />} aria-label="More" />
+            <Dropdown
+              trigger={["click"]}
+              placement="bottomRight"
+              menu={{ items, onClick: ({ domEvent }) => domEvent.stopPropagation() }}
+            >
+              <Button
+                type="text"
+                size="small"
+                icon={<MoreOutlined />}
+                aria-label="More"
+                onClick={(event) => event.stopPropagation()}
+              />
             </Dropdown>
           </span>
         );

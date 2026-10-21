@@ -24,6 +24,12 @@ export function compactDuration(ms: number): string {
   return `${s}s`;
 }
 
+/** Compact elapsed uptime since an ISO timestamp, e.g. `4d 6h 21m`. */
+export function uptimeSince(iso: string | null | undefined): string {
+  if (isZeroTime(iso)) return "—";
+  return compactDuration(Date.now() - new Date(iso as string).getTime());
+}
+
 /** Docker durations are nanoseconds. */
 export function nsDuration(ns: number | null | undefined): string {
   if (!ns) return "—";

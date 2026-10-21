@@ -12,6 +12,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use bytes::Bytes;
 use futures_util::stream::BoxStream;
+pub use target::ConnectionTarget;
 use tokio::io::AsyncWrite;
 
 use crate::error::AppResult;
@@ -20,7 +21,6 @@ use crate::models::engine::{
     ContainerAction, ContainerQuery, ContainerRecord, EngineInfo, EngineVersion, ExecSpec,
     LogQuery, OutputChunk, PullProgress, StatsReading, VolumeRecord,
 };
-pub use target::ConnectionTarget;
 
 pub type OutputStream = BoxStream<'static, AppResult<OutputChunk>>;
 pub type ByteStream = BoxStream<'static, std::io::Result<Bytes>>;

@@ -163,7 +163,7 @@ export default function MetricCharts({
   const charts = useMemo(() => {
     // The headline is "now": a stopped container's last sample is history, not
     // current usage. Allow one bucket plus a couple of sampler ticks of lag.
-    const freshSince = Date.now() - stepMs - 2 * POLL_MS;
+    const freshSince = (query.dataUpdatedAt || 0) - stepMs - 2 * POLL_MS;
     const hasSamples = series.some(({ samples }) => samples.length > 0);
     return METRICS.map((metric) => {
       const latest = series
@@ -177,7 +177,7 @@ export default function MetricCharts({
         total: latest.length ? latest.reduce((sum, v) => sum + v, 0) : hasSamples ? 0 : null,
       };
     });
-  }, [series, stepMs]);
+  }, [series, stepMs, query.dataUpdatedAt]);
 
   if (!shown.length) {
     return (

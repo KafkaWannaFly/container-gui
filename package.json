@@ -9,9 +9,9 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "tauri:dev": "tauri dev --config src-tauri/tauri.dev.conf.json",
-    "lint": "biome lint .",
-    "format": "biome format --write .",
-    "check": "biome check ."
+    "lint": "oxlint",
+    "format": "oxfmt",
+    "check": "oxlint && oxfmt --check"
   },
   "dependencies": {
     "@ant-design/icons": "6.3.4",
@@ -41,11 +41,12 @@
     "zod": "4.6.5"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.14",
     "@tauri-apps/cli": "2.12.1",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
     "@vitejs/plugin-react": "^6.0.2",
+    "oxfmt": "^0.74.0",
+    "oxlint": "^1.89.0",
     "typescript": "7.0.2",
     "vite": "8.3.0"
   }

@@ -9,7 +9,6 @@ import {
   type SetStateAction,
   type TdHTMLAttributes,
   useContext,
-  useEffect,
   useMemo,
   useRef,
   useState,
@@ -102,22 +101,17 @@ export function useAnimatedTree<T extends { key: Key }>({
   setExpanded: Dispatch<SetStateAction<Key[]>>;
   isGroup: (row: T) => boolean;
 }) {
-  const [closing, setClosing] = useState<Key[]>([]);
+  const [closingRaw, setClosing] = useState<Key[]>([]);
   const opening = useRef(new Set<Key>());
 
-  const parentOf = useMemo(() => {
+  const { parentOf, groups } = useMemo(() => {
     const map = new Map<Key, Key>();
     for (const row of data) for (const child of childrenOf(row)) map.set(child.key, row.key);
-    return map;
+    return { parentOf: map, groups: new Set(map.values()) };
   }, [data]);
 
   // A group that vanishes mid-fold never reports completion; drop it.
-  useEffect(() => {
-    const groups = new Set(parentOf.values());
-    setClosing((prev) =>
-      prev.every((key) => groups.has(key)) ? prev : prev.filter((key) => groups.has(key)),
-    );
-  }, [parentOf]);
+  const closing = closingRaw.filter((key) => groups.has(key));
 
   // One caret or the whole table share this bookkeeping.
   const setOpen = (keys: Key[], open: boolean) => {
