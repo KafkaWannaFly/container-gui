@@ -13,6 +13,7 @@ import { html, xml } from "@codemirror/legacy-modes/mode/xml";
 import { yaml } from "@codemirror/legacy-modes/mode/yaml";
 import CodeMirror, { EditorState, EditorView, Prec } from "@uiw/react-codemirror";
 import { useMemo } from "react";
+import { useTheme } from "../theme/antdTheme";
 
 const MODES: Record<string, StreamParser<unknown>> = {
   dockerfile: dockerFile,
@@ -32,16 +33,16 @@ const MODES: Record<string, StreamParser<unknown>> = {
   css,
 };
 
-const theme = EditorView.theme(
-  {
-    "&": { backgroundColor: "var(--void)", fontSize: "12px", height: "100%" },
-    ".cm-scroller": { fontFamily: "var(--font-mono)", lineHeight: "1.75" },
-    ".cm-gutters": { backgroundColor: "var(--void)", borderRight: "none", color: "var(--smoke)" },
-    ".cm-activeLine, .cm-activeLineGutter": { backgroundColor: "transparent" },
-    "&.cm-focused": { outline: "none" },
-  },
-  { dark: true },
-);
+const baseEditorStyle = {
+  "&": { backgroundColor: "var(--void)", fontSize: "12px", height: "100%" },
+  ".cm-scroller": { fontFamily: "var(--font-mono)", lineHeight: "1.75" },
+  ".cm-gutters": { backgroundColor: "var(--void)", borderRight: "none", color: "var(--smoke)" },
+  ".cm-activeLine, .cm-activeLineGutter": { backgroundColor: "transparent" },
+  "&.cm-focused": { outline: "none" },
+};
+
+const darkTheme = EditorView.theme(baseEditorStyle, { dark: true });
+const lightTheme = EditorView.theme(baseEditorStyle, { dark: false });
 
 /**
  * Read-only code viewer. CodeMirror only renders the visible viewport,
@@ -61,21 +62,22 @@ export default function CodeView({
   lineNumbers?: boolean;
   height?: string;
 }) {
+  const { theme: appTheme } = useTheme();
   const extensions = useMemo(
     () => [
-      // Above the built-in dark theme, so our background and gutter colors win.
-      Prec.highest(theme),
+      // Above the built-in theme, so our background and gutter colors win.
+      Prec.highest(appTheme.mode === "dark" ? darkTheme : lightTheme),
       EditorState.readOnly.of(true),
       EditorView.editable.of(false),
       ...(language && MODES[language] ? [StreamLanguage.define(MODES[language])] : []),
       ...(wrap ? [EditorView.lineWrapping] : []),
     ],
-    [language, wrap],
+    [appTheme.mode, language, wrap],
   );
   return (
     <CodeMirror
       value={value}
-      theme="dark"
+      theme={appTheme.mode}
       height={height}
       extensions={extensions}
       basicSetup={{

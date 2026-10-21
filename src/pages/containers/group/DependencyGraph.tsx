@@ -103,7 +103,7 @@ export default function DependencyGraph({
                 markerHeight="7"
                 orient="auto"
               >
-                <path d="M0,0 L8,4 L0,8 z" fill="#62666d" />
+                <path d="M0,0 L8,4 L0,8 z" fill="var(--ash)" />
               </marker>
               <marker
                 id="g-arr-on"
@@ -114,7 +114,7 @@ export default function DependencyGraph({
                 markerHeight="7"
                 orient="auto"
               >
-                <path d="M0,0 L8,4 L0,8 z" fill="#d0d6e0" />
+                <path d="M0,0 L8,4 L0,8 z" fill="var(--mist)" />
               </marker>
             </defs>
             {edges.map((edge) => {
@@ -132,7 +132,7 @@ export default function DependencyGraph({
                   <path
                     d={`M${x1},${y1} C${x1 + 55},${y1} ${x2 - 55},${y2} ${x2},${y2}`}
                     fill="none"
-                    stroke={on ? "#d0d6e0" : "#383b3f"}
+                    stroke={on ? "var(--mist)" : "var(--smoke)"}
                     strokeWidth="1"
                     strokeDasharray={edge.cond === "started" ? "4 3" : undefined}
                     markerEnd={on ? "url(#g-arr-on)" : "url(#g-arr)"}
@@ -142,7 +142,7 @@ export default function DependencyGraph({
                       x={(x1 + x2) / 2}
                       y={(y1 + y2) / 2 - 6}
                       textAnchor="middle"
-                      fill="#d0d6e0"
+                      fill="var(--mist)"
                       fontSize="12"
                       fontFamily="var(--font-mono)"
                     >

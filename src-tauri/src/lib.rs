@@ -53,6 +53,9 @@ pub fn run() {
 
     builder
         .setup(|app| {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.set_decorations(false);
+            }
             // The app data dir falls back to temp, and the pool to in-memory,
             // when unusable.
             let data_dir = app

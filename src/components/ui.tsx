@@ -64,13 +64,13 @@ export function StateTag({ state }: { state: string }) {
 }
 
 const PILL_TONES: Record<string, [string, string]> = {
-  green: ["rgba(39,166,68,.13)", "var(--green)"],
-  coral: ["rgba(235,87,87,.12)", "var(--coral)"],
-  amber: ["rgba(217,164,65,.14)", "var(--amber)"],
-  violet: ["rgba(99,102,241,.16)", "#8b93ff"],
-  lav: ["rgba(139,92,246,.16)", "#b79bff"],
-  teal: ["rgba(2,184,204,.13)", "var(--teal)"],
-  neutral: ["rgba(255,255,255,.05)", "var(--fog)"],
+  green: ["color-mix(in srgb, var(--green) 14%, transparent)", "var(--green)"],
+  coral: ["color-mix(in srgb, var(--coral) 14%, transparent)", "var(--coral)"],
+  amber: ["color-mix(in srgb, var(--amber) 15%, transparent)", "var(--amber)"],
+  violet: ["color-mix(in srgb, var(--violet) 16%, transparent)", "var(--violet)"],
+  lav: ["color-mix(in srgb, var(--lav) 16%, transparent)", "var(--lav)"],
+  teal: ["color-mix(in srgb, var(--teal) 14%, transparent)", "var(--teal)"],
+  neutral: ["color-mix(in srgb, var(--paper) 6%, transparent)", "var(--fog)"],
 };
 
 export function Pill({

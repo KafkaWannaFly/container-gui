@@ -11,11 +11,12 @@ import ImageListPage from "./pages/images/ImageListPage";
 import SettingsPage from "./pages/settings/SettingsPage";
 import VolumeDetailPage from "./pages/volumes/VolumeDetailPage";
 import VolumeListPage from "./pages/volumes/VolumeListPage";
-import { antdTheme } from "./theme/antdTheme";
+import { ThemeProvider, useTheme } from "./theme/antdTheme";
 
-export default function App() {
+function ThemedApp() {
+  const { theme } = useTheme();
   return (
-    <ConfigProvider theme={antdTheme}>
+    <ConfigProvider theme={theme.antd}>
       <AntApp>
         <QueryClientProvider client={queryClient}>
           <HashRouter>
@@ -36,5 +37,13 @@ export default function App() {
         </QueryClientProvider>
       </AntApp>
     </ConfigProvider>
+  );
+}
+
+export default function App() {
+  return (
+    <ThemeProvider>
+      <ThemedApp />
+    </ThemeProvider>
   );
 }

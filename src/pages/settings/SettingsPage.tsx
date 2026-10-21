@@ -11,6 +11,7 @@ import {
   switchDockerEndpoint,
   testConnection,
 } from "../../services/tauriApi";
+import { THEMES, useTheme } from "../../theme/antdTheme";
 import type { ConnectionConfig, DockerStatus } from "../../types/docker";
 
 const KIND_OPTIONS = [
@@ -75,6 +76,7 @@ function UpdateControls() {
 export default function SettingsPage() {
   const { message } = App.useApp();
   const queryClient = useQueryClient();
+  const { themeId, theme, setThemeId } = useTheme();
   // Form fields fall back to what the backend reports until the user edits them.
   const [contextChoice, setContext] = useState<string | undefined>();
   const [kindChoice, setKind] = useState<string | undefined>();
@@ -203,6 +205,49 @@ export default function SettingsPage() {
             </div>
           </div>
         ) : null}
+      </div>
+
+      <div className="card">
+        <div className="section-title">Appearance</div>
+        <Divider style={{ margin: "0 0 16px" }} />
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16 }}>
+          <div>
+            <div style={{ color: "var(--bone)" }}>Theme</div>
+            <div className="dim" style={{ fontSize: 12 }}>
+              {theme.description}
+            </div>
+          </div>
+          <Select
+            aria-label="Theme"
+            style={{ width: 240 }}
+            value={themeId}
+            onChange={setThemeId}
+            options={THEMES.map((t) => ({
+              value: t.id,
+              label: (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ display: "inline-flex", alignItems: "center" }}>
+                    {t.swatches.map((color, idx) => (
+                      <span
+                        key={color}
+                        style={{
+                          width: 9,
+                          height: 9,
+                          borderRadius: 99,
+                          background: color,
+                          border: `1px solid ${t.palette.graphite}`,
+                          marginLeft: idx === 0 ? 0 : -3,
+                          flex: "0 0 auto",
+                        }}
+                      />
+                    ))}
+                  </span>
+                  <span>{t.name}</span>
+                </span>
+              ),
+            }))}
+          />
+        </div>
       </div>
 
       <div className="card">

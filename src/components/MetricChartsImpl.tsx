@@ -4,6 +4,7 @@ import { Empty } from "antd";
 import { useMemo } from "react";
 import { queryKeys } from "../lib/queryClient";
 import { metricsSeries } from "../services/tauriApi";
+import { type AppTheme, useTheme } from "../theme/antdTheme";
 import type { MetricSample } from "../types/docker";
 import { formatBytes, formatRate } from "../types/docker";
 
@@ -66,6 +67,7 @@ function Chart({
   colors,
   total,
   totalLabel,
+  theme,
 }: {
   metric: Metric;
   rows: Row[];
@@ -73,6 +75,7 @@ function Chart({
   colors: string[];
   total: number | null;
   totalLabel: string;
+  theme: AppTheme;
 }) {
   const peak = rows.reduce((max, row) => (row.value != null && row.value > max ? row.value : max), 0);
   const y = peak < metric.floor ? { domainMin: 0, domainMax: metric.floor } : { domainMin: 0, nice: true };
@@ -94,14 +97,14 @@ function Chart({
         yField="value"
         colorField="name"
         legend={false}
-        theme={{ type: "classicDark", view: { viewFill: "transparent" } }}
+        theme={{ type: theme.mode === "dark" ? "classicDark" : "classic", view: { viewFill: "transparent" } }}
         scale={{ color: { domain: names, range: colors }, y }}
         style={{ lineWidth: 1.5 }}
         axis={{
           x: {
             title: false,
             labelFormatter: (d: Date) => clock(d).slice(0, 5),
-            labelFill: "#8a8f98",
+            labelFill: theme.palette.fog,
             labelFontSize: 12,
             line: false,
             tick: false,
@@ -109,10 +112,10 @@ function Chart({
           y: {
             title: false,
             labelFormatter: (v: number) => metric.format(v),
-            labelFill: "#8a8f98",
+            labelFill: theme.palette.fog,
             labelFontSize: 12,
             grid: true,
-            gridStroke: "#23252a",
+            gridStroke: theme.palette.graphite,
             gridStrokeOpacity: 1,
             gridLineDash: [0, 0],
             tick: false,
@@ -144,6 +147,7 @@ export default function MetricCharts({
   minutes: number;
   totalLabel?: string;
 }) {
+  const { theme } = useTheme();
   const query = useQuery({
     queryKey: [...queryKeys.metricsSeries(ids, MAX_POINTS), minutes] as const,
     queryFn: () => metricsSeries(ids, { since: Date.now() - minutes * 60_000, maxPoints: MAX_POINTS }),
@@ -198,6 +202,7 @@ export default function MetricCharts({
           colors={colors}
           total={total}
           totalLabel={totalLabel}
+          theme={theme}
         />
       ))}
     </div>

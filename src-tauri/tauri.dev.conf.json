@@ -8,6 +8,7 @@
         "height": 860,
         "minWidth": 960,
         "minHeight": 640,
+        "decorations": false,
         "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --disable-lcd-text"
       }
     ]

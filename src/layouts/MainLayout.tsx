@@ -7,8 +7,9 @@ import {
 } from "@ant-design/icons";
 import { HotkeysProvider, useHotkey } from "@tanstack/react-hotkeys";
 import { useQuery } from "@tanstack/react-query";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Button, Result, Spin } from "antd";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { CommandPaletteProvider } from "../components/CommandPalette";
 import { Glyph } from "../components/ui";
@@ -31,22 +32,99 @@ const TITLES: Record<string, string> = {
   "/settings": "Preferences",
 };
 
-function ConnectionBadge() {
-  const { data } = useQuery({
-    queryKey: queryKeys.status(),
-    queryFn: getDockerStatus,
-    refetchInterval: 10_000,
-  });
-  const state = data?.state ?? "connecting";
-  const color =
-    state === "connected" ? "var(--green)" : state === "connecting" ? "var(--amber)" : "var(--coral)";
+function WindowControls() {
+  const [maximized, setMaximized] = useState(false);
+
+  useEffect(() => {
+    const win = getCurrentWindow();
+    let disposed = false;
+    void win.setDecorations(false).catch(() => {});
+    const sync = () => {
+      void win
+        .isMaximized()
+        .then((val) => {
+          if (!disposed) setMaximized(val);
+        })
+        .catch(() => {});
+    };
+    sync();
+    const unlistenPromise = win.onResized(sync);
+    return () => {
+      disposed = true;
+      void unlistenPromise.then((unlisten) => unlisten()).catch(() => {});
+    };
+  }, []);
+
+  const win = getCurrentWindow();
+
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-      <span style={{ width: 6, height: 6, borderRadius: 99, background: color }} />
-      <span className="mono dim">{data?.endpoint ?? "connecting…"}</span>
-      {data?.kind ? <span className="mono dim">· {data.kind}</span> : null}
-      {data?.pingMs != null ? <span className="mono dim">· {data.pingMs}ms</span> : null}
-    </span>
+    <div className="win-controls">
+      <button
+        type="button"
+        className="win-btn"
+        aria-label="Minimize"
+        title="Minimize"
+        onClick={() => void win.minimize()}
+      >
+        <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
+          <path d="M1 5h8" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+        </svg>
+      </button>
+      <button
+        type="button"
+        className="win-btn"
+        aria-label={maximized ? "Restore" : "Maximize"}
+        title={maximized ? "Restore" : "Maximize"}
+        onClick={() => void win.toggleMaximize()}
+      >
+        {maximized ? (
+          <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
+            <path
+              d="M3 3V1.5h5.5V7H7"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <rect
+              x="1.5"
+              y="3"
+              width="5.5"
+              height="5.5"
+              rx="0.8"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.2"
+            />
+          </svg>
+        ) : (
+          <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
+            <rect
+              x="1.5"
+              y="1.5"
+              width="7"
+              height="7"
+              rx="1"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.2"
+            />
+          </svg>
+        )}
+      </button>
+      <button
+        type="button"
+        className="win-btn close"
+        aria-label="Close"
+        title="Close"
+        onClick={() => void win.close()}
+      >
+        <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
+          <path d="M2 2l6 6M8 2L2 8" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+        </svg>
+      </button>
+    </div>
   );
 }
 
@@ -92,7 +170,7 @@ export default function MainLayout() {
           >
             {({ isActive }) => (
               <>
-                <Icon style={{ fontSize: 14, color: isActive ? "#e4f222" : "#62666d" }} />
+                <Icon style={{ fontSize: 14, color: isActive ? "var(--lime)" : "var(--ash)" }} />
                 <span style={{ flex: 1 }}>{item.label}</span>
               </>
             )}
@@ -108,56 +186,68 @@ export default function MainLayout() {
         <div className="app-shell">
           <UpdateNotifier />
           <aside className="side">
-            <div className="brand">
+            <div className="brand" data-tauri-drag-region>
               <Glyph />
-              Container GUI
+              <span data-tauri-drag-region>Container GUI</span>
             </div>
             {nav}
             <div className="side-foot">
-              <span className="mono">{status?.kind ?? "—"}</span>
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                <span
-                  style={{
-                    width: 6,
-                    height: 6,
-                    borderRadius: 99,
-                    background: status?.state === "connected" ? "var(--green)" : "var(--coral)",
-                  }}
-                />
-                <span className="mono">{status?.pingMs != null ? `${status.pingMs}ms` : "n/a"}</span>
+              <span
+                style={{
+                  width: 6,
+                  height: 6,
+                  flex: "0 0 auto",
+                  borderRadius: 99,
+                  background:
+                    status?.state === "connected"
+                      ? "var(--green)"
+                      : (status?.state ?? "connecting") === "connecting"
+                        ? "var(--amber)"
+                        : "var(--coral)",
+                }}
+              />
+              <span className="mono side-foot-endpoint" title={status?.endpoint}>
+                {status?.endpoint ?? "connecting…"}
               </span>
+              {status?.pingMs != null ? <span className="mono">{status.pingMs}ms</span> : null}
             </div>
           </aside>
 
           <main className="main">
-            <div className="topbar">
-              <span style={{ fontSize: 14, fontWeight: 510, color: "var(--paper)" }}>{title}</span>
-              <ConnectionBadge />
+            <div className="topbar" data-tauri-drag-region>
+              <span data-tauri-drag-region style={{ fontSize: 14, fontWeight: 510, color: "var(--paper)" }}>
+                {title}
+              </span>
+              <div className="topbar-right" data-tauri-drag-region>
+                <WindowControls />
+              </div>
             </div>
 
-            {showStandby ? (
-              <div style={{ display: "flex", justifyContent: "center", paddingTop: 80 }}>
-                <Result
-                  status="warning"
-                  title="Docker Daemon Not Reachable"
-                  subTitle={
-                    status?.message ??
-                    "Start Docker Desktop or check the WSL2 backend. Retrying automatically…"
-                  }
-                  extra={
-                    <Button icon={<ReloadOutlined />} onClick={() => void refetch()}>
-                      Retry now
-                    </Button>
-                  }
-                />
-              </div>
-            ) : showSpinner ? (
-              <div style={{ display: "flex", justifyContent: "center", paddingTop: 120 }}>
-                <Spin />
-              </div>
-            ) : (
-              <Outlet />
-            )}
+            <div className="main-body">
+              {showStandby ? (
+                <div style={{ display: "flex", justifyContent: "center", paddingTop: 80 }}>
+                  <Result
+                    status="warning"
+                    title="Docker Daemon Not Reachable"
+                    subTitle={
+                      status?.message ??
+                      "Start Docker Desktop or check the WSL2 backend. Retrying automatically…"
+                    }
+                    extra={
+                      <Button icon={<ReloadOutlined />} onClick={() => void refetch()}>
+                        Retry now
+                      </Button>
+                    }
+                  />
+                </div>
+              ) : showSpinner ? (
+                <div style={{ display: "flex", justifyContent: "center", paddingTop: 120 }}>
+                  <Spin />
+                </div>
+              ) : (
+                <Outlet />
+              )}
+            </div>
           </main>
         </div>
       </CommandPaletteProvider>

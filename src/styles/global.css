@@ -29,6 +29,7 @@ body,
 #root {
   margin: 0;
   height: 100%;
+  overflow: hidden;
 }
 
 html {
@@ -59,7 +60,8 @@ body {
 
 .app-shell {
   display: flex;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
 }
 
 .side {
@@ -117,15 +119,33 @@ body {
   border-top: 1px solid var(--graphite);
   color: var(--ash);
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 6px;
+}
+
+.side-foot-endpoint {
+  flex: 1;
+  min-width: 0;
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .main {
   flex: 1;
   min-width: 0;
+  height: 100vh;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
+}
+
+.main-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .topbar {
@@ -134,13 +154,52 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 24px;
+  padding: 0 0 0 24px;
   border-bottom: 1px solid var(--graphite);
-  position: sticky;
-  top: 0;
-  background: rgba(8, 9, 10, 0.85);
+  background: color-mix(in srgb, var(--void) 85%, transparent);
   backdrop-filter: blur(8px);
   z-index: 10;
+  user-select: none;
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  gap: 16px;
+}
+
+.win-controls {
+  display: inline-flex;
+  align-items: stretch;
+  height: 100%;
+  border-left: 1px solid var(--graphite);
+}
+
+.win-btn {
+  width: 42px;
+  height: 100%;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--fog);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.win-btn:hover {
+  background: var(--obsidian);
+  color: var(--paper);
+}
+
+.win-btn.close:hover {
+  background: var(--coral);
+  color: #ffffff;
 }
 
 .page {
@@ -161,7 +220,7 @@ body {
 }
 
 .card.subtle {
-  background: rgba(255, 255, 255, 0.02);
+  background: color-mix(in srgb, var(--paper) 2.5%, transparent);
   border-radius: 6px;
   padding: 8px;
 }
@@ -279,7 +338,7 @@ pre.logs .dim {
 /* ---------- resource detail ---------- */
 .detail-head {
   position: sticky;
-  top: 48px;
+  top: 0;
   z-index: 5;
   background: var(--void);
   border-bottom: 1px solid var(--graphite);
@@ -697,7 +756,7 @@ pre.logs .dim {
 }
 
 .hl {
-  background: rgba(228, 242, 34, 0.22);
+  background: color-mix(in srgb, var(--lime) 22%, transparent);
   color: var(--paper);
   border-radius: 2px;
 }
@@ -707,7 +766,7 @@ pre.logs .dim {
   gap: 4px;
   padding: 2px;
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.04);
+  background: color-mix(in srgb, var(--paper) 4%, transparent);
 }
 
 .lg-chip {
@@ -850,7 +909,7 @@ pre.logs .dim {
   border-right: 1px solid var(--graphite);
   overflow: hidden;
   padding: 8px 6px;
-  background: rgba(255, 255, 255, 0.015);
+  background: color-mix(in srgb, var(--paper) 1.5%, transparent);
 }
 
 .fs-tree .ant-tree {
@@ -1094,7 +1153,7 @@ pre.logs .dim {
   border: 1px solid var(--graphite);
   border-radius: 8px;
   padding: 8px;
-  background: rgba(255, 255, 255, 0.015);
+  background: color-mix(in srgb, var(--paper) 1.5%, transparent);
 }
 
 .sheet-body {
@@ -1184,7 +1243,7 @@ pre.logs .dim {
   border-radius: 9999px;
   cursor: pointer;
   border: 1px solid var(--graphite);
-  background: rgba(255, 255, 255, 0.03);
+  background: color-mix(in srgb, var(--paper) 3%, transparent);
   color: var(--mist);
   font-family: inherit;
   font-size: 12px;
@@ -1429,7 +1488,7 @@ pre.logs .dim {
 
 .g-event {
   color: var(--fog);
-  background: rgba(255, 255, 255, 0.025);
+  background: color-mix(in srgb, var(--paper) 2.5%, transparent);
 }
 
 .g-event .msg {
@@ -1556,7 +1615,7 @@ pre.logs .dim {
 }
 
 .svc-table tr.g-flash > td {
-  background: rgba(228, 242, 34, 0.06);
+  background: color-mix(in srgb, var(--lime) 6%, transparent);
 }
 
 /* ---------- command palette ---------- */
@@ -1667,4 +1726,340 @@ pre.logs .dim {
   border-top: 1px solid var(--graphite);
   background: var(--void);
   font-size: 12px;
+}
+
+/* ---------- Aurora theme (prototypes/aurora.md) ---------- */
+@keyframes aurora-drift {
+  0%,
+  100% {
+    transform: translate3d(0%, 0%, 0) scale(1);
+    opacity: 0.85;
+  }
+  50% {
+    transform: translate3d(2%, -2%, 0) scale(1.05);
+    opacity: 1;
+  }
+}
+
+html[data-theme="aurora"] body {
+  background-color: var(--void);
+}
+
+html[data-theme="aurora"] .app-shell {
+  position: relative;
+  isolation: isolate;
+}
+
+html[data-theme="aurora"] .app-shell::before {
+  content: "";
+  position: fixed;
+  inset: -12%;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(45% 42% at 18% 14%, rgba(0, 128, 255, 0.16), transparent 70%),
+    radial-gradient(38% 36% at 84% 18%, rgba(255, 20, 147, 0.12), transparent 72%),
+    radial-gradient(42% 40% at 62% 86%, rgba(0, 255, 255, 0.11), transparent 72%);
+  will-change: transform, opacity;
+  animation: aurora-drift 10s ease-in-out infinite;
+}
+
+html[data-theme="aurora"] .side {
+  background: color-mix(in srgb, var(--carbon) 88%, transparent);
+  backdrop-filter: blur(14px);
+}
+
+html[data-theme="aurora"] .topbar,
+html[data-theme="aurora"] .detail-head {
+  background: color-mix(in srgb, var(--void) 80%, transparent);
+  backdrop-filter: blur(12px);
+}
+
+html[data-theme="aurora"] .nav-item {
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease;
+}
+
+html[data-theme="aurora"] .nav-item.active {
+  font-weight: 500;
+  background: linear-gradient(90deg, rgba(0, 128, 255, 0.18) 0%, rgba(0, 255, 255, 0.06) 100%);
+  border-color: rgba(0, 128, 255, 0.36);
+}
+
+html[data-theme="aurora"] .card {
+  background: color-mix(in srgb, var(--carbon) 90%, transparent);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.22);
+}
+
+html[data-theme="aurora"] .ant-btn-primary {
+  background: linear-gradient(135deg, #0080ff 0%, #00a6ff 100%);
+  border-color: transparent;
+  transition:
+    transform 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.2s ease,
+    filter 0.2s ease;
+}
+
+html[data-theme="aurora"] .ant-btn-primary:not(:disabled):hover {
+  filter: brightness(0.94);
+  box-shadow: 0 4px 14px rgba(0, 128, 255, 0.32);
+}
+
+html[data-theme="aurora"] .ant-btn-primary:not(:disabled):active {
+  transform: translateY(-1px);
+}
+
+/* ---------- Alta Performance (prototypes/Alta Performance.md) ---------- */
+html[data-theme="high-performance"] .app-shell {
+  position: relative;
+  isolation: isolate;
+}
+
+html[data-theme="high-performance"] .app-shell::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(40% 35% at 88% 12%, rgba(237, 28, 36, 0.09), transparent 70%),
+    radial-gradient(35% 35% at 15% 88%, rgba(0, 191, 255, 0.07), transparent 70%),
+    linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px);
+  background-size:
+    100% 100%,
+    100% 100%,
+    32px 32px,
+    32px 32px;
+}
+
+html[data-theme="high-performance"] .card {
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.28);
+}
+
+html[data-theme="high-performance"] .nav-item.active {
+  border-left: 2px solid var(--lime);
+  font-weight: 500;
+}
+
+/* ---------- Compra Contínua (prototypes/Compra Contínua.md) ---------- */
+html[data-theme="continuous-commerce"] .card {
+  border-radius: 4px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+}
+
+html[data-theme="continuous-commerce"] .nav-item {
+  border-radius: 4px;
+}
+
+html[data-theme="continuous-commerce"] .nav-item.active {
+  font-weight: 500;
+  border-left: 3px solid var(--lime);
+}
+
+/* ---------- Entretenimento Imersivo (prototypes/Estilo de Entretenimento Imersivo.md) ---------- */
+html[data-theme="immersive-entertainment"] .app-shell {
+  position: relative;
+  isolation: isolate;
+}
+
+html[data-theme="immersive-entertainment"] .app-shell::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(50% 45% at 50% 0%, rgba(229, 9, 20, 0.14), transparent 72%),
+    radial-gradient(40% 40% at 85% 85%, rgba(128, 0, 128, 0.12), transparent 70%);
+}
+
+html[data-theme="immersive-entertainment"] .card {
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+html[data-theme="immersive-entertainment"] .nav-item.active {
+  font-weight: 500;
+  border-color: rgba(229, 9, 20, 0.45);
+  background: linear-gradient(90deg, rgba(229, 9, 20, 0.18), transparent);
+}
+
+/* ---------- Deep Learning High-Tech (prototypes/Estilo Deep Learning High-Tech.md) ---------- */
+html[data-theme="deep-learning"] {
+  --font-ui: "Paper Mono", "Roboto Mono", ui-monospace, system-ui, sans-serif;
+}
+
+html[data-theme="deep-learning"] .app-shell {
+  position: relative;
+  isolation: isolate;
+}
+
+html[data-theme="deep-learning"] .app-shell::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(42% 38% at 80% 16%, rgba(118, 185, 0, 0.12), transparent 70%),
+    radial-gradient(36% 36% at 20% 82%, rgba(0, 191, 255, 0.08), transparent 72%);
+}
+
+html[data-theme="deep-learning"] .card {
+  border-radius: 8px;
+  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.3);
+}
+
+html[data-theme="deep-learning"] .nav-item.active {
+  font-weight: 500;
+  border-color: rgba(118, 185, 0, 0.4);
+  background: linear-gradient(90deg, rgba(118, 185, 0, 0.15), transparent);
+}
+
+/* ---------- Flat Design (prototypes/Flat Design.md) ---------- */
+html[data-theme="flat-design"] .card {
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+html[data-theme="flat-design"] .nav-item,
+html[data-theme="flat-design"] .code-view,
+html[data-theme="flat-design"] .log-view,
+html[data-theme="flat-design"] .df-view,
+html[data-theme="flat-design"] .fs,
+html[data-theme="flat-design"] .term-host {
+  border-radius: 4px;
+}
+
+html[data-theme="flat-design"] .nav-item.active {
+  font-weight: 500;
+}
+
+/* ---------- Liquid Glass (prototypes/Liquid Glass.md) ---------- */
+html[data-theme="liquid-glass"] .app-shell {
+  position: relative;
+  isolation: isolate;
+}
+
+html[data-theme="liquid-glass"] .app-shell::before {
+  content: "";
+  position: fixed;
+  inset: -10%;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(42% 40% at 22% 18%, rgba(0, 102, 255, 0.2), transparent 70%),
+    radial-gradient(38% 38% at 82% 24%, rgba(56, 189, 248, 0.14), transparent 72%),
+    radial-gradient(40% 42% at 58% 84%, rgba(192, 132, 252, 0.13), transparent 72%);
+  will-change: transform, opacity;
+  animation: aurora-drift 11s ease-in-out infinite;
+}
+
+html[data-theme="liquid-glass"] .side {
+  background: color-mix(in srgb, var(--carbon) 68%, transparent);
+  backdrop-filter: blur(20px) saturate(160%);
+}
+
+html[data-theme="liquid-glass"] .topbar,
+html[data-theme="liquid-glass"] .detail-head {
+  background: color-mix(in srgb, var(--void) 65%, transparent);
+  backdrop-filter: blur(18px) saturate(160%);
+}
+
+html[data-theme="liquid-glass"] .card {
+  background: color-mix(in srgb, var(--carbon) 65%, transparent);
+  backdrop-filter: blur(18px) saturate(150%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 4px 16px rgba(0, 0, 0, 0.24);
+  transition:
+    transform 0.4s cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 0.4s ease;
+}
+
+html[data-theme="liquid-glass"] .nav-item.active {
+  font-weight: 500;
+  background: color-mix(in srgb, var(--obsidian) 78%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+
+/* ---------- Memphis (prototypes/memphis.md) ---------- */
+html[data-theme="memphis"] .app-shell {
+  position: relative;
+  isolation: isolate;
+}
+
+html[data-theme="memphis"] .app-shell::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: radial-gradient(rgba(255, 206, 92, 0.12) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+html[data-theme="memphis"] .card {
+  border-radius: 8px;
+  border-width: 1.5px;
+  box-shadow: 3px 3px 0 rgba(106, 123, 180, 0.35);
+}
+
+html[data-theme="memphis"] .nav-item.active {
+  font-weight: 500;
+  border-color: var(--lime);
+  box-shadow: 2px 2px 0 rgba(255, 113, 206, 0.35);
+}
+
+/* ---------- Minimalism & Swiss Style (prototypes/Minimalism & Swiss Style.md) ---------- */
+html[data-theme="swiss-minimal"] .card,
+html[data-theme="swiss-minimal"] .card.subtle,
+html[data-theme="swiss-minimal"] .nav-item,
+html[data-theme="swiss-minimal"] .code-view,
+html[data-theme="swiss-minimal"] .log-view,
+html[data-theme="swiss-minimal"] .df-view,
+html[data-theme="swiss-minimal"] .fs,
+html[data-theme="swiss-minimal"] .term-host,
+html[data-theme="swiss-minimal"] .sheet,
+html[data-theme="swiss-minimal"] .g-col,
+html[data-theme="swiss-minimal"] .g-code-box,
+html[data-theme="swiss-minimal"] .g-dag-node {
+  border-radius: 0;
+}
+
+html[data-theme="swiss-minimal"] .nav-item.active {
+  font-weight: 500;
+  border-left: 3px solid var(--paper);
+}
+
+/* ---------- Origami Geométrico (prototypes/Origami Geométrico.md) ---------- */
+html[data-theme="origami"] .card,
+html[data-theme="origami"] .card.subtle,
+html[data-theme="origami"] .nav-item,
+html[data-theme="origami"] .code-view,
+html[data-theme="origami"] .log-view,
+html[data-theme="origami"] .df-view,
+html[data-theme="origami"] .fs,
+html[data-theme="origami"] .term-host,
+html[data-theme="origami"] .sheet,
+html[data-theme="origami"] .g-col,
+html[data-theme="origami"] .g-code-box,
+html[data-theme="origami"] .g-dag-node {
+  border-radius: 0;
+}
+
+html[data-theme="origami"] .card {
+  box-shadow:
+    3px 3px 0 rgba(176, 176, 176, 0.35),
+    0 2px 10px rgba(0, 0, 0, 0.04);
+  background: linear-gradient(135deg, #ffffff 0%, #fafafa 65%, #f4f2ee 100%);
+}
+
+html[data-theme="origami"] .nav-item.active {
+  font-weight: 500;
+  border-left: 3px solid var(--lime);
 }

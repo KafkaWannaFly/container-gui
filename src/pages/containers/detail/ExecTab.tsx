@@ -18,27 +18,33 @@ import { Mono, StateDot } from "../../../components/ui";
 import { usePersistentState } from "../../../hooks/usePersistentState";
 import { queryKeys } from "../../../lib/queryClient";
 import { type ExecSession, execProbe, startExec } from "../../../services/tauriApi";
+import { type ThemePalette, useTheme } from "../../../theme/antdTheme";
 import { cheatSheet } from "./cheatsheet";
 import { containerName, type TabProps } from "./model";
 
-const TERM_THEME = {
-  background: "#08090a",
-  foreground: "#d0d6e0",
-  cursor: "#e4f222",
-  selectionBackground: "#383b3f",
-  black: "#23252a",
-  brightBlack: "#62666d",
-  red: "#eb5757",
-  green: "#27a644",
-  yellow: "#d9a441",
-  blue: "#6366f1",
-  magenta: "#8b5cf6",
-  cyan: "#02b8cc",
-  white: "#d0d6e0",
-  brightWhite: "#ffffff",
-};
+function buildTermTheme(p: ThemePalette) {
+  return {
+    background: p.void,
+    foreground: p.mist,
+    cursor: p.lime,
+    selectionBackground: p.smoke,
+    black: p.graphite,
+    brightBlack: p.ash,
+    red: p.coral,
+    green: p.green,
+    yellow: p.amber,
+    blue: p.violet,
+    magenta: p.lav,
+    cyan: p.teal,
+    white: p.mist,
+    brightWhite: p.paper,
+  };
+}
 
 export default function ExecTab({ ctr, onCopy }: TabProps) {
+  const { theme } = useTheme();
+  const termTheme = useMemo(() => buildTermTheme(theme.palette), [theme.palette]);
+  const termThemeRef = useRef(termTheme);
   const id = ctr.Id;
   const running = !!ctr.State?.Running && !ctr.State.Paused;
   const [shell, setShell] = useState<string | null>(null);
@@ -70,7 +76,7 @@ export default function ExecTab({ ctr, onCopy }: TabProps) {
     const host = hostRef.current;
     if (!host || !running || !activeShell) return;
     const term = new Terminal({
-      theme: TERM_THEME,
+      theme: termThemeRef.current,
       fontFamily: '"Paper Mono", ui-monospace, monospace',
       fontSize: 12,
       lineHeight: 1.25,
@@ -123,6 +129,13 @@ export default function ExecTab({ ctr, onCopy }: TabProps) {
       execRef.current = null;
     };
   }, [id, running, activeShell, activeUser, session]);
+
+  useEffect(() => {
+    termThemeRef.current = termTheme;
+    if (termRef.current) {
+      termRef.current.options.theme = termTheme;
+    }
+  }, [termTheme]);
 
   const disconnect = () => {
     execRef.current?.close();
