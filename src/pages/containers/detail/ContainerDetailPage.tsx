@@ -45,7 +45,7 @@ const MonitorTab = lazy(() => import("./MonitorTab"));
 
 import { composeOf, containerName, cpuLimit, pidsLimit, type TabProps } from "./model";
 
-const TAB_KEYS = ["info", "image", "env", "logs", "monitor", "files", "exec"] as const;
+const TAB_KEYS = ["logs", "info", "image", "env", "monitor", "files", "exec"] as const;
 type TabKey = (typeof TAB_KEYS)[number];
 
 /** Latest backend-collected sample while the container runs; null otherwise. */
@@ -169,7 +169,7 @@ export default function ContainerDetailPage() {
   useInterval(useUpdate(), 30_000);
 
   const tabParam = params.get("tab");
-  const tab: TabKey = TAB_KEYS.includes(tabParam as TabKey) ? (tabParam as TabKey) : "info";
+  const tab: TabKey = TAB_KEYS.includes(tabParam as TabKey) ? (tabParam as TabKey) : "logs";
   const setTab = (key: string) => setParams({ tab: key }, { replace: true });
 
   const inspect = useQuery({
@@ -296,10 +296,10 @@ export default function ContainerDetailPage() {
 
   const tabProps: TabProps = { ctr, image: image.data, onCopy, onOpenTab: setTab };
   const tabs: { key: TabKey; icon: ReactNode; label: string; render: () => ReactNode }[] = [
+    { key: "logs", icon: <FileTextOutlined />, label: "Logs", render: () => <LogsTab {...tabProps} /> },
     { key: "info", icon: <InfoCircleOutlined />, label: "Info", render: () => <InfoTab {...tabProps} /> },
     { key: "image", icon: <BlockOutlined />, label: "Image", render: () => <ImageTab {...tabProps} /> },
     { key: "env", icon: <SettingOutlined />, label: "Environment", render: () => <EnvTab {...tabProps} /> },
-    { key: "logs", icon: <FileTextOutlined />, label: "Logs", render: () => <LogsTab {...tabProps} /> },
     {
       key: "monitor",
       icon: <LineChartOutlined />,

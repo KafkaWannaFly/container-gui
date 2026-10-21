@@ -56,7 +56,7 @@ export default function GroupDetailPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { message, modal } = App.useApp();
-  const [tab, setTab] = useState("info");
+  const [tab, setTab] = useState("logs");
   const [logSolo, setLogSolo] = useState<string | null>(null);
 
   const containersQuery = useQuery({
@@ -371,6 +371,14 @@ export default function GroupDetailPage() {
 
   const tabs = [
     {
+      key: "logs",
+      label: (
+        <span>
+          <FileTextOutlined /> Logs
+        </span>
+      ),
+    },
+    {
       key: "info",
       label: (
         <span>
@@ -383,14 +391,6 @@ export default function GroupDetailPage() {
       label: (
         <span>
           <SettingOutlined /> Environment
-        </span>
-      ),
-    },
-    {
-      key: "logs",
-      label: (
-        <span>
-          <FileTextOutlined /> Logs
         </span>
       ),
     },

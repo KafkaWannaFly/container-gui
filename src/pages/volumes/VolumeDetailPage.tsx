@@ -7,10 +7,12 @@ import {
   ReloadOutlined,
 } from "@ant-design/icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Alert, App, Button, Descriptions, Empty, Result, Spin, Table, Tabs } from "antd";
+import { Alert, App, Button, Descriptions, Empty, Result, Spin, Table, Tabs, Tooltip } from "antd";
+import { formatDistanceToNow } from "date-fns";
+import type { ReactNode } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Section, useSections } from "../../components/Section";
-import { MetricCard, Mono, Pill, StateTag } from "../../components/ui";
+import { Mono, Pill, StateDot, StateTag } from "../../components/ui";
 import { localTime } from "../../lib/format";
 import { queryKeys } from "../../lib/queryClient";
 import { getVolumeDetail, listVolumes, removeVolume } from "../../services/tauriApi";
@@ -34,6 +36,90 @@ function KeyValueTable({ rows, empty }: { rows: [string, string][]; empty: strin
         },
       ]}
     />
+  );
+}
+
+function HeaderStats({
+  summary,
+  containers,
+  driver,
+  scope,
+  optionsCount,
+  labelsCount,
+}: {
+  summary: VolumeItem | undefined;
+  containers: VolumeContainer[];
+  driver: string;
+  scope: string;
+  optionsCount: number;
+  labelsCount: number;
+}) {
+  const runningCount = containers.filter((c) => c.state === "running").length;
+  const mounts = containers.flatMap((c) => c.mounts);
+  const rwMounts = mounts.filter((m) => m.readOnly === false).length;
+  const roMounts = mounts.filter((m) => m.readOnly === true).length;
+  const accessValue = !mounts.length
+    ? "—"
+    : roMounts === mounts.length
+      ? "RO"
+      : rwMounts === mounts.length
+        ? "RW"
+        : `${rwMounts} RW · ${roMounts} RO`;
+  const sizeValue =
+    summary?.sizeBytes != null ? (summary.sizeBytes === 0 ? "0 B" : formatBytes(summary.sizeBytes)) : "—";
+  const sizeSmall = summary?.sizeMeasuredAt
+    ? `measured ${formatDistanceToNow(new Date(summary.sizeMeasuredAt), { addSuffix: true })}`
+    : summary?.sizeBytes === null
+      ? "unmeasured"
+      : null;
+
+  const cells: { k: string; v: ReactNode; small?: ReactNode; tip: string }[] = [
+    {
+      k: "Size",
+      v: sizeValue,
+      small: sizeSmall,
+      tip: "Disk space used by files stored in this volume.",
+    },
+    {
+      k: "Containers",
+      v: containers.length,
+      small: containers.length ? `${runningCount} running` : "unused",
+      tip: "Containers mounting this volume, and how many are currently running.",
+    },
+    {
+      k: "Access",
+      v: accessValue,
+      small: mounts.length ? `${mounts.length} mount${mounts.length === 1 ? "" : "s"}` : null,
+      tip: "Read/write vs read-only mount permissions across attached containers.",
+    },
+    {
+      k: "Driver",
+      v: driver,
+      small: scope || null,
+      tip: "Volume storage driver and scope.",
+    },
+    {
+      k: "Options",
+      v: optionsCount,
+      small: labelsCount ? `${labelsCount} label${labelsCount === 1 ? "" : "s"}` : "no labels",
+      tip: "Driver-specific options and metadata labels on this volume.",
+    },
+  ];
+
+  return (
+    <div className="stats">
+      {cells.map((cell) => (
+        <Tooltip key={cell.k} title={cell.tip} mouseEnterDelay={0.3}>
+          <div className="stat">
+            <div className="k">{cell.k}</div>
+            <div className="v">
+              {cell.v}
+              {cell.small ? <small>{cell.small}</small> : null}
+            </div>
+          </div>
+        </Tooltip>
+      ))}
+    </div>
   );
 }
 
@@ -147,6 +233,9 @@ export default function VolumeDetailPage() {
   const labels = Object.entries(volume.labels).sort(([a], [b]) => a.localeCompare(b));
   const options = Object.entries(volume.options).sort(([a], [b]) => a.localeCompare(b));
   const project = volume.labels["com.docker.compose.project"];
+  const composeVolume = volume.labels["com.docker.compose.volume"];
+  const created = volume.createdAt ? new Date(volume.createdAt) : null;
+  const validCreated = created && !Number.isNaN(created.getTime()) ? created : null;
 
   return (
     <div>
@@ -165,14 +254,55 @@ export default function VolumeDetailPage() {
               icon={<ArrowLeftOutlined />}
               aria-label="Back to volumes"
               onClick={() => navigate("/volumes")}
+              style={{ marginTop: 2 }}
             />
             <div className="volume-heading">
-              <div className="detail-title volume-value">{volume.name}</div>
+              <div className="detail-title volume-value">
+                <StateDot
+                  state={inUse ? "running" : "orphaned"}
+                  size={9}
+                  label={
+                    inUse
+                      ? `Mounted by ${containers.length || summary?.refCount || 1} container(s)`
+                      : "Unused"
+                  }
+                />
+                {volume.name}
+                {project ? (
+                  <Pill tone="teal">{composeVolume ? `${project}/${composeVolume}` : project}</Pill>
+                ) : null}
+                <Pill tone={inUse ? "green" : "neutral"}>{inUse ? "in use" : "unused"}</Pill>
+                {volume.driver !== "local" ? <Pill tone="teal">{volume.driver}</Pill> : null}
+              </div>
               <div className="detail-sub">
-                <Pill tone={inUse ? "green" : "neutral"}>{inUse ? "In use" : "Unused"}</Pill>
-                <Pill tone={volume.driver === "local" ? "neutral" : "teal"}>{volume.driver}</Pill>
-                <span className="dim note">
-                  {inUse ? "Detach referencing containers before deleting" : "Persistent storage"}
+                {project ? (
+                  <Link to={`/containers/group/${encodeURIComponent(project)}`}>
+                    <Mono>{project}</Mono>
+                  </Link>
+                ) : (
+                  <Mono>{volume.driver}</Mono>
+                )}
+                {volume.mountpoint ? (
+                  <>
+                    <span className="dim">·</span>
+                    <button
+                      type="button"
+                      className="copyable mono volume-value"
+                      aria-label="Copy mountpoint"
+                      onClick={() => copy(volume.mountpoint, "Mountpoint")}
+                    >
+                      {volume.mountpoint}
+                      <CopyOutlined />
+                    </button>
+                  </>
+                ) : null}
+                <span className="dim">·</span>
+                <span className="mono dim">
+                  {validCreated
+                    ? `created ${formatDistanceToNow(validCreated, { addSuffix: true })}`
+                    : inUse
+                      ? "mounted"
+                      : "persistent storage"}
                 </span>
               </div>
             </div>
@@ -191,6 +321,16 @@ export default function VolumeDetailPage() {
               </Button>
             </div>
           </div>
+
+          <HeaderStats
+            summary={summary}
+            containers={containers}
+            driver={volume.driver}
+            scope={volume.scope}
+            optionsCount={options.length}
+            labelsCount={labels.length}
+          />
+
           <Tabs
             activeKey={tab}
             onChange={(key) =>
@@ -230,14 +370,6 @@ export default function VolumeDetailPage() {
           ) : null}
           {tab === "overview" ? (
             <>
-              <div className="metrics">
-                <MetricCard label="Stored data" value={size} suffix="reported by Docker" />
-                <MetricCard
-                  label="Attached containers"
-                  value={containers.length}
-                  suffix={`${containers.filter((container) => container.state === "running").length} running`}
-                />
-              </div>
               <Section id="storage" title="Storage" {...section}>
                 <Descriptions
                   column={1}

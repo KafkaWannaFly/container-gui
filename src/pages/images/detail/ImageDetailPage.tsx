@@ -7,12 +7,23 @@ import {
   InfoCircleOutlined,
 } from "@ant-design/icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { App, Button, Descriptions, type DescriptionsProps, Empty, Result, Spin, Table, Tabs } from "antd";
+import {
+  App,
+  Button,
+  Descriptions,
+  type DescriptionsProps,
+  Empty,
+  Result,
+  Spin,
+  Table,
+  Tabs,
+  Tooltip,
+} from "antd";
 import { formatDistanceToNow } from "date-fns";
 import { type ReactNode, useMemo } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Section, useSections } from "../../../components/Section";
-import { Mono, Pill, StateTag } from "../../../components/ui";
+import { Mono, Pill, StateDot, StateTag } from "../../../components/ui";
 import { localTime } from "../../../lib/format";
 import { queryKeys } from "../../../lib/queryClient";
 import {
@@ -344,6 +355,80 @@ function ContainersTab({ containers }: { containers: ContainerSummary[] }) {
   );
 }
 
+function HeaderStats({
+  image,
+  platform,
+  layerCount,
+  withContent,
+  historyLoading,
+  containers,
+  tags,
+  tag,
+  ports,
+}: {
+  image: ImageInspect;
+  platform: string;
+  layerCount: number;
+  withContent: number;
+  historyLoading: boolean;
+  containers: ContainerSummary[];
+  tags: string[];
+  tag: string | undefined;
+  ports: string[];
+}) {
+  const runningCount = containers.filter((c) => c.state === "running").length;
+  const cells: { k: string; v: ReactNode; small?: ReactNode; tip: string }[] = [
+    {
+      k: "Size",
+      v: image.Size ? formatBytes(image.Size) : "—",
+      tip: "Total uncompressed disk space used by this image's layers.",
+    },
+    {
+      k: "Layers",
+      v: historyLoading ? "—" : layerCount,
+      small: withContent ? `${withContent} with content` : null,
+      tip: "Total build steps in image history, and how many layers add filesystem content.",
+    },
+    {
+      k: "Platform",
+      v: platform,
+      tip: "Target operating system and CPU architecture.",
+    },
+    {
+      k: "Containers",
+      v: containers.length,
+      small: containers.length ? `${runningCount} running` : "unused",
+      tip: "Containers created from this image, and how many are currently running.",
+    },
+    {
+      k: "Tags",
+      v: tags.length,
+      small: tag ? `:${tag}` : "dangling",
+      tip: "Repository tags pointing to this image ID.",
+    },
+    {
+      k: "Exposed Ports",
+      v: ports.length ? ports.join(", ") : "—",
+      tip: "Ports declared with EXPOSE in the image configuration.",
+    },
+  ];
+  return (
+    <div className="stats">
+      {cells.map((cell) => (
+        <Tooltip key={cell.k} title={cell.tip} mouseEnterDelay={0.3}>
+          <div className="stat">
+            <div className="k">{cell.k}</div>
+            <div className="v">
+              {cell.v}
+              {cell.small ? <small>{cell.small}</small> : null}
+            </div>
+          </div>
+        </Tooltip>
+      ))}
+    </div>
+  );
+}
+
 export default function ImageDetailPage() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
@@ -381,9 +466,12 @@ export default function ImageDetailPage() {
     const names = new Set(refs.flatMap((r) => (r.includes(":") ? [r] : [`${r}:latest`])));
     const bare = shortId(id);
     return (allContainers.data ?? []).filter(
-      (c) => names.has(c.image.includes(":") ? c.image : `${c.image}:latest`) || shortId(c.image) === bare,
+      (c) =>
+        (image?.Id ? c.imageId === image.Id : false) ||
+        names.has(c.image.includes(":") ? c.image : `${c.image}:latest`) ||
+        shortId(c.image) === bare,
     );
-  }, [allContainers.data, refs, id]);
+  }, [allContainers.data, refs, id, image]);
   const usedTags = useMemo(() => {
     const names = new Set(containers.map((c) => c.image));
     return new Set(tags.filter((t) => names.has(`${repo}:${t}`) || (t === "latest" && names.has(repo))));
@@ -441,6 +529,12 @@ export default function ImageDetailPage() {
   }
 
   const title = repo === "<none>" || !tag ? shortId(image.Id) : `${repo}:${tag}`;
+  const digests = image.RepoDigests ?? [];
+  const manifest = (digests.find((d) => d.startsWith(`${repo}@`)) ?? digests[0])?.split("@")[1];
+  const platform = [image.Os, image.Architecture, image.Variant].filter(Boolean).join("/") || "—";
+  const ports = Object.keys(image.Config?.ExposedPorts ?? {});
+  const created = image.Created ? new Date(image.Created) : null;
+  const runningContainers = containers.filter((c) => c.state === "running").length;
 
   const confirmDelete = () =>
     modal.confirm({
@@ -483,11 +577,42 @@ export default function ImageDetailPage() {
               style={{ marginTop: 2 }}
             />
             <div style={{ flex: 1, minWidth: 240 }}>
-              <div className="detail-title">{title}</div>
-              <div className="dim" style={{ fontSize: 12, marginTop: 4 }}>
-                {tags.length
-                  ? `${tags.length} tag${tags.length === 1 ? "" : "s"} alias this image`
-                  : "Dangling image — no tags"}
+              <div className="detail-title">
+                {runningContainers > 0 ? (
+                  <StateDot
+                    state="running"
+                    size={9}
+                    label={`In use by ${runningContainers} running container(s)`}
+                  />
+                ) : containers.length > 0 ? (
+                  <StateDot
+                    state="in-use"
+                    size={9}
+                    color="var(--amber)"
+                    label={`Used by ${containers.length} stopped container(s)`}
+                  />
+                ) : (
+                  <StateDot state="unused" size={9} label="Unused" />
+                )}
+                {title}
+                <Pill tone={manifest ? "teal" : "lav"}>{manifest ? "pulled" : "local build"}</Pill>
+                <Pill tone={runningContainers > 0 ? "green" : containers.length > 0 ? "amber" : "neutral"}>
+                  {containers.length > 0 ? "in use" : "unused"}
+                </Pill>
+              </div>
+              <div className="detail-sub">
+                <Mono>{manifest && tag ? `${registryPath(repo)}:${tag}` : repo}</Mono>
+                <span className="dim">·</span>
+                <button type="button" className="copyable mono" onClick={() => onCopy(image.Id, "Image ID")}>
+                  {shortId(image.Id)}
+                  <CopyOutlined />
+                </button>
+                <span className="dim">·</span>
+                <span className="mono dim">
+                  {created
+                    ? `created ${formatDistanceToNow(created, { addSuffix: true })}`
+                    : "created unknown"}
+                </span>
               </div>
             </div>
 
@@ -522,6 +647,18 @@ export default function ImageDetailPage() {
               ))}
             </div>
           ) : null}
+
+          <HeaderStats
+            image={image}
+            platform={platform}
+            layerCount={layerCount}
+            withContent={withContent}
+            historyLoading={history.isLoading}
+            containers={containers}
+            tags={tags}
+            tag={tag}
+            ports={ports}
+          />
 
           <Tabs
             activeKey={tab}

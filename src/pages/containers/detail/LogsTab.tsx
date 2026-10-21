@@ -15,7 +15,7 @@ import { z } from "zod";
 import { usePersistentState } from "../../../hooks/usePersistentState";
 import { useSaveFile } from "../../../hooks/useSaveFile";
 import { saveContainerLogs, streamContainerLogs } from "../../../services/tauriApi";
-import { formatStamp, LEVEL_RANK, type Level, type ParsedLine, parseLine, zoneOffset } from "./logParse";
+import { formatStamp, type Level, type ParsedLine, parseLine, zoneOffset } from "./logParse";
 import { containerName, type TabProps } from "./model";
 
 /** Lines kept in memory; the oldest are dropped in chunks past this. */
@@ -248,8 +248,7 @@ export default function LogsTab({ ctr }: TabProps) {
     const needle = q.toLowerCase();
     const rows = visible.filter(
       (line) =>
-        (level === "all" || LEVEL_RANK[line.level] >= LEVEL_RANK[level]) &&
-        (!needle || line.text.toLowerCase().includes(needle)),
+        (level === "all" || line.level === level) && (!needle || line.text.toLowerCase().includes(needle)),
     );
     return { rows, visible, counts };
   }, [lines, q, level, cutoff]);
@@ -292,7 +291,6 @@ export default function LogsTab({ ctr }: TabProps) {
         : zone === "UTC"
           ? "UTC"
           : `UTC${zoneOffset(zone)}`;
-  const toggleLevel = (next: Level) => setLevel((cur) => (cur === next ? "all" : next));
   const filtered = q || level !== "all";
   const running = !!ctr.State?.Running;
 
@@ -308,29 +306,17 @@ export default function LogsTab({ ctr }: TabProps) {
           style={{ width: 220 }}
         />
         <Tooltip title="Levels are inferred from the text; Docker does not record them.">
-          <span className="lg-chips">
-            <button
-              type="button"
-              className={`lg-chip${level === "all" ? " on" : ""}`}
-              onClick={() => setLevel("all")}
-            >
-              All
-            </button>
-            <button
-              type="button"
-              className={`lg-chip warn${level === "warn" ? " on" : ""}${counts.warn ? "" : " zero"}`}
-              onClick={() => toggleLevel("warn")}
-            >
-              ▲ {counts.warn} warn
-            </button>
-            <button
-              type="button"
-              className={`lg-chip error${level === "error" ? " on" : ""}${counts.error ? "" : " zero"}`}
-              onClick={() => toggleLevel("error")}
-            >
-              ● {counts.error} error
-            </button>
-          </span>
+          <Select<Filter>
+            value={level}
+            onChange={setLevel}
+            style={{ width: 136 }}
+            options={[
+              { value: "all", label: "All levels" },
+              { value: "info", label: `Info (${counts.info})` },
+              { value: "warn", label: `Warn (${counts.warn})` },
+              { value: "error", label: `Error (${counts.error})` },
+            ]}
+          />
         </Tooltip>
         <Select
           value={tail}

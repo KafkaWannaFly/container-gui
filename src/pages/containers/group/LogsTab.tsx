@@ -12,7 +12,6 @@ import { svcColor } from "./model";
 type Level = "debug" | "info" | "warn" | "error" | "event";
 type GLine = { seq: number; id: string; ts: string; level: Level; text: string };
 
-const RANK: Record<string, number> = { debug: 0, info: 1, warn: 2, error: 3 };
 const MAX_LINES = 4000;
 const LOCAL_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
@@ -120,13 +119,14 @@ export default function LogsTab({
         .filter(
           (line) =>
             shownSet.has(line.id) &&
-            (line.level === "event" ? events : level === "all" || RANK[line.level] >= RANK[level]) &&
+            (line.level === "event" ? events : level === "all" || line.level === level) &&
             (!query || line.text.toLowerCase().includes(query.toLowerCase())),
         )
         .slice(cleared),
     [allLines, shownSet, events, level, query, cleared],
   );
 
+  const infoCount = allLines.filter((line) => line.level === "info" && shownSet.has(line.id)).length;
   const errCount = allLines.filter((line) => line.level === "error" && shownSet.has(line.id)).length;
   const warnCount = allLines.filter((line) => line.level === "warn" && shownSet.has(line.id)).length;
 
@@ -141,6 +141,12 @@ export default function LogsTab({
       pane.scrollTop = pane.scrollHeight;
     }
   }, [rows, follow, view]);
+
+  const onPaneScroll = (event: React.UIEvent<HTMLDivElement>) => {
+    const el = event.currentTarget;
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight <= 8;
+    setFollow(atBottom);
+  };
 
   const only = (id: string) => setHidden(containers.filter((ctr) => ctr.id !== id).map((ctr) => ctr.id));
 
@@ -206,14 +212,15 @@ export default function LogsTab({
           prefix={<SearchOutlined style={{ color: "var(--smoke)" }} />}
           style={{ width: 220 }}
         />
-        <Segmented
+        <Select
           value={level}
-          onChange={(value) => setLevel(String(value))}
+          onChange={setLevel}
+          style={{ width: 136 }}
           options={[
-            { label: "All", value: "all" },
-            { label: "Info", value: "info" },
-            { label: `Warn ${warnCount}`, value: "warn" },
-            { label: `Error ${errCount}`, value: "error" },
+            { value: "all", label: "All levels" },
+            { value: "info", label: `Info (${infoCount})` },
+            { value: "warn", label: `Warn (${warnCount})` },
+            { value: "error", label: `Error (${errCount})` },
           ]}
         />
         <Select
@@ -242,13 +249,21 @@ export default function LogsTab({
             </span>
           </span>
         ) : null}
-        <Button
-          icon={<VerticalAlignBottomOutlined />}
-          type={follow ? "primary" : "default"}
-          onClick={() => setFollow((prev) => !prev)}
+        <Tooltip
+          title={
+            follow
+              ? "Following: the view stays on the newest line as output arrives. Click or scroll up to pause."
+              : "Paused: click to jump to the newest line and keep up with new output."
+          }
         >
-          Follow
-        </Button>
+          <Button
+            icon={<VerticalAlignBottomOutlined />}
+            type={follow ? "primary" : "default"}
+            onClick={() => setFollow((prev) => !prev)}
+          >
+            Follow
+          </Button>
+        </Tooltip>
         <Tooltip title="Clear">
           <Button icon={<ClearOutlined />} aria-label="Clear" onClick={() => setCleared(allLines.length)} />
         </Tooltip>
@@ -283,7 +298,7 @@ export default function LogsTab({
 
       <div ref={paneRef}>
         {view === "merged" ? (
-          <div className="g-log" data-pane="1">
+          <div className="g-log" data-pane="1" onScroll={onPaneScroll}>
             {rows.length ? rows.map((item) => line(item, true)) : empty}
           </div>
         ) : shownKeys.length === 0 ? (
@@ -302,7 +317,7 @@ export default function LogsTab({
                     <span style={{ flex: 1 }} />
                     <span className="mono dim">{mine.length}</span>
                   </div>
-                  <div className="g-log" data-pane="1">
+                  <div className="g-log" data-pane="1" onScroll={onPaneScroll}>
                     {mine.length ? (
                       mine.map((item) => line(item, false))
                     ) : (
