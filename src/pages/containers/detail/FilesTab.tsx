@@ -37,6 +37,7 @@ import CodeView, { detectLanguage } from "../../../components/CodeView";
 import { Mono, Pill } from "../../../components/ui";
 import { usePersistentState } from "../../../hooks/usePersistentState";
 import { useSaveFile } from "../../../hooks/useSaveFile";
+import { useSearchHotkey } from "../../../hooks/useSearchHotkey";
 import { queryKeys } from "../../../lib/queryClient";
 import {
   containerChanges,
@@ -161,6 +162,7 @@ export default function FilesTab({ ctr, onCopy, onOpenTab }: TabProps) {
   const [expanded, setExpanded] = useState<string[]>(["/"]);
   const [limits, setLimits] = useState<Record<string, number>>({});
   const [growing, setGrowing] = useState<string | null>(null);
+  const searchRef = useSearchHotkey();
   const [q, setQ] = useState("");
   const [pathInput, setPathInput] = useState("");
   const [showHidden, setShowHidden] = usePersistentState("files.hidden", z.boolean(), false);
@@ -787,6 +789,7 @@ export default function FilesTab({ ctr, onCopy, onOpenTab }: TabProps) {
             ) : (
               <>
                 <Input
+                  ref={searchRef}
                   size="small"
                   placeholder="Filter"
                   allowClear

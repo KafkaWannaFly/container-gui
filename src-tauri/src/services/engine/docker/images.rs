@@ -63,12 +63,8 @@ impl IImageGateway for DockerEngine {
     }
 
     async fn prune(&self, dangling_only: bool) -> AppResult<i64> {
-        let options = if dangling_only {
-            let filters = HashMap::from([("dangling".to_string(), vec!["true".to_string()])]);
-            PruneImagesOptionsBuilder::new().filters(&filters).build()
-        } else {
-            PruneImagesOptionsBuilder::new().build()
-        };
+        let filters = HashMap::from([("dangling".to_string(), vec![dangling_only.to_string()])]);
+        let options = PruneImagesOptionsBuilder::new().filters(&filters).build();
         let response = self.client.prune_images(Some(options)).await?;
         Ok(response.space_reclaimed.unwrap_or_default())
     }

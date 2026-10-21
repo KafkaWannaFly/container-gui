@@ -14,7 +14,9 @@ import { formatDistanceToNow } from "date-fns";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAnimatedTree } from "../../components/AnimatedTree";
+import { usePageCommands } from "../../components/CommandPalette";
 import { MetricCard, Mono, Pill, RowActions, StateDot } from "../../components/ui";
+import { useSearchHotkey } from "../../hooks/useSearchHotkey";
 import { queryKeys } from "../../lib/queryClient";
 import { listContainers, listImages, pruneImages, removeImage } from "../../services/tauriApi";
 import { formatBytes, type ImageItem, shortId } from "../../types/docker";
@@ -126,6 +128,7 @@ export default function ImageListPage() {
   const { modal, message } = App.useApp();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const searchRef = useSearchHotkey();
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<React.Key[]>([]);
   const [expanded, setExpanded] = useState<React.Key[]>([]);
@@ -213,9 +216,9 @@ export default function ImageListPage() {
   });
 
   const leaves = flatten(groups);
-  const inUse = images.filter((i) => i.repoTags.some((t) => t && !t.startsWith("<none>"))).length;
+  const inUse = images.filter((i) => usageByImage.has(i.id)).length;
   const totalBytes = images.reduce((sum, i) => sum + i.size, 0);
-  const dangling = leaves.filter((r) => r.dangling);
+  const unused = images.filter((i) => !usageByImage.has(i.id));
   const selectedRows = leaves.filter((r) => selected.includes(r.key));
 
   const deleteSelected = () => {
@@ -226,16 +229,56 @@ export default function ImageListPage() {
     setSelected([]);
   };
 
+  usePageCommands([
+    {
+      id: "images.delete-selected",
+      group: "Selected",
+      label: "Delete selected images",
+      keywords: "delete remove selected images",
+      icon: <DeleteOutlined />,
+      danger: true,
+      badge: `${selectedRows.length} selected`,
+      disabled: !selectedRows.length,
+      action: () => {
+        modal.confirm({
+          title: `Delete ${selectedRows.length} selected image(s)?`,
+          centered: true,
+          okText: "Delete",
+          okType: "danger",
+          content: "Selected images will be removed.",
+          onOk: deleteSelected,
+        });
+      },
+    },
+  ]);
+
   const prune = () => {
     modal.confirm({
-      title: "Prune dangling images",
+      title: "Prune unused images",
       centered: true,
       okText: "Prune",
       okType: "danger",
-      content: `${dangling.length} dangling image(s) will be removed. Running and stopped containers are unaffected.`,
+      width: 480,
+      content: (
+        <div>
+          <p style={{ color: "var(--mist)" }}>
+            {unused.length} image(s) are not used by any running or stopped container:
+          </p>
+          <div className="card subtle mono" style={{ maxHeight: 200, overflow: "auto" }}>
+            {unused.map((img) => {
+              const tags = img.repoTags.filter((t) => t && !t.startsWith("<none>"));
+              return <div key={img.id}>{tags.length ? tags.join(", ") : shortId(img.id)}</div>;
+            })}
+          </div>
+          <p className="dim" style={{ marginBottom: 0, fontSize: 12 }}>
+            Running and stopped containers are unaffected.
+          </p>
+        </div>
+      ),
       onOk: async () => {
-        const reclaimed = await pruneImages(true);
+        const reclaimed = await pruneImages(false);
         void queryClient.invalidateQueries({ queryKey: queryKeys.images() });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.system() });
         message.success(`Reclaimed ${formatBytes(reclaimed)}`);
       },
     });
@@ -390,6 +433,7 @@ export default function ImageListPage() {
       <div className="card">
         <div className="toolbar" style={{ marginBottom: 16 }}>
           <Input
+            ref={searchRef}
             placeholder="Search repository or tag"
             allowClear
             value={search}
@@ -420,11 +464,11 @@ export default function ImageListPage() {
               Delete
             </Button>
           </Popconfirm>
-          <Button icon={<ClearOutlined />} onClick={prune}>
-            Prune dangling
-            {dangling.length ? (
+          <Button icon={<ClearOutlined />} disabled={!unused.length} onClick={prune}>
+            Prune unused
+            {unused.length ? (
               <span style={{ marginLeft: 6 }}>
-                <Pill>{dangling.length}</Pill>
+                <Pill>{unused.length}</Pill>
               </span>
             ) : null}
           </Button>

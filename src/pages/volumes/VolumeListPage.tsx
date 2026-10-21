@@ -1,17 +1,23 @@
 import { ClearOutlined, CopyOutlined, DeleteOutlined } from "@ant-design/icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMount } from "ahooks";
-import { App, Button, Empty, Input, Popconfirm, Spin, Table, type TableColumnsType } from "antd";
+import { App, Button, Empty, Input, Popconfirm, Spin, Table, type TableColumnsType, Tooltip } from "antd";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { usePageCommands } from "../../components/CommandPalette";
 import { MetricCard, Mono, Pill, RowActions, StateDot } from "../../components/ui";
+import { useSearchHotkey } from "../../hooks/useSearchHotkey";
 import { queryKeys } from "../../lib/queryClient";
 import { listVolumes, pruneVolumes, refreshVolumeSizes, removeVolume } from "../../services/tauriApi";
-import { formatBytes, type VolumeItem } from "../../types/docker";
+import { formatBytes, middleEllipsis, type VolumeItem } from "../../types/docker";
+
+const MAX_NAME_LEN = 30;
+const MAX_MOUNT_LEN = 38;
 
 export default function VolumeListPage() {
   const { modal, message } = App.useApp();
   const queryClient = useQueryClient();
+  const searchRef = useSearchHotkey();
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<React.Key[]>([]);
 
@@ -67,7 +73,7 @@ export default function VolumeListPage() {
       okType: "danger",
       content: (
         <span>
-          Data in <Mono>{row.name}</Mono> will be permanently lost.
+          Data in <Mono>{middleEllipsis(row.name, MAX_NAME_LEN)}</Mono> will be permanently lost.
         </span>
       ),
       onOk: () => {
@@ -89,7 +95,9 @@ export default function VolumeListPage() {
           </p>
           <div className="card subtle mono" style={{ maxHeight: 200, overflow: "auto" }}>
             {orphans.map((o) => (
-              <div key={o.name}>{o.name}</div>
+              <div key={o.name} title={o.name}>
+                {middleEllipsis(o.name, MAX_NAME_LEN)}
+              </div>
             ))}
           </div>
           <p className="dim" style={{ marginBottom: 0, fontSize: 12 }}>
@@ -114,32 +122,65 @@ export default function VolumeListPage() {
     setSelected([]);
   };
 
+  usePageCommands([
+    {
+      id: "volumes.delete-selected",
+      group: "Selected",
+      label: "Delete selected volumes",
+      keywords: "delete remove selected volumes",
+      icon: <DeleteOutlined />,
+      danger: true,
+      badge: `${selected.length} selected`,
+      disabled: !selected.length,
+      action: () => {
+        modal.confirm({
+          title: `Delete ${selected.length} selected volume(s)?`,
+          centered: true,
+          okText: "Delete",
+          okType: "danger",
+          content: "All data in the selected volumes will be permanently lost.",
+          onOk: deleteSelected,
+        });
+      },
+    },
+  ]);
+
   const columns: TableColumnsType<VolumeItem> = [
     {
       title: "Name",
       dataIndex: "name",
-      render: (value: string, row) => (
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <span
-            style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", minWidth: 10 }}
-          >
-            {pending.has(value) ? (
-              <Spin size="small" />
-            ) : row.inUse ? (
-              <StateDot state="running" label={`Mounted by ${row.refCount} container(s)`} />
-            ) : (
-              <StateDot state="orphaned" label="Orphaned" />
-            )}
-          </span>
-          <Link
-            to={`/volumes/${encodeURIComponent(value)}`}
-            className="row-link"
-            style={{ whiteSpace: "nowrap" }}
-          >
-            {value}
-          </Link>
-        </div>
-      ),
+      render: (value: string, row) => {
+        const short = middleEllipsis(value, MAX_NAME_LEN);
+        return (
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                minWidth: 10,
+              }}
+            >
+              {pending.has(value) ? (
+                <Spin size="small" />
+              ) : row.inUse ? (
+                <StateDot state="running" label={`Mounted by ${row.refCount} container(s)`} />
+              ) : (
+                <StateDot state="orphaned" label="Orphaned" />
+              )}
+            </span>
+            <Tooltip title={short !== value ? value : undefined}>
+              <Link
+                to={`/volumes/${encodeURIComponent(value)}`}
+                className="row-link"
+                style={{ whiteSpace: "nowrap" }}
+              >
+                {short}
+              </Link>
+            </Tooltip>
+          </div>
+        );
+      },
     },
     {
       title: "Driver",
@@ -150,21 +191,16 @@ export default function VolumeListPage() {
     {
       title: "Mountpoint",
       dataIndex: "mountpoint",
-      render: (value: string) => (
-        <span
-          className="mono dim"
-          style={{
-            display: "inline-block",
-            maxWidth: 360,
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-            verticalAlign: "bottom",
-          }}
-        >
-          {value}
-        </span>
-      ),
+      render: (value: string) => {
+        const short = middleEllipsis(value, MAX_MOUNT_LEN);
+        return (
+          <Tooltip title={short !== value ? value : undefined}>
+            <span className="mono dim" style={{ whiteSpace: "nowrap" }}>
+              {short}
+            </span>
+          </Tooltip>
+        );
+      },
     },
     {
       title: "Size",
@@ -178,7 +214,7 @@ export default function VolumeListPage() {
           ? `Measured ${new Date(row.sizeMeasuredAt).toLocaleString()}`
           : undefined;
         return (
-          <span className="mono" title={measured}>
+          <span className="mono" title={measured} style={{ whiteSpace: "nowrap" }}>
             {value === 0 ? "0 B" : formatBytes(value)}
           </span>
         );
@@ -188,7 +224,11 @@ export default function VolumeListPage() {
       title: "Created",
       dataIndex: "createdAt",
       width: 130,
-      render: (value: string) => <span className="dim">{value ? value.slice(0, 10) : "—"}</span>,
+      render: (value: string) => (
+        <span className="dim" style={{ whiteSpace: "nowrap" }}>
+          {value ? value.slice(0, 10) : "—"}
+        </span>
+      ),
     },
     {
       title: "",
@@ -244,6 +284,7 @@ export default function VolumeListPage() {
       <div className="card">
         <div className="toolbar" style={{ marginBottom: 16 }}>
           <Input
+            ref={searchRef}
             placeholder="Search volumes"
             allowClear
             value={search}

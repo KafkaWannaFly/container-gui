@@ -8,6 +8,7 @@ import {
 import { App, Button, Empty, Input, Segmented, Table, Tooltip } from "antd";
 import { useCallback, useMemo, useState } from "react";
 import { Pill, StateDot } from "../../../components/ui";
+import { useSearchHotkey } from "../../../hooks/useSearchHotkey";
 import type { ContainerInspect, ContainerSummary, ImageInspect } from "../../../types/docker";
 import { type EnvRow, envRows } from "../detail/model";
 import { Section, useSections } from "./components";
@@ -39,6 +40,7 @@ export default function EnvTab({
   onOpenContainer: (id: string, tab: string) => void;
 }) {
   const { message } = App.useApp();
+  const searchRef = useSearchHotkey();
   const [query, setQuery] = useState("");
   const [source, setSource] = useState("all");
   const [mode, setMode] = useState("list");
@@ -205,6 +207,7 @@ export default function EnvTab({
     <div className="tab-stack">
       <div className="toolbar">
         <Input
+          ref={searchRef}
           placeholder="Filter across all containers"
           allowClear
           value={query}

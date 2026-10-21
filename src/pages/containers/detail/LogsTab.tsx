@@ -14,6 +14,7 @@ import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 import { z } from "zod";
 import { usePersistentState } from "../../../hooks/usePersistentState";
 import { useSaveFile } from "../../../hooks/useSaveFile";
+import { useSearchHotkey } from "../../../hooks/useSearchHotkey";
 import { saveContainerLogs, streamContainerLogs } from "../../../services/tauriApi";
 import { formatStamp, type Level, type ParsedLine, parseLine, zoneOffset } from "./logParse";
 import { containerName, type TabProps } from "./model";
@@ -175,6 +176,7 @@ function LogRow({ line, opts }: { line: ParsedLine; opts: Options }) {
 
 export default function LogsTab({ ctr }: TabProps) {
   const id = ctr.Id;
+  const searchRef = useSearchHotkey();
   const [q, setQ] = useState("");
   const [level, setLevel] = useState<Filter>("all");
   const [follow, setFollow] = useState(true);
@@ -298,6 +300,7 @@ export default function LogsTab({ ctr }: TabProps) {
     <div className="card">
       <div className="toolbar" style={{ marginBottom: 12 }}>
         <Input
+          ref={searchRef}
           placeholder="Search in logs"
           allowClear
           value={q}

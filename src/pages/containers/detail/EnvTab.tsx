@@ -13,6 +13,7 @@ import {
 import { Button, Dropdown, Empty, Input, Segmented, Table, Tooltip } from "antd";
 import { type ComponentType, useMemo, useState } from "react";
 import { Pill } from "../../../components/ui";
+import { useSearchHotkey } from "../../../hooks/useSearchHotkey";
 import { type EnvRow, envRows, type TabProps } from "./model";
 
 const MASK = "••••••••••••••••";
@@ -67,6 +68,7 @@ function Tinted({ kind, line }: { kind: ViewKey; line: string }) {
 }
 
 export default function EnvTab({ ctr, image, onCopy }: TabProps) {
+  const searchRef = useSearchHotkey();
   const [q, setQ] = useState("");
   const [src, setSrc] = useState("all");
   const [revealed, setRevealed] = useState<string[]>([]);
@@ -125,6 +127,7 @@ export default function EnvTab({ ctr, image, onCopy }: TabProps) {
     <div className="card">
       <div className="toolbar" style={{ marginBottom: 14 }}>
         <Input
+          ref={searchRef}
           placeholder="Filter variables"
           allowClear
           value={q}

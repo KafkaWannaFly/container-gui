@@ -29,7 +29,9 @@ import { formatDistanceToNow } from "date-fns";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAnimatedTree } from "../../components/AnimatedTree";
+import { usePageCommands } from "../../components/CommandPalette";
 import { CopyButton, MetricCard, Mono, RowActions, StateDot } from "../../components/ui";
+import { useSearchHotkey } from "../../hooks/useSearchHotkey";
 import { queryKeys } from "../../lib/queryClient";
 import type { ContainerActionKind } from "../../services/tauriApi";
 import { containerAction, getSystemInfo, listContainers, metricsLatest } from "../../services/tauriApi";
@@ -82,6 +84,7 @@ export default function ContainerListPage() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [state, setState] = useState("all");
+  const searchRef = useSearchHotkey();
   const [selected, setSelected] = useState<React.Key[]>([]);
   const navigate = useNavigate();
   const [expanded, setExpanded] = useState<React.Key[]>([]);
@@ -249,6 +252,63 @@ export default function ContainerListPage() {
     // Remove drops the rows; other actions keep the selection for follow-ups.
     if (action === "remove") setSelected([]);
   };
+
+  const startEligibleCount = eligibleIds("start").length;
+  const stopEligibleCount = eligibleIds("stop").length;
+  const pauseEligibleCount = eligibleIds("pause").length;
+
+  usePageCommands([
+    {
+      id: "containers.start-selected",
+      group: "Selected",
+      label: "Start selected containers",
+      keywords: "start selected containers",
+      icon: <PlayCircleOutlined />,
+      badge: `${startEligibleCount} eligible`,
+      disabled: !startEligibleCount,
+      action: () => runBatch("start"),
+    },
+    {
+      id: "containers.stop-selected",
+      group: "Selected",
+      label: "Stop selected containers",
+      keywords: "stop selected containers",
+      icon: <MinusCircleOutlined />,
+      badge: `${stopEligibleCount} eligible`,
+      disabled: !stopEligibleCount,
+      action: () => runBatch("stop"),
+    },
+    {
+      id: "containers.pause-selected",
+      group: "Selected",
+      label: "Pause selected containers",
+      keywords: "pause selected containers",
+      icon: <PauseCircleOutlined />,
+      badge: `${pauseEligibleCount} eligible`,
+      disabled: !pauseEligibleCount,
+      action: () => runBatch("pause"),
+    },
+    {
+      id: "containers.delete-selected",
+      group: "Selected",
+      label: "Delete selected containers",
+      keywords: "delete remove selected containers",
+      icon: <DeleteOutlined />,
+      danger: true,
+      badge: `${selectedIds.length} selected`,
+      disabled: !selectedIds.length,
+      action: () => {
+        modal.confirm({
+          title: `Remove ${selectedIds.length} selected container(s)?`,
+          centered: true,
+          okText: "Remove",
+          okType: "danger",
+          content: "Selected containers will be stopped and deleted. Named volumes are kept.",
+          onOk: () => runBatch("remove"),
+        });
+      },
+    },
+  ]);
 
   // Same idea as eligibleIds/runBatch, scoped to one compose group's children
   // so the group row can offer bulk actions without a page-wide selection.
@@ -629,6 +689,7 @@ export default function ContainerListPage() {
       <div className="card">
         <div className="toolbar" style={{ marginBottom: 16 }}>
           <Input
+            ref={searchRef}
             placeholder="Search containers"
             allowClear
             value={search}

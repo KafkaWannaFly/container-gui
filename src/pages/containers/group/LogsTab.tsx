@@ -4,6 +4,7 @@ import { format } from "date-fns";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { StateDot } from "../../../components/ui";
 import { useTauriEvent } from "../../../hooks/useDockerEvents";
+import { useSearchHotkey } from "../../../hooks/useSearchHotkey";
 import { streamContainerLogs } from "../../../services/tauriApi";
 import { type ContainerSummary, DockerEventSchema, middleEllipsis } from "../../../types/docker";
 import { ContainerFilter } from "./components";
@@ -37,6 +38,7 @@ export default function LogsTab({
   states: Map<string, string>;
   solo: string | null;
 }) {
+  const searchRef = useSearchHotkey();
   const [query, setQuery] = useState("");
   const [level, setLevel] = useState("all");
   const [events, setEvents] = useState(true);
@@ -205,6 +207,7 @@ export default function LogsTab({
     <div className="card">
       <div className="toolbar" style={{ marginBottom: 10 }}>
         <Input
+          ref={searchRef}
           placeholder="Search all containers"
           allowClear
           value={query}
