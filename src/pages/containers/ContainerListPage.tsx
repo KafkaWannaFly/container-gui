@@ -39,6 +39,7 @@ import {
   type ContainerStats,
   type ContainerSummary,
   formatBytes,
+  middleEllipsis,
   type PortMapping,
   portLabel,
   portUrl,
@@ -69,6 +70,8 @@ type ComposeGroupRow = { kind: "group"; key: string; project: string; children: 
 type Row = ContainerRow | ComposeGroupRow;
 
 const STATS_INTERVAL_MS = 2_000;
+const MAX_NAME_LEN = 15;
+const MAX_IMAGE_LEN = 15;
 
 /** Docker lists a binding once for IPv4 and once for IPv6; show it once. */
 function uniquePorts(ports: PortMapping[]): PortMapping[] {
@@ -325,17 +328,22 @@ export default function ContainerListPage() {
     {
       title: "Name",
       key: "name",
-      render: (_, row) =>
-        row.kind === "group" ? (
-          <span style={{ display: "inline-flex", alignItems: "baseline", gap: 8 }}>
-            <Link to={`/containers/group/${encodeURIComponent(row.project)}`} className="row-link">
-              {row.project}
-            </Link>
-            <span className="mono dim">
-              {row.children.length} container{row.children.length === 1 ? "" : "s"}
+      render: (_, row) => {
+        if (row.kind === "group")
+          return (
+            <span style={{ display: "inline-flex", alignItems: "baseline", gap: 8 }}>
+              <Link to={`/containers/group/${encodeURIComponent(row.project)}`} className="row-link">
+                {row.project}
+              </Link>
+              <span className="mono dim">
+                {row.children.length} container{row.children.length === 1 ? "" : "s"}
+              </span>
             </span>
-          </span>
-        ) : (
+          );
+        const full = row.names[0] ?? shortId(row.id);
+        const short = middleEllipsis(full, MAX_NAME_LEN);
+        const image = middleEllipsis(row.image, MAX_IMAGE_LEN);
+        return (
           <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
             <span
               style={{
@@ -349,14 +357,21 @@ export default function ContainerListPage() {
               {pending[row.id] ? <Spin size="small" /> : <StateDot state={row.state} />}
             </span>
             <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              <Link to={`/containers/${row.id}`} className="row-link">
-                {row.names[0] ?? shortId(row.id)}
-              </Link>
-              <span className="mono">{row.image}</span>
+              <Tooltip title={short !== full ? full : undefined}>
+                <Link to={`/containers/${row.id}`} className="row-link" style={{ whiteSpace: "nowrap" }}>
+                  {short}
+                </Link>
+              </Tooltip>
+              <Tooltip title={image !== row.image ? row.image : undefined}>
+                <span className="mono" style={{ whiteSpace: "nowrap" }}>
+                  {image}
+                </span>
+              </Tooltip>
               <span className="mono dim">{shortId(row.id)}</span>
             </div>
           </div>
-        ),
+        );
+      },
     },
     {
       title: "CPU",
@@ -789,6 +804,7 @@ export default function ContainerListPage() {
           onRow={treeTable.onRow}
           columns={columns}
           dataSource={tree}
+          scroll={{ x: "max-content" }}
           pagination={{ pageSize: 12, showSizeChanger: false }}
           locale={{ emptyText: <Empty description="No containers" /> }}
         />

@@ -11,7 +11,7 @@ import { queryKeys } from "../../lib/queryClient";
 import { listVolumes, pruneVolumes, refreshVolumeSizes, removeVolume } from "../../services/tauriApi";
 import { formatBytes, middleEllipsis, type VolumeItem } from "../../types/docker";
 
-const MAX_NAME_LEN = 30;
+const MAX_NAME_LEN = 15;
 const MAX_MOUNT_LEN = 38;
 
 export default function VolumeListPage() {
@@ -324,6 +324,7 @@ export default function VolumeListPage() {
           loading={isLoading}
           columns={columns}
           dataSource={rows}
+          scroll={{ x: "max-content" }}
           pagination={{ pageSize: 10, showSizeChanger: false }}
           rowSelection={{
             selectedRowKeys: selected,

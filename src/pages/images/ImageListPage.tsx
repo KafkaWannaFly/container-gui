@@ -19,10 +19,12 @@ import { MetricCard, Mono, Pill, RowActions, StateDot } from "../../components/u
 import { useSearchHotkey } from "../../hooks/useSearchHotkey";
 import { queryKeys } from "../../lib/queryClient";
 import { listContainers, listImages, pruneImages, removeImage } from "../../services/tauriApi";
-import { formatBytes, type ImageItem, shortId } from "../../types/docker";
+import { formatBytes, type ImageItem, middleEllipsis, shortId } from "../../types/docker";
 import LayerHistoryModal from "./components/LayerHistoryModal";
 import PullImageModal from "./components/PullImageModal";
 import TagImageModal from "./components/TagImageModal";
+
+const MAX_NAME_LEN = 15;
 
 interface Row {
   key: string;
@@ -288,18 +290,22 @@ export default function ImageListPage() {
     {
       title: "Name",
       key: "name",
-      render: (_, row) =>
-        row.isGroup ? (
-          <span style={{ display: "inline-flex", alignItems: "baseline", gap: 8 }}>
-            <span className="row-link" style={row.dangling ? { color: "var(--ash)" } : undefined}>
-              {row.repo}
+      render: (_, row) => {
+        if (row.isGroup)
+          return (
+            <span style={{ display: "inline-flex", alignItems: "baseline", gap: 8 }}>
+              <span className="row-link" style={row.dangling ? { color: "var(--ash)" } : undefined}>
+                {row.repo}
+              </span>
+              <span className="mono dim">
+                {row.count} {row.dangling ? "image" : "version"}
+                {row.count > 1 ? "s" : ""}
+              </span>
             </span>
-            <span className="mono dim">
-              {row.count} {row.dangling ? "image" : "version"}
-              {row.count > 1 ? "s" : ""}
-            </span>
-          </span>
-        ) : (
+          );
+        const full = row.dangling ? "<none>" : `${row.repo}:${row.tag}`;
+        const short = middleEllipsis(full, MAX_NAME_LEN);
+        return (
           <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
             <span
               style={{
@@ -313,17 +319,20 @@ export default function ImageListPage() {
               {pending.has(row.ref) ? <Spin size="small" /> : <UsageDot usage={usageByImage.get(row.id)} />}
             </span>
             <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              <Link
-                to={`/images/${encodeURIComponent(row.id)}`}
-                className="row-link"
-                style={row.dangling ? { color: "var(--ash)" } : undefined}
-              >
-                {row.dangling ? "<none>" : `${row.repo}:${row.tag}`}
-              </Link>
+              <Tooltip title={short !== full ? full : undefined}>
+                <Link
+                  to={`/images/${encodeURIComponent(row.id)}`}
+                  className="row-link"
+                  style={{ whiteSpace: "nowrap", ...(row.dangling ? { color: "var(--ash)" } : {}) }}
+                >
+                  {short}
+                </Link>
+              </Tooltip>
               <span className="mono dim">{shortId(row.id)}</span>
             </div>
           </div>
-        ),
+        );
+      },
     },
     {
       title: "Tags",
@@ -483,6 +492,7 @@ export default function ImageListPage() {
           loading={isLoading}
           columns={columns}
           dataSource={filtered}
+          scroll={{ x: "max-content" }}
           pagination={{ pageSize: 10, showSizeChanger: false }}
           expandable={treeTable.expandable}
           components={treeTable.components}
