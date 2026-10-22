@@ -1,11 +1,22 @@
 import { ClearOutlined, CopyOutlined, DeleteOutlined } from "@ant-design/icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMount } from "ahooks";
-import { App, Button, Empty, Input, Popconfirm, Spin, Table, type TableColumnsType, Tooltip } from "antd";
+import {
+  App,
+  Button,
+  Empty,
+  Input,
+  type MenuProps,
+  Popconfirm,
+  Spin,
+  Table,
+  type TableColumnsType,
+  Tooltip,
+} from "antd";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { usePageCommands } from "../../components/CommandPalette";
-import { MetricCard, Mono, Pill, RowActions, StateDot } from "../../components/ui";
+import { MetricCard, Mono, Pill, RowActions, StateDot, useRowContextMenu } from "../../components/ui";
 import { useSearchHotkey } from "../../hooks/useSearchHotkey";
 import { queryKeys } from "../../lib/queryClient";
 import { listVolumes, pruneVolumes, refreshVolumeSizes, removeVolume } from "../../services/tauriApi";
@@ -145,6 +156,28 @@ export default function VolumeListPage() {
     },
   ]);
 
+  const rowMenuGroups = (row: VolumeItem): MenuProps["items"][] => [
+    [
+      {
+        key: "copy",
+        label: "Copy mountpoint",
+        icon: <CopyOutlined />,
+        onClick: () => void navigator.clipboard?.writeText(row.mountpoint),
+      },
+    ],
+    [
+      {
+        key: "delete",
+        label: "Delete",
+        icon: <DeleteOutlined />,
+        danger: true,
+        disabled: row.inUse || pending.has(row.name),
+        onClick: () => deleteVolume(row),
+      },
+    ],
+  ];
+  const rowContext = useRowContextMenu(rowMenuGroups);
+
   const columns: TableColumnsType<VolumeItem> = [
     {
       title: "Name",
@@ -235,30 +268,7 @@ export default function VolumeListPage() {
       key: "actions",
       width: 56,
       align: "right",
-      render: (_, row) => (
-        <RowActions
-          groups={[
-            [
-              {
-                key: "copy",
-                label: "Copy mountpoint",
-                icon: <CopyOutlined />,
-                onClick: () => void navigator.clipboard?.writeText(row.mountpoint),
-              },
-            ],
-            [
-              {
-                key: "delete",
-                label: "Delete",
-                icon: <DeleteOutlined />,
-                danger: true,
-                disabled: row.inUse || pending.has(row.name),
-                onClick: () => deleteVolume(row),
-              },
-            ],
-          ]}
-        />
-      ),
+      render: (_, row) => <RowActions groups={rowMenuGroups(row)} />,
     },
   ];
 
@@ -326,6 +336,7 @@ export default function VolumeListPage() {
           dataSource={rows}
           scroll={{ x: "max-content" }}
           pagination={{ pageSize: 10, showSizeChanger: false }}
+          onRow={(row) => rowContext.onRow(row)}
           rowSelection={{
             selectedRowKeys: selected,
             onChange: setSelected,
@@ -333,6 +344,7 @@ export default function VolumeListPage() {
           }}
           locale={{ emptyText: <Empty description="No volumes" /> }}
         />
+        {rowContext.contextMenu}
       </div>
     </div>
   );

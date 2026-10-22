@@ -157,6 +157,16 @@ export default function MainLayout() {
     conflictBehavior: "allow",
     stopPropagation: false,
   });
+  useEffect(() => {
+    // Suppress WebView2's native context menu outside text fields; row menus handle their own.
+    const suppress = (event: MouseEvent) => {
+      if (event.target instanceof Element && event.target.closest("input, textarea, [contenteditable]"))
+        return;
+      event.preventDefault();
+    };
+    document.addEventListener("contextmenu", suppress);
+    return () => document.removeEventListener("contextmenu", suppress);
+  }, []);
 
   const nav = useMemo(
     () =>

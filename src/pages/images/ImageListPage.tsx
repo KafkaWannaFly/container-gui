@@ -9,13 +9,24 @@ import {
   TagOutlined,
 } from "@ant-design/icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { App, Button, Empty, Input, Popconfirm, Spin, Table, type TableColumnsType, Tooltip } from "antd";
+import {
+  App,
+  Button,
+  Empty,
+  Input,
+  type MenuProps,
+  Popconfirm,
+  Spin,
+  Table,
+  type TableColumnsType,
+  Tooltip,
+} from "antd";
 import { formatDistanceToNow } from "date-fns";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAnimatedTree } from "../../components/AnimatedTree";
 import { usePageCommands } from "../../components/CommandPalette";
-import { MetricCard, Mono, Pill, RowActions, StateDot } from "../../components/ui";
+import { MetricCard, Mono, Pill, RowActions, StateDot, useRowContextMenu } from "../../components/ui";
 import { useSearchHotkey } from "../../hooks/useSearchHotkey";
 import { queryKeys } from "../../lib/queryClient";
 import { listContainers, listImages, pruneImages, removeImage } from "../../services/tauriApi";
@@ -286,6 +297,53 @@ export default function ImageListPage() {
     });
   };
 
+  const rowMenuGroups = (row: Row): MenuProps["items"][] => {
+    if (row.isGroup) return [];
+    return [
+      [
+        {
+          key: "details",
+          label: "Details",
+          icon: <InfoCircleOutlined />,
+          onClick: () => navigate(`/images/${encodeURIComponent(row.id)}`),
+        },
+        {
+          key: "history",
+          label: "Layer history",
+          icon: <HistoryOutlined />,
+          onClick: () => setHistoryRef(row.ref),
+        },
+        { key: "tag", label: "Tag image", icon: <TagOutlined />, onClick: () => setTagTarget(row) },
+      ],
+      [
+        {
+          key: "delete",
+          label: "Delete",
+          icon: <DeleteOutlined />,
+          danger: true,
+          disabled: pending.has(row.ref),
+          onClick: () =>
+            modal.confirm({
+              title: "Delete image?",
+              centered: true,
+              okText: "Delete",
+              okType: "danger",
+              content: (
+                <span>
+                  <Mono>{row.dangling ? shortId(row.id) : row.ref}</Mono> will be deleted
+                  {row.sharedWith > 0 ? "; the image stays because it has other tags." : "."}
+                </span>
+              ),
+              onOk: () => {
+                void removeRef(row.ref).catch(() => undefined);
+              },
+            }),
+        },
+      ],
+    ];
+  };
+  const rowContext = useRowContextMenu(rowMenuGroups);
+
   const columns: TableColumnsType<Row> = [
     {
       title: "Name",
@@ -382,53 +440,7 @@ export default function ImageListPage() {
       key: "actions",
       width: 56,
       align: "right",
-      render: (_, row) =>
-        row.isGroup ? null : (
-          <RowActions
-            groups={[
-              [
-                {
-                  key: "details",
-                  label: "Details",
-                  icon: <InfoCircleOutlined />,
-                  onClick: () => navigate(`/images/${encodeURIComponent(row.id)}`),
-                },
-                {
-                  key: "history",
-                  label: "Layer history",
-                  icon: <HistoryOutlined />,
-                  onClick: () => setHistoryRef(row.ref),
-                },
-                { key: "tag", label: "Tag image", icon: <TagOutlined />, onClick: () => setTagTarget(row) },
-              ],
-              [
-                {
-                  key: "delete",
-                  label: "Delete",
-                  icon: <DeleteOutlined />,
-                  danger: true,
-                  disabled: pending.has(row.ref),
-                  onClick: () =>
-                    modal.confirm({
-                      title: "Delete image?",
-                      centered: true,
-                      okText: "Delete",
-                      okType: "danger",
-                      content: (
-                        <span>
-                          <Mono>{row.dangling ? shortId(row.id) : row.ref}</Mono> will be deleted
-                          {row.sharedWith > 0 ? "; the image stays because it has other tags." : "."}
-                        </span>
-                      ),
-                      onOk: () => {
-                        void removeRef(row.ref).catch(() => undefined);
-                      },
-                    }),
-                },
-              ],
-            ]}
-          />
-        ),
+      render: (_, row) => (row.isGroup ? null : <RowActions groups={rowMenuGroups(row)} />),
     },
   ];
 
@@ -496,7 +508,7 @@ export default function ImageListPage() {
           pagination={{ pageSize: 10, showSizeChanger: false }}
           expandable={treeTable.expandable}
           components={treeTable.components}
-          onRow={treeTable.onRow}
+          onRow={(row) => ({ ...treeTable.onRow(row), ...rowContext.onRow(row) })}
           rowSelection={{
             selectedRowKeys: selected,
             onChange: setSelected,
@@ -504,6 +516,7 @@ export default function ImageListPage() {
           }}
           locale={{ emptyText: <Empty description="No images" /> }}
         />
+        {rowContext.contextMenu}
       </div>
 
       <PullImageModal open={pullOpen} onClose={() => setPullOpen(false)} />

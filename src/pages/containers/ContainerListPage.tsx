@@ -18,6 +18,7 @@ import {
   Button,
   Empty,
   Input,
+  type MenuProps,
   Popconfirm,
   Select,
   Spin,
@@ -30,7 +31,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAnimatedTree } from "../../components/AnimatedTree";
 import { usePageCommands } from "../../components/CommandPalette";
-import { CopyButton, MetricCard, Mono, RowActions, StateDot } from "../../components/ui";
+import { CopyButton, MetricCard, Mono, RowActions, StateDot, useRowContextMenu } from "../../components/ui";
 import { useSearchHotkey } from "../../hooks/useSearchHotkey";
 import { queryKeys } from "../../lib/queryClient";
 import type { ContainerActionKind } from "../../services/tauriApi";
@@ -324,6 +325,165 @@ export default function ContainerListPage() {
     if (action === "remove") setSelected((prev) => prev.filter((key) => !ids.includes(String(key))));
   };
 
+  const rowMenuGroups = (row: Row): MenuProps["items"][] => {
+    if (row.kind === "group") {
+      return [
+        [
+          {
+            key: "start",
+            label: "Start all",
+            icon: <PlayCircleOutlined />,
+            disabled: !groupEligibleIds(row.children, "start").length,
+            onClick: () => runGroupBatch(row.children, "start"),
+          },
+          {
+            key: "stop",
+            label: "Stop all",
+            icon: <MinusCircleOutlined />,
+            disabled: !groupEligibleIds(row.children, "stop").length,
+            onClick: () => runGroupBatch(row.children, "stop"),
+          },
+          {
+            key: "restart",
+            label: "Restart all",
+            icon: <ReloadOutlined />,
+            disabled: !groupEligibleIds(row.children, "restart").length,
+            onClick: () => runGroupBatch(row.children, "restart"),
+          },
+          {
+            key: "kill",
+            label: "Terminate all",
+            icon: <StopOutlined />,
+            danger: true,
+            disabled: !groupEligibleIds(row.children, "kill").length,
+            onClick: () => runGroupBatch(row.children, "kill"),
+          },
+          {
+            key: "pause",
+            label: "Pause all",
+            icon: <PauseCircleOutlined />,
+            disabled: !groupEligibleIds(row.children, "pause").length,
+            onClick: () => runGroupBatch(row.children, "pause"),
+          },
+          {
+            key: "unpause",
+            label: "Resume all",
+            icon: <PlayCircleOutlined />,
+            disabled: !groupEligibleIds(row.children, "unpause").length,
+            onClick: () => runGroupBatch(row.children, "unpause"),
+          },
+        ],
+        [
+          {
+            key: "details",
+            label: "Group details",
+            icon: <InfoCircleOutlined />,
+            onClick: () => navigate(`/containers/group/${encodeURIComponent(row.project)}`),
+          },
+        ],
+        [
+          {
+            key: "remove",
+            label: "Remove all",
+            icon: <DeleteOutlined />,
+            danger: true,
+            onClick: () =>
+              modal.confirm({
+                title: "Remove compose group?",
+                centered: true,
+                okText: "Remove",
+                okType: "danger",
+                content: (
+                  <span>
+                    <Mono>{row.project}</Mono> and its {row.children.length} container
+                    {row.children.length === 1 ? "" : "s"} will be stopped and deleted.
+                  </span>
+                ),
+                onOk: () => runGroupBatch(row.children, "remove"),
+              }),
+          },
+        ],
+      ];
+    }
+    const paused = row.state === "paused";
+    return [
+      [
+        {
+          key: "start",
+          label: "Start",
+          icon: <PlayCircleOutlined />,
+          disabled: !actionApplies("start", row.state),
+          onClick: () => runAction(row.id, "start"),
+        },
+        {
+          key: "stop",
+          label: "Stop",
+          icon: <MinusCircleOutlined />,
+          disabled: !actionApplies("stop", row.state),
+          onClick: () => runAction(row.id, "stop"),
+        },
+        {
+          key: "restart",
+          label: "Restart",
+          icon: <ReloadOutlined />,
+          disabled: !actionApplies("restart", row.state),
+          onClick: () => runAction(row.id, "restart"),
+        },
+        {
+          key: "kill",
+          label: "Terminate",
+          icon: <StopOutlined />,
+          danger: true,
+          disabled: !actionApplies("kill", row.state),
+          onClick: () => runAction(row.id, "kill"),
+        },
+        {
+          key: paused ? "unpause" : "pause",
+          label: paused ? "Resume" : "Pause",
+          icon: paused ? <PlayCircleOutlined /> : <PauseCircleOutlined />,
+          disabled: !actionApplies(paused ? "unpause" : "pause", row.state),
+          onClick: () => runAction(row.id, paused ? "unpause" : "pause"),
+        },
+      ],
+      [
+        {
+          key: "logs",
+          label: "View logs",
+          icon: <FileTextOutlined />,
+          onClick: () => navigate(`/containers/${row.id}?tab=logs`),
+        },
+        {
+          key: "inspect",
+          label: "Details",
+          icon: <InfoCircleOutlined />,
+          onClick: () => navigate(`/containers/${row.id}`),
+        },
+      ],
+      [
+        {
+          key: "remove",
+          label: "Remove",
+          icon: <DeleteOutlined />,
+          danger: true,
+          onClick: () =>
+            modal.confirm({
+              title: "Remove container?",
+              centered: true,
+              okText: "Remove",
+              okType: "danger",
+              content: (
+                <span>
+                  <Mono>{row.names[0] ?? shortId(row.id)}</Mono> will be stopped and deleted.
+                </span>
+              ),
+              onOk: () => runAction(row.id, "remove"),
+            }),
+        },
+      ],
+    ];
+  };
+  const rowContext = useRowContextMenu(rowMenuGroups);
+
   const columns: TableColumnsType<Row> = [
     {
       title: "Name",
@@ -515,171 +675,7 @@ export default function ContainerListPage() {
       key: "actions",
       width: 56,
       align: "right",
-      render: (_, row) => {
-        if (row.kind === "group") {
-          return (
-            <RowActions
-              groups={[
-                [
-                  {
-                    key: "start",
-                    label: "Start all",
-                    icon: <PlayCircleOutlined />,
-                    disabled: !groupEligibleIds(row.children, "start").length,
-                    onClick: () => runGroupBatch(row.children, "start"),
-                  },
-                  {
-                    key: "stop",
-                    label: "Stop all",
-                    icon: <MinusCircleOutlined />,
-                    disabled: !groupEligibleIds(row.children, "stop").length,
-                    onClick: () => runGroupBatch(row.children, "stop"),
-                  },
-                  {
-                    key: "restart",
-                    label: "Restart all",
-                    icon: <ReloadOutlined />,
-                    disabled: !groupEligibleIds(row.children, "restart").length,
-                    onClick: () => runGroupBatch(row.children, "restart"),
-                  },
-                  {
-                    key: "kill",
-                    label: "Terminate all",
-                    icon: <StopOutlined />,
-                    danger: true,
-                    disabled: !groupEligibleIds(row.children, "kill").length,
-                    onClick: () => runGroupBatch(row.children, "kill"),
-                  },
-                  {
-                    key: "pause",
-                    label: "Pause all",
-                    icon: <PauseCircleOutlined />,
-                    disabled: !groupEligibleIds(row.children, "pause").length,
-                    onClick: () => runGroupBatch(row.children, "pause"),
-                  },
-                  {
-                    key: "unpause",
-                    label: "Resume all",
-                    icon: <PlayCircleOutlined />,
-                    disabled: !groupEligibleIds(row.children, "unpause").length,
-                    onClick: () => runGroupBatch(row.children, "unpause"),
-                  },
-                ],
-                [
-                  {
-                    key: "details",
-                    label: "Group details",
-                    icon: <InfoCircleOutlined />,
-                    onClick: () => navigate(`/containers/group/${encodeURIComponent(row.project)}`),
-                  },
-                ],
-                [
-                  {
-                    key: "remove",
-                    label: "Remove all",
-                    icon: <DeleteOutlined />,
-                    danger: true,
-                    onClick: () =>
-                      modal.confirm({
-                        title: "Remove compose group?",
-                        centered: true,
-                        okText: "Remove",
-                        okType: "danger",
-                        content: (
-                          <span>
-                            <Mono>{row.project}</Mono> and its {row.children.length} container
-                            {row.children.length === 1 ? "" : "s"} will be stopped and deleted.
-                          </span>
-                        ),
-                        onOk: () => runGroupBatch(row.children, "remove"),
-                      }),
-                  },
-                ],
-              ]}
-            />
-          );
-        }
-        const paused = row.state === "paused";
-        return (
-          <RowActions
-            groups={[
-              [
-                {
-                  key: "start",
-                  label: "Start",
-                  icon: <PlayCircleOutlined />,
-                  disabled: !actionApplies("start", row.state),
-                  onClick: () => runAction(row.id, "start"),
-                },
-                {
-                  key: "stop",
-                  label: "Stop",
-                  icon: <MinusCircleOutlined />,
-                  disabled: !actionApplies("stop", row.state),
-                  onClick: () => runAction(row.id, "stop"),
-                },
-                {
-                  key: "restart",
-                  label: "Restart",
-                  icon: <ReloadOutlined />,
-                  disabled: !actionApplies("restart", row.state),
-                  onClick: () => runAction(row.id, "restart"),
-                },
-                {
-                  key: "kill",
-                  label: "Terminate",
-                  icon: <StopOutlined />,
-                  danger: true,
-                  disabled: !actionApplies("kill", row.state),
-                  onClick: () => runAction(row.id, "kill"),
-                },
-                {
-                  key: paused ? "unpause" : "pause",
-                  label: paused ? "Resume" : "Pause",
-                  icon: paused ? <PlayCircleOutlined /> : <PauseCircleOutlined />,
-                  disabled: !actionApplies(paused ? "unpause" : "pause", row.state),
-                  onClick: () => runAction(row.id, paused ? "unpause" : "pause"),
-                },
-              ],
-              [
-                {
-                  key: "logs",
-                  label: "View logs",
-                  icon: <FileTextOutlined />,
-                  onClick: () => navigate(`/containers/${row.id}?tab=logs`),
-                },
-                {
-                  key: "inspect",
-                  label: "Details",
-                  icon: <InfoCircleOutlined />,
-                  onClick: () => navigate(`/containers/${row.id}`),
-                },
-              ],
-              [
-                {
-                  key: "remove",
-                  label: "Remove",
-                  icon: <DeleteOutlined />,
-                  danger: true,
-                  onClick: () =>
-                    modal.confirm({
-                      title: "Remove container?",
-                      centered: true,
-                      okText: "Remove",
-                      okType: "danger",
-                      content: (
-                        <span>
-                          <Mono>{row.names[0] ?? shortId(row.id)}</Mono> will be stopped and deleted.
-                        </span>
-                      ),
-                      onOk: () => runAction(row.id, "remove"),
-                    }),
-                },
-              ],
-            ]}
-          />
-        );
-      },
+      render: (_, row) => <RowActions groups={rowMenuGroups(row)} />,
     },
   ];
 
@@ -801,13 +797,14 @@ export default function ContainerListPage() {
           }}
           expandable={treeTable.expandable}
           components={treeTable.components}
-          onRow={treeTable.onRow}
+          onRow={(row) => ({ ...treeTable.onRow(row), ...rowContext.onRow(row) })}
           columns={columns}
           dataSource={tree}
           scroll={{ x: "max-content" }}
           pagination={{ pageSize: 12, showSizeChanger: false }}
           locale={{ emptyText: <Empty description="No containers" /> }}
         />
+        {rowContext.contextMenu}
       </div>
     </div>
   );

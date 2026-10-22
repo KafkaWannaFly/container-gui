@@ -1,6 +1,6 @@
 import { CopyOutlined, MoreOutlined } from "@ant-design/icons";
 import { App, Button, Dropdown, type MenuProps, Tooltip } from "antd";
-import type { ReactNode } from "react";
+import { type HTMLAttributes, type MouseEvent as ReactMouseEvent, type ReactNode, useState } from "react";
 import whale from "../assets/whale.png";
 
 export const STATE_COLORS: Record<string, string> = {
@@ -122,17 +122,46 @@ export function Mono({ children }: { children: ReactNode }) {
   return <span className="mono">{children}</span>;
 }
 
-/** 3-dot row action menu; `groups` renders dividers between arrays. */
-export function RowActions({ groups }: { groups: MenuProps["items"][] }) {
-  const items: MenuProps["items"] = groups.flatMap((group, i) => [
-    ...(i > 0 ? [{ type: "divider" as const }] : []),
+/** Flatten menu groups into one list, with dividers between non-empty groups. */
+function flattenMenu(groups: MenuProps["items"][]): NonNullable<MenuProps["items"]> {
+  return groups.flatMap((group, i) => [
+    ...(i > 0 && group?.length ? [{ type: "divider" as const }] : []),
     ...(group ?? []),
   ]);
+}
+
+/** 3-dot row action menu; `groups` renders dividers between arrays. */
+export function RowActions({ groups }: { groups: MenuProps["items"][] }) {
   return (
-    <Dropdown menu={{ items }} trigger={["click"]} placement="bottomRight">
+    <Dropdown menu={{ items: flattenMenu(groups) }} trigger={["click"]} placement="bottomRight">
       <Button type="text" size="small" aria-label="Actions" icon={<MoreOutlined />} />
     </Dropdown>
   );
+}
+
+/** Right-click menu for table rows, showing the same items as `RowActions`. */
+export function useRowContextMenu<T>(groupsOf: (row: T) => MenuProps["items"][]) {
+  const [target, setTarget] = useState<{ row: T; x: number; y: number } | null>(null);
+  const onRow = (row: T): HTMLAttributes<HTMLElement> => ({
+    onContextMenu: (event: ReactMouseEvent<HTMLElement>) => {
+      if (!flattenMenu(groupsOf(row)).length) return;
+      event.preventDefault();
+      setTarget({ row, x: event.clientX, y: event.clientY });
+    },
+  });
+  const contextMenu = target ? (
+    <Dropdown
+      open
+      trigger={["contextMenu"]}
+      menu={{ items: flattenMenu(groupsOf(target.row)), onClick: () => setTarget(null) }}
+      onOpenChange={(open) => {
+        if (!open) setTarget(null);
+      }}
+    >
+      <span style={{ position: "fixed", left: target.x, top: target.y, width: 1, height: 1 }} />
+    </Dropdown>
+  ) : null;
+  return { onRow, contextMenu };
 }
 
 export function MetricCard({
