@@ -85,13 +85,17 @@ impl IVolumeService for VolumeService {
     async fn list(&self) -> AppResult<Vec<VolumeItemDto>> {
         let engine = self.session.engine().await?;
         let endpoint = self.session.endpoint().await;
-        let cached = self.sizes.load(&endpoint).await.unwrap_or_else(|err| {
-            log::warn!("[volumes] size cache read failed: {err}");
-            HashMap::new()
-        });
         let query = ContainerQuery::builder().all(true).build();
-        let (volumes, containers) =
-            tokio::try_join!(engine.volumes().list(), engine.containers().list(&query),)?;
+        let cached_fut = async {
+            self.sizes.load(&endpoint).await.unwrap_or_else(|err| {
+                log::warn!("[volumes] size cache read failed: {err}");
+                HashMap::new()
+            })
+        };
+        let (cached, daemon) = tokio::join!(cached_fut, async {
+            tokio::try_join!(engine.volumes().list(), engine.containers().list(&query))
+        },);
+        let (volumes, containers) = daemon?;
         let ref_counts = volume_ref_counts(&containers);
 
         Ok(volumes

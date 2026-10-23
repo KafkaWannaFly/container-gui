@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { listen } from "@tauri-apps/api/event";
-import { useLatest } from "ahooks";
+import { useDebounceFn, useLatest } from "ahooks";
 import { App } from "antd";
 import { useEffect, useRef, useState } from "react";
 import type { z } from "zod";
@@ -44,20 +44,47 @@ export function useDockerEvents(quiet = false) {
   const queryClient = useQueryClient();
   const { notification } = App.useApp();
   const lastStandby = useRef<string | null>(null);
+  const pendingResources = useRef<Set<string>>(new Set());
+  const pendingInspects = useRef<Set<string>>(new Set());
+
+  const { run: flushInvalidations } = useDebounceFn(
+    () => {
+      const resources = pendingResources.current;
+      const inspects = pendingInspects.current;
+      pendingResources.current = new Set();
+      pendingInspects.current = new Set();
+
+      if (resources.has("container")) {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.containersPrefix() });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.volumes() });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.system() });
+      } else if (resources.has("volume")) {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.volumes() });
+      }
+      if (resources.has("image")) {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.images() });
+      }
+      for (const actorId of inspects) {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.containerInspect(actorId) });
+      }
+    },
+    { wait: 150, maxWait: 500 },
+  );
 
   useTauriEvent("docker://event", DockerEventSchema, (event) => {
     switch (event.resourceType) {
       case "container":
-        void queryClient.invalidateQueries({ queryKey: queryKeys.containersPrefix() });
-        void queryClient.invalidateQueries({ queryKey: queryKeys.volumes() });
-        void queryClient.invalidateQueries({ queryKey: queryKeys.containerInspect(event.actorId) });
-        void queryClient.invalidateQueries({ queryKey: queryKeys.system() });
+        pendingResources.current.add("container");
+        if (event.actorId) pendingInspects.current.add(event.actorId);
+        flushInvalidations();
         break;
       case "volume":
-        void queryClient.invalidateQueries({ queryKey: queryKeys.volumes() });
+        pendingResources.current.add("volume");
+        flushInvalidations();
         break;
       case "image":
-        void queryClient.invalidateQueries({ queryKey: queryKeys.images() });
+        pendingResources.current.add("image");
+        flushInvalidations();
         break;
     }
   });

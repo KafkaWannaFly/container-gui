@@ -179,10 +179,11 @@ export default function ContainerDetailPage() {
   });
   const ctr = inspect.data;
   const imageRef = ctr?.Image ?? "";
+  const needsImage = tab === "info" || tab === "image" || tab === "env";
   const image = useQuery({
     queryKey: queryKeys.imageInspect(imageRef),
     queryFn: () => inspectImage(imageRef),
-    enabled: imageRef !== "",
+    enabled: imageRef !== "" && needsImage,
     staleTime: Number.POSITIVE_INFINITY,
   });
 

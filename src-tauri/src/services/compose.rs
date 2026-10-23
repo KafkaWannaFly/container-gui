@@ -138,21 +138,40 @@ impl ComposeService {
     }
 
     async fn read_files(&self, location: &ComposeLocation) -> Vec<ComposeFileDto> {
-        let mut out = Vec::with_capacity(location.files.len());
-        for (file, host) in location.files.iter().zip(&location.host_files) {
-            let Some(content) = self.runner.read_file(host).await else {
-                continue;
-            };
-            out.push(ComposeFileDto {
-                name: host
+        let mut items: Vec<(String, String, std::path::PathBuf)> = location
+            .files
+            .iter()
+            .zip(&location.host_files)
+            .map(|(file, host)| {
+                let name = host
                     .file_name()
                     .map(|name| name.to_string_lossy().into_owned())
-                    .unwrap_or_else(|| file.clone()),
-                path: file.clone(),
-                content,
-            });
-        }
-        out
+                    .unwrap_or_else(|| file.clone());
+                (name, file.clone(), host.clone())
+            })
+            .collect();
+        // `.env` is loaded for ${VAR} interpolation and shown as its own tab.
+        items.push((
+            ".env".to_string(),
+            display_path(location, ".env"),
+            location.host_workdir.join(".env"),
+        ));
+
+        let reads = items.into_iter().map(|(name, path, host)| async move {
+            self.runner
+                .read_file(&host)
+                .await
+                .map(|content| ComposeFileDto {
+                    name,
+                    path,
+                    content,
+                })
+        });
+        futures_util::future::join_all(reads)
+            .await
+            .into_iter()
+            .flatten()
+            .collect()
     }
 }
 
@@ -163,34 +182,29 @@ impl IComposeService for ComposeService {
         // Parse the *full* model, including services behind inactive profiles, so
         // the Dependencies graph and the "profile off" list have something to show.
         // `--profile '*'` needs Compose 2.20+; fall back to the active model.
-        let config = match self.run_config(&location, true, true).await {
-            Ok(config) => config,
-            Err(_) => self.run_config(&location, true, false).await?,
+        let full_config = async {
+            match self.run_config(&location, true, true).await {
+                Ok(config) => Ok(config),
+                Err(_) => self.run_config(&location, true, false).await,
+            }
         };
+        let (config, resolved, all_files, compose_version) = tokio::join!(
+            full_config,
+            self.run_config(&location, false, false),
+            self.read_files(&location),
+            self.compose_version(&location),
+        );
+        let config = config?;
+        let resolved = resolved?;
         let parsed: serde_json::Value = serde_json::from_str(&config).map_err(|err| {
             AppError::Message(format!("docker compose config was not JSON: {err}"))
         })?;
-        let resolved = self.run_config(&location, false, false).await?;
 
         let project_name = parsed
             .get("name")
             .and_then(|name| name.as_str())
             .unwrap_or_default()
             .to_string();
-
-        let mut all_files = self.read_files(&location).await;
-        // `.env` is loaded for ${VAR} interpolation and shown as its own tab.
-        if let Some(content) = self
-            .runner
-            .read_file(&location.host_workdir.join(".env"))
-            .await
-        {
-            all_files.push(ComposeFileDto {
-                name: ".env".to_string(),
-                path: display_path(&location, ".env"),
-                content,
-            });
-        }
 
         let mut hasher = Sha256::new();
         for file in &all_files {
@@ -212,7 +226,7 @@ impl IComposeService for ComposeService {
             workdir: location.workdir.clone(),
             files: all_files,
             config_hash,
-            compose_version: self.compose_version(&location).await,
+            compose_version,
             config: parsed,
             resolved,
         })

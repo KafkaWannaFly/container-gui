@@ -91,8 +91,8 @@ export default function GroupDetailPage() {
     enabled: containers.length > 0,
   });
 
-  const inspectById = useInspects(containers);
-  const imageById = useImages(inspectById);
+  const inspectById = useInspects(containers, tab === "info" || tab === "env");
+  const imageById = useImages(inspectById, tab === "env");
 
   const statsById = useMemo(() => {
     const ids = new Set(

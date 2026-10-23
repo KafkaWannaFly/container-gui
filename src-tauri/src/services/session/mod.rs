@@ -42,16 +42,20 @@ pub trait IEngineSession: Send + Sync {
 /// Ping the engine and collect version metadata into a status payload.
 pub async fn probe(engine: &dyn IEngine, endpoint: &str, kind: &str) -> AppResult<DockerStatusDto> {
     let system = engine.system();
-    let started = Instant::now();
-    tokio::time::timeout(PING_TIMEOUT, system.ping())
-        .await
-        .map_err(|_| AppError::DaemonUnreachable {
-            message: "ping timed out".to_string(),
-        })??;
-    let ping_ms = started.elapsed().as_millis() as u64;
-
-    let version = system.version().await?;
-    let info = system.info().await.ok();
+    let ping = async {
+        let started = Instant::now();
+        tokio::time::timeout(PING_TIMEOUT, system.ping())
+            .await
+            .map_err(|_| AppError::DaemonUnreachable {
+                message: "ping timed out".to_string(),
+            })??;
+        Ok::<_, AppError>(started.elapsed().as_millis() as u64)
+    };
+    let (ping_ms, version) = tokio::try_join!(ping, system.version())?;
+    let os = match version.os {
+        Some(os) => Some(os),
+        None => system.info().await.ok().and_then(|info| info.os_type),
+    };
 
     Ok(DockerStatusDto {
         endpoint: endpoint.to_string(),
@@ -59,10 +63,7 @@ pub async fn probe(engine: &dyn IEngine, endpoint: &str, kind: &str) -> AppResul
         state: ConnectionState::Connected,
         engine_version: version.version,
         api_version: version.api_version,
-        os: info
-            .as_ref()
-            .and_then(|info| info.os_type.clone())
-            .or(version.os),
+        os,
         arch: version.arch,
         ping_ms: Some(ping_ms),
         message: None,

@@ -24,11 +24,12 @@ impl ISystemService for SystemService {
     async fn info(&self) -> AppResult<SystemInfoDto> {
         let engine = self.session.engine().await?;
         let system = engine.system();
-        let started = Instant::now();
-        system.ping().await?;
-        let ping_ms = started.elapsed().as_millis() as u64;
-        let version = system.version().await?;
-        let info = system.info().await?;
+        let ping = async {
+            let started = Instant::now();
+            system.ping().await?;
+            Ok::<_, crate::error::AppError>(started.elapsed().as_millis() as u64)
+        };
+        let (ping_ms, version, info) = tokio::try_join!(ping, system.version(), system.info())?;
 
         Ok(SystemInfoDto {
             docker_version: version.version.unwrap_or_default(),

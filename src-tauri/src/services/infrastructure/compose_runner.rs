@@ -32,18 +32,33 @@ pub trait IComposeRunner: Send + Sync {
 }
 
 #[derive(Default, bon::Builder)]
-pub struct DockerComposeCli {}
+pub struct DockerComposeCli {
+    #[builder(skip)]
+    distros: std::sync::Mutex<std::collections::HashMap<String, Option<String>>>,
+}
 
 #[async_trait]
 impl IComposeRunner for DockerComposeCli {
     async fn locate(&self, workdir: &str, files: &[String]) -> AppResult<ComposeLocation> {
-        let workdir = workdir.to_string();
-        let files = files.to_vec();
-        tokio::task::spawn_blocking(move || locate(&workdir, &files))
-            .await
-            .map_err(|err| {
-                AppError::Message(format!("Could not locate the compose project: {err}"))
-            })
+        let cached = self
+            .distros
+            .lock()
+            .ok()
+            .and_then(|map| map.get(workdir).cloned());
+        let workdir_owned = workdir.to_string();
+        let files_owned = files.to_vec();
+        let location =
+            tokio::task::spawn_blocking(move || locate(&workdir_owned, &files_owned, cached))
+                .await
+                .map_err(|err| {
+                    AppError::Message(format!("Could not locate the compose project: {err}"))
+                })?;
+        if is_linux_path(workdir)
+            && let Ok(mut map) = self.distros.lock()
+        {
+            map.insert(workdir.to_string(), location.distro.clone());
+        }
+        Ok(location)
     }
 
     async fn run(&self, location: &ComposeLocation, args: &[String]) -> std::io::Result<Output> {
@@ -89,10 +104,14 @@ fn resolve_paths(workdir: &Path, files: &[String]) -> Vec<PathBuf> {
         .collect()
 }
 
-fn locate(workdir: &str, files: &[String]) -> ComposeLocation {
+fn locate(
+    workdir: &str,
+    files: &[String],
+    cached_distro: Option<Option<String>>,
+) -> ComposeLocation {
     #[cfg(windows)]
     if is_linux_path(workdir)
-        && let Some(distro) = wsl::distro_for(workdir)
+        && let Some(distro) = cached_distro.unwrap_or_else(|| wsl::distro_for(workdir))
     {
         let files: Vec<String> = files.iter().map(|file| join_linux(workdir, file)).collect();
         return ComposeLocation {
@@ -103,6 +122,8 @@ fn locate(workdir: &str, files: &[String]) -> ComposeLocation {
             distro: Some(distro),
         };
     }
+    #[cfg(not(windows))]
+    let _ = cached_distro;
     let host_workdir = PathBuf::from(workdir);
     let host_files = resolve_paths(&host_workdir, files);
     ComposeLocation {
