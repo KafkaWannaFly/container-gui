@@ -1,6 +1,13 @@
 import { CopyOutlined, MoreOutlined } from "@ant-design/icons";
 import { App, Button, Dropdown, type MenuProps, Tooltip } from "antd";
-import { type HTMLAttributes, type MouseEvent as ReactMouseEvent, type ReactNode, useState } from "react";
+import {
+  type HTMLAttributes,
+  type MouseEvent as ReactMouseEvent,
+  type ReactNode,
+  useEffect,
+  useState,
+} from "react";
+import { createPortal } from "react-dom";
 import whale from "../assets/whale.png";
 
 export const STATE_COLORS: Record<string, string> = {
@@ -142,6 +149,12 @@ export function RowActions({ groups }: { groups: MenuProps["items"][] }) {
 /** Right-click menu for table rows, showing the same items as `RowActions`. */
 export function useRowContextMenu<T>(groupsOf: (row: T) => MenuProps["items"][]) {
   const [target, setTarget] = useState<{ row: T; x: number; y: number } | null>(null);
+  useEffect(() => {
+    if (!target) return;
+    const close = () => setTarget(null);
+    window.addEventListener("scroll", close, true);
+    return () => window.removeEventListener("scroll", close, true);
+  }, [target]);
   const onRow = (row: T): HTMLAttributes<HTMLElement> => ({
     onContextMenu: (event: ReactMouseEvent<HTMLElement>) => {
       if (!flattenMenu(groupsOf(row)).length) return;
@@ -149,18 +162,31 @@ export function useRowContextMenu<T>(groupsOf: (row: T) => MenuProps["items"][])
       setTarget({ row, x: event.clientX, y: event.clientY });
     },
   });
-  const contextMenu = target ? (
-    <Dropdown
-      open
-      trigger={["contextMenu"]}
-      menu={{ items: flattenMenu(groupsOf(target.row)), onClick: () => setTarget(null) }}
-      onOpenChange={(open) => {
-        if (!open) setTarget(null);
-      }}
-    >
-      <span style={{ position: "fixed", left: target.x, top: target.y, width: 1, height: 1 }} />
-    </Dropdown>
-  ) : null;
+  const contextMenu = target
+    ? createPortal(
+        <Dropdown
+          key={`${target.x}:${target.y}`}
+          open
+          trigger={["contextMenu"]}
+          menu={{ items: flattenMenu(groupsOf(target.row)), onClick: () => setTarget(null) }}
+          onOpenChange={(open) => {
+            if (!open) setTarget(null);
+          }}
+        >
+          <span
+            style={{
+              position: "fixed",
+              left: target.x,
+              top: target.y,
+              width: 1,
+              height: 1,
+              pointerEvents: "none",
+            }}
+          />
+        </Dropdown>,
+        document.body,
+      )
+    : null;
   return { onRow, contextMenu };
 }
 
