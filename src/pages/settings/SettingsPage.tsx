@@ -1,9 +1,19 @@
-import { ApiOutlined, CloudDownloadOutlined, LinkOutlined, SyncOutlined } from "@ant-design/icons";
+import {
+  ApiOutlined,
+  CloudDownloadOutlined,
+  DeleteOutlined,
+  LinkOutlined,
+  PlusOutlined,
+  ReloadOutlined,
+  SyncOutlined,
+} from "@ant-design/icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getTauriVersion, getVersion } from "@tauri-apps/api/app";
 import { App, Button, Divider, Input, Progress, Select, Switch } from "antd";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { z } from "zod";
 import { useAppUpdater } from "../../hooks/useAppUpdater";
+import { usePersistentState } from "../../hooks/usePersistentState";
 import { queryKeys } from "../../lib/queryClient";
 import {
   getDockerStatus,
@@ -14,12 +24,7 @@ import {
 import { THEMES, useTheme } from "../../theme/antdTheme";
 import type { ConnectionConfig, DockerStatus } from "../../types/docker";
 
-const KIND_OPTIONS = [
-  { value: "context", label: "Context default" },
-  { value: "unix", label: "Unix socket" },
-  { value: "npipe", label: "Named pipe" },
-  { value: "tcp", label: "TCP" },
-];
+const StringListSchema = z.array(z.string());
 
 const BEHAVIORS: [string, string, string][] = [
   ["autoRefresh", "Live metrics", "Poll container stats every 2s"],
@@ -29,8 +34,16 @@ const BEHAVIORS: [string, string, string][] = [
 ];
 
 function kindFromHost(host: string): ConnectionConfig["kind"] {
-  if (host.startsWith("npipe:")) return "npipe";
-  if (host.startsWith("tcp:") || host.startsWith("http")) return "tcp";
+  const trimmed = host.trim();
+  if (
+    trimmed.startsWith("npipe:") ||
+    trimmed.startsWith("//./pipe/") ||
+    trimmed.startsWith("\\\\.\\pipe\\")
+  ) {
+    return "npipe";
+  }
+  if (trimmed.startsWith("unix:") || trimmed.startsWith("/")) return "unix";
+  if (trimmed.startsWith("tcp:") || trimmed.startsWith("http") || trimmed.includes(":")) return "tcp";
   return "unix";
 }
 
@@ -78,9 +91,14 @@ export default function SettingsPage() {
   const queryClient = useQueryClient();
   const { themeId, theme, setThemeId } = useTheme();
   // Form fields fall back to what the backend reports until the user edits them.
-  const [contextChoice, setContext] = useState<string | undefined>();
-  const [kindChoice, setKind] = useState<string | undefined>();
   const [valueChoice, setValue] = useState<string | undefined>();
+  const [customInput, setCustomInput] = useState("");
+  const [customEndpoints, setCustomEndpoints] = usePersistentState("custom-endpoints", StringListSchema, []);
+  const [removedEndpoints, setRemovedEndpoints] = usePersistentState(
+    "removed-endpoints",
+    StringListSchema,
+    [],
+  );
   const [ping, setPing] = useState<DockerStatus | null>(null);
   const [toggles, setToggles] = useState<Record<string, boolean>>({
     autoRefresh: true,
@@ -97,17 +115,68 @@ export default function SettingsPage() {
     staleTime: Number.POSITIVE_INFINITY,
   });
 
-  const defaultContext = contexts.data?.find((c) => c.name === "default") ?? contexts.data?.[0];
   const endpoint = status.data?.endpoint;
-  const context = contextChoice ?? defaultContext?.name;
-  const kind = kindChoice ?? (endpoint ? kindFromHost(endpoint) : "context");
-  const value = valueChoice ?? endpoint ?? defaultContext?.host ?? "";
 
-  const config = (): ConnectionConfig => {
-    if (kind !== "context") return { kind: kind as ConnectionConfig["kind"], value };
-    const selected = contexts.data?.find((c) => c.name === context);
-    const host = selected?.host ?? "";
-    return { kind: kindFromHost(host), value: host };
+  const options = useMemo(() => {
+    const removed = new Set(removedEndpoints);
+    const byHost = new Map<string, { value: string; label: string; name?: string; host: string }>();
+
+    for (const ctx of contexts.data ?? []) {
+      if (removed.has(ctx.host)) continue;
+      const existing = byHost.get(ctx.host);
+      const name = existing?.name ? `${existing.name}, ${ctx.name}` : ctx.name;
+      byHost.set(ctx.host, {
+        value: ctx.host,
+        label: `${name} · ${ctx.host}`,
+        name,
+        host: ctx.host,
+      });
+    }
+
+    for (const host of customEndpoints) {
+      if (removed.has(host) || byHost.has(host)) continue;
+      byHost.set(host, { value: host, label: host, host });
+    }
+
+    if (endpoint && !removed.has(endpoint) && !byHost.has(endpoint)) {
+      byHost.set(endpoint, { value: endpoint, label: endpoint, host: endpoint });
+    }
+
+    return Array.from(byHost.values());
+  }, [contexts.data, customEndpoints, removedEndpoints, endpoint]);
+
+  const value =
+    valueChoice !== undefined && options.some((o) => o.value === valueChoice)
+      ? valueChoice
+      : endpoint && !removedEndpoints.includes(endpoint)
+        ? endpoint
+        : (options[0]?.value ?? "");
+
+  const config = (): ConnectionConfig => ({
+    kind: kindFromHost(value),
+    value,
+  });
+
+  const handleAddEndpoint = () => {
+    const next = customInput.trim();
+    if (!next) return;
+    setRemovedEndpoints((prev) => prev.filter((item) => item !== next));
+    setCustomEndpoints((prev) => (prev.includes(next) ? prev : [...prev, next]));
+    setValue(next);
+    setCustomInput("");
+  };
+
+  const handleRemoveEndpoint = (target: string) => {
+    setCustomEndpoints((prev) => prev.filter((item) => item !== target));
+    setRemovedEndpoints((prev) => (prev.includes(target) ? prev : [...prev, target]));
+    if (valueChoice === target) {
+      setValue(undefined);
+    }
+  };
+
+  const handleScanContexts = () => {
+    setRemovedEndpoints([]);
+    void contexts.refetch();
   };
 
   const testMutation = useMutation({
@@ -122,6 +191,7 @@ export default function SettingsPage() {
     mutationFn: () => switchDockerEndpoint(config()),
     onSuccess: (result) => {
       setPing(result);
+      setValue(result.endpoint);
       queryClient.setQueryData(queryKeys.status(), result);
       void queryClient.invalidateQueries({ queryKey: queryKeys.containersPrefix() });
       void queryClient.invalidateQueries({ queryKey: queryKeys.images() });
@@ -136,38 +206,117 @@ export default function SettingsPage() {
     <div className="page">
       <div className="card">
         <div className="section-title">Docker connection</div>
-        <div className="frame">
-          <div className="grow">
-            <div className="label">Detected context</div>
-            <Select
-              style={{ width: "100%" }}
-              loading={contexts.isLoading}
-              value={context}
-              onChange={(next) => {
-                setContext(next);
-                const host = contexts.data?.find((c) => c.name === next)?.host;
-                if (host) {
-                  setKind("context");
-                  setValue(host);
-                }
-              }}
-              options={(contexts.data ?? []).map((c) => ({ value: c.name, label: `${c.name} · ${c.host}` }))}
-            />
-          </div>
-          <div style={{ width: 150 }}>
-            <div className="label">Docker host</div>
-            <Select style={{ width: "100%" }} value={kind} onChange={setKind} options={KIND_OPTIONS} />
-          </div>
-        </div>
-
-        <div style={{ marginTop: 12 }}>
+        <div>
           <div className="label">Endpoint</div>
-          <Input
-            className="mono"
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            placeholder="unix:///var/run/docker.sock · npipe:////./pipe/docker_engine · tcp://127.0.0.1:2375"
-          />
+          <div style={{ display: "flex", gap: 8 }}>
+            <Select
+              aria-label="Endpoint"
+              style={{ flex: 1, minWidth: 0 }}
+              loading={contexts.isLoading || status.isLoading}
+              value={value || undefined}
+              placeholder="Select or add a Docker endpoint"
+              onChange={(next) => setValue(next)}
+              options={options}
+              labelRender={({ value: val }) => {
+                const opt = options.find((o) => o.value === val);
+                const host = opt?.host ?? String(val);
+                return (
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    {opt?.name ? (
+                      <>
+                        <span>{opt.name}</span>
+                        <span className="dim">·</span>
+                      </>
+                    ) : null}
+                    <span className="mono">{host}</span>
+                  </span>
+                );
+              }}
+              optionRender={(option) => {
+                const { name, host } = option.data;
+                return (
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: 8,
+                    }}
+                  >
+                    <span
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 6,
+                        minWidth: 0,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                    >
+                      {name ? (
+                        <>
+                          <span>{name}</span>
+                          <span className="dim">·</span>
+                        </>
+                      ) : null}
+                      <span className="mono" style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {host}
+                      </span>
+                    </span>
+                    <Button
+                      type="text"
+                      size="small"
+                      aria-label={`Remove ${host}`}
+                      icon={<DeleteOutlined />}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleRemoveEndpoint(host);
+                      }}
+                    />
+                  </div>
+                );
+              }}
+              popupRender={(menu) => (
+                <>
+                  {menu}
+                  <Divider style={{ margin: "6px 0" }} />
+                  <div style={{ display: "flex", gap: 8, padding: "4px 8px 6px" }}>
+                    <Input
+                      className="mono"
+                      size="small"
+                      value={customInput}
+                      onChange={(e) => setCustomInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        e.stopPropagation();
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleAddEndpoint();
+                        }
+                      }}
+                      placeholder="unix:///var/run/docker.sock · npipe:////./pipe/docker_engine · tcp://127.0.0.1:2375"
+                    />
+                    <Button
+                      size="small"
+                      icon={<PlusOutlined />}
+                      disabled={!customInput.trim()}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={handleAddEndpoint}
+                    >
+                      Add
+                    </Button>
+                  </div>
+                </>
+              )}
+            />
+            <Button icon={<ReloadOutlined />} loading={contexts.isFetching} onClick={handleScanContexts}>
+              Scan
+            </Button>
+          </div>
         </div>
 
         <div className="toolbar" style={{ marginTop: 16 }}>

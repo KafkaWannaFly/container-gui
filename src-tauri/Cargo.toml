@@ -1,6 +1,6 @@
 [package]
 name = "container-gui"
-version = "0.6.9"
+version = "0.6.10"
 description = "Real-time Docker GUI"
 authors = ["KafkaWannaFly"]
 edition = "2024"
