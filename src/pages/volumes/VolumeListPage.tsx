@@ -74,6 +74,19 @@ export default function VolumeListPage() {
     );
   };
 
+  const pruneMutation = useMutation<number, Error, Set<string>>({
+    mutationFn: pruneVolumes,
+    onSuccess: async (reclaimed, names) => {
+      queryClient.setQueryData<VolumeItem[]>(queryKeys.volumes(), (old) =>
+        old?.filter((v) => !names.has(v.name)),
+      );
+      void queryClient.invalidateQueries({ queryKey: queryKeys.system() });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.volumes() });
+      message.success(`Reclaimed ${formatBytes(reclaimed)}`);
+    },
+    onError: (err: Error) => message.error(err.message),
+  });
+
   const rows = useMemo(() => (data ?? []).filter((v) => search.match(v.name)), [data, search]);
   const orphans = (data ?? []).filter((v) => !v.inUse);
   const reclaimable = orphans.reduce((sum, v) => sum + (v.sizeBytes ?? 0), 0);
@@ -94,6 +107,22 @@ export default function VolumeListPage() {
         void removeName(row.name).catch(() => undefined);
       },
     });
+
+  const runPrune = () => {
+    const names = new Set(orphans.map((o) => o.name));
+    setPending((prev) => new Set([...prev, ...names]));
+    setSelected((prev) => prev.filter((k) => !names.has(String(k))));
+    void pruneMutation
+      .mutateAsync(names)
+      .catch(() => undefined)
+      .finally(() =>
+        setPending((prev) => {
+          const next = new Set(prev);
+          for (const name of names) next.delete(name);
+          return next;
+        }),
+      );
+  };
 
   const prune = () =>
     modal.confirm({
@@ -119,12 +148,7 @@ export default function VolumeListPage() {
           </p>
         </div>
       ),
-      onOk: async () => {
-        const reclaimed = await pruneVolumes();
-        void queryClient.invalidateQueries({ queryKey: queryKeys.volumes() });
-        void queryClient.invalidateQueries({ queryKey: queryKeys.system() });
-        message.success(`Reclaimed ${formatBytes(reclaimed)}`);
-      },
+      onOk: runPrune,
     });
 
   const deleteSelected = () => {
@@ -319,7 +343,11 @@ export default function VolumeListPage() {
               Delete
             </Button>
           </Popconfirm>
-          <Button icon={<ClearOutlined />} onClick={prune}>
+          <Button
+            icon={<ClearOutlined />}
+            disabled={!orphans.length || pruneMutation.isPending}
+            onClick={prune}
+          >
             Prune unused{orphans.length ? ` (${orphans.length})` : ""}
           </Button>
         </div>

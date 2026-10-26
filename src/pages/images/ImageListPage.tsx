@@ -204,6 +204,19 @@ export default function ImageListPage() {
     );
   };
 
+  const pruneMutation = useMutation<number, Error, Set<string>>({
+    mutationFn: () => pruneImages(false),
+    onSuccess: async (reclaimed, ids) => {
+      queryClient.setQueryData<ImageItem[]>(queryKeys.images(), (old) =>
+        old?.filter((image) => !ids.has(image.id)),
+      );
+      void queryClient.invalidateQueries({ queryKey: queryKeys.system() });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.images() });
+      message.success(`Reclaimed ${formatBytes(reclaimed)}`);
+    },
+    onError: (err: Error) => message.error(err.message),
+  });
+
   const flatten = (rows: Row[]) => rows.flatMap((r) => (r.isGroup ? (r.children ?? []) : [r]));
   const images = useMemo(() => data ?? [], [data]);
   const groups = useMemo(() => buildGroups(images), [images]);
@@ -270,6 +283,25 @@ export default function ImageListPage() {
     },
   ]);
 
+  const runPrune = () => {
+    const unusedRows = leaves.filter((r) => !usageByImage.has(r.id));
+    const refs = unusedRows.map((r) => r.ref);
+    const keys = new Set(unusedRows.map((r) => r.key));
+    const ids = new Set(unused.map((i) => i.id));
+    setPending((prev) => new Set([...prev, ...refs]));
+    setSelected((prev) => prev.filter((k) => !keys.has(String(k))));
+    void pruneMutation
+      .mutateAsync(ids)
+      .catch(() => undefined)
+      .finally(() =>
+        setPending((prev) => {
+          const next = new Set(prev);
+          for (const ref of refs) next.delete(ref);
+          return next;
+        }),
+      );
+  };
+
   const prune = () => {
     modal.confirm({
       title: "Prune unused images",
@@ -293,12 +325,7 @@ export default function ImageListPage() {
           </p>
         </div>
       ),
-      onOk: async () => {
-        const reclaimed = await pruneImages(false);
-        void queryClient.invalidateQueries({ queryKey: queryKeys.images() });
-        void queryClient.invalidateQueries({ queryKey: queryKeys.system() });
-        message.success(`Reclaimed ${formatBytes(reclaimed)}`);
-      },
+      onOk: runPrune,
     });
   };
 
@@ -483,7 +510,11 @@ export default function ImageListPage() {
               Delete
             </Button>
           </Popconfirm>
-          <Button icon={<ClearOutlined />} disabled={!unused.length} onClick={prune}>
+          <Button
+            icon={<ClearOutlined />}
+            disabled={!unused.length || pruneMutation.isPending}
+            onClick={prune}
+          >
             Prune unused
             {unused.length ? (
               <span style={{ marginLeft: 6 }}>
