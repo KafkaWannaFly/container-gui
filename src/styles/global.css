@@ -2019,38 +2019,6 @@ html[data-theme="immersive-entertainment"] .nav-item.active {
   background: linear-gradient(90deg, rgba(229, 9, 20, 0.18), transparent);
 }
 
-/* ---------- Deep Learning High-Tech (prototypes/Estilo Deep Learning High-Tech.md) ---------- */
-html[data-theme="deep-learning"] {
-  --font-ui: "Paper Mono", "Roboto Mono", ui-monospace, system-ui, sans-serif;
-}
-
-html[data-theme="deep-learning"] .app-shell {
-  position: relative;
-  isolation: isolate;
-}
-
-html[data-theme="deep-learning"] .app-shell::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background:
-    radial-gradient(42% 38% at 80% 16%, rgba(118, 185, 0, 0.12), transparent 70%),
-    radial-gradient(36% 36% at 20% 82%, rgba(0, 191, 255, 0.08), transparent 72%);
-}
-
-html[data-theme="deep-learning"] .card {
-  border-radius: 8px;
-  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.3);
-}
-
-html[data-theme="deep-learning"] .nav-item.active {
-  font-weight: 500;
-  border-color: rgba(118, 185, 0, 0.4);
-  background: linear-gradient(90deg, rgba(118, 185, 0, 0.15), transparent);
-}
-
 /* ---------- Flat Design (prototypes/Flat Design.md) ---------- */
 html[data-theme="flat-design"] .card {
   border-radius: 4px;
@@ -2194,4 +2162,57 @@ html[data-theme="origami"] .card {
 html[data-theme="origami"] .nav-item.active {
   font-weight: 500;
   border-left: 3px solid var(--lime);
+}
+
+/* ---------- Flip7 (prototypes/flip7-card-game.md) ---------- */
+html[data-theme="flip7"] .card {
+  border-radius: 12px;
+  border-left: 3px solid #3cc4bd;
+  box-shadow: 0 4px 20px rgba(43, 168, 162, 0.1);
+}
+
+html[data-theme="flip7"] .ant-btn {
+  border-radius: 999px;
+}
+
+html[data-theme="flip7"] .ant-btn-primary:not(:disabled):hover {
+  box-shadow: 0 4px 16px rgba(43, 168, 162, 0.3);
+}
+
+html[data-theme="flip7"] .nav-item.active {
+  font-weight: 600;
+  border-color: rgba(43, 168, 162, 0.45);
+  background: linear-gradient(90deg, rgba(255, 210, 63, 0.22), rgba(43, 168, 162, 0.08));
+  box-shadow: 0 2px 10px rgba(43, 168, 162, 0.14);
+}
+
+/* ---------- Genesis (prototypes/genesis.md) ---------- */
+html[data-theme="genesis"] .side,
+html[data-theme="genesis"] .topbar,
+html[data-theme="genesis"] .detail-head {
+  background: color-mix(in srgb, var(--carbon) 88%, transparent);
+  backdrop-filter: blur(12px);
+}
+
+html[data-theme="genesis"] .card {
+  border-radius: 12px;
+  box-shadow: none;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+html[data-theme="genesis"] .card:hover {
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
+}
+
+html[data-theme="genesis"] .ant-btn-primary:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.35);
+}
+
+html[data-theme="genesis"] .nav-item.active {
+  font-weight: 500;
+  border-color: rgba(99, 102, 241, 0.35);
+  background: rgba(99, 102, 241, 0.08);
 }

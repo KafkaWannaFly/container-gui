@@ -30,12 +30,13 @@ export const THEME_IDS = [
   "high-performance",
   "continuous-commerce",
   "immersive-entertainment",
-  "deep-learning",
   "flat-design",
   "liquid-glass",
   "memphis",
   "swiss-minimal",
   "origami",
+  "flip7",
+  "genesis",
 ] as const;
 export const ThemeIdSchema = z.enum(THEME_IDS);
 export type ThemeId = z.infer<typeof ThemeIdSchema>;
@@ -356,45 +357,6 @@ export const immersiveEntertainmentTheme: AppTheme = {
   }),
 };
 
-const deepLearningPalette: ThemePalette = {
-  void: "#111411",
-  carbon: "#1a1d1a",
-  obsidian: "#242924",
-  graphite: "#333b33",
-  smoke: "#4a544a",
-  ash: "#738073",
-  fog: "#a6b3a6",
-  mist: "#d9e2d9",
-  bone: "#eef5ee",
-  paper: "#ffffff",
-  lime: "#76b900",
-  green: "#6efa5f",
-  coral: "#ff5252",
-  teal: "#00bfff",
-  violet: "#6366f1",
-  lav: "#9c88ff",
-  amber: "#f5b041",
-};
-
-/**
- * Deep Learning High-Tech theme (prototypes/Estilo Deep Learning High-Tech.md:
- * Vibrant Green #76B900, Deep Charcoal #1A1A1A/#2A2A2A, Electric Blue #00BFFF).
- */
-export const deepLearningTheme: AppTheme = {
-  id: "deep-learning",
-  name: "Deep Learning High-Tech",
-  description: "Accelerated AI compute with vibrant green & circuit cyan",
-  mode: "dark",
-  palette: deepLearningPalette,
-  swatches: ["#76b900", "#00bfff", "#6efa5f"],
-  antd: buildAntdTheme("dark", deepLearningPalette, {
-    primaryText: "#111411",
-    buttonRadius: 8,
-    cardRadius: 8,
-    buttonWeight: 600,
-  }),
-};
-
 const flatDesignPalette: ThemePalette = {
   void: "#f8f9fa",
   carbon: "#ffffff",
@@ -590,19 +552,98 @@ export const origamiTheme: AppTheme = {
   }),
 };
 
+const flip7Palette: ThemePalette = {
+  void: "#eff8f7",
+  carbon: "#ffffff",
+  obsidian: "#e8f6f5",
+  graphite: "#c8e6e4",
+  smoke: "#96ccc8",
+  ash: "#5f8583",
+  fog: "#385c5a",
+  mist: "#163836",
+  bone: "#0f2927",
+  paper: "#0a1f1e",
+  lime: "#2ba8a2",
+  green: "#27ae60",
+  coral: "#ef6c4a",
+  teal: "#5dade2",
+  violet: "#1e8c86",
+  lav: "#ff8a6a",
+  amber: "#e6b800",
+};
+
+/**
+ * Flip7 Card Game theme (prototypes/flip7-card-game.md:
+ * Primary Teal #2BA8A2, Accent Gold #FFD23F, Coral #EF6C4A, Surface Base #EFF8F7).
+ */
+export const flip7Theme: AppTheme = {
+  id: "flip7",
+  name: "Flip7",
+  description: "Retro-playful card game palette with teal, gold & coral",
+  mode: "light",
+  palette: flip7Palette,
+  swatches: ["#2ba8a2", "#ffd23f", "#ef6c4a"],
+  antd: buildAntdTheme("light", flip7Palette, {
+    primaryText: "#ffffff",
+    buttonRadius: 16,
+    cardRadius: 12,
+    buttonWeight: 700,
+  }),
+};
+
+const genesisPalette: ThemePalette = {
+  void: "#fafafa",
+  carbon: "#ffffff",
+  obsidian: "#f3f3f6",
+  graphite: "#e8e8ec",
+  smoke: "#d1d1d8",
+  ash: "#9c9c9c",
+  fog: "#6b6b6b",
+  mist: "#0a0a0a",
+  bone: "#0a0a0a",
+  paper: "#0a0a0a",
+  lime: "#6366f1",
+  green: "#10b981",
+  coral: "#ef4444",
+  teal: "#4f46e5",
+  violet: "#6366f1",
+  lav: "#20970b",
+  amber: "#f59e0b",
+};
+
+/**
+ * Genesis theme (prototypes/genesis.md:
+ * Indigo #6366F1, Near-Black #0A0A0A, Warm Gray #FAFAFA, Border #E8E8EC, 6px/12px radius).
+ */
+export const genesisTheme: AppTheme = {
+  id: "genesis",
+  name: "Genesis",
+  description: "Editorial precision gallery surfaces with indigo highlights",
+  mode: "light",
+  palette: genesisPalette,
+  swatches: ["#6366f1", "#0a0a0a", "#20970b"],
+  antd: buildAntdTheme("light", genesisPalette, {
+    primaryText: "#ffffff",
+    buttonRadius: 6,
+    cardRadius: 12,
+    buttonWeight: 500,
+  }),
+};
+
 export const THEMES: readonly AppTheme[] = [
-  linearTheme,
-  auroraTheme,
   highPerformanceTheme,
+  auroraTheme,
   continuousCommerceTheme,
   immersiveEntertainmentTheme,
-  deepLearningTheme,
   flatDesignTheme,
+  flip7Theme,
+  genesisTheme,
+  linearTheme,
   liquidGlassTheme,
   memphisTheme,
   swissMinimalTheme,
   origamiTheme,
-];
+].sort((a, b) => a.name.localeCompare(b.name));
 
 export const antdTheme: ThemeConfig = linearTheme.antd;
 

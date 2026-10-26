@@ -371,30 +371,37 @@ export default function SettingsPage() {
             style={{ width: 240 }}
             value={themeId}
             onChange={setThemeId}
-            options={THEMES.map((t) => ({
-              value: t.id,
-              label: (
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ display: "inline-flex", alignItems: "center" }}>
-                    {t.swatches.map((color, idx) => (
-                      <span
-                        key={color}
-                        style={{
-                          width: 9,
-                          height: 9,
-                          borderRadius: 99,
-                          background: color,
-                          border: `1px solid ${t.palette.graphite}`,
-                          marginLeft: idx === 0 ? 0 : -3,
-                          flex: "0 0 auto",
-                        }}
-                      />
-                    ))}
+            showSearch={{
+              filterOption: (input, option) =>
+                (option?.name ?? "").toLowerCase().includes(input.trim().toLowerCase()),
+            }}
+            options={[...THEMES]
+              .sort((a, b) => a.name.localeCompare(b.name))
+              .map((t) => ({
+                value: t.id,
+                name: t.name,
+                label: (
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ display: "inline-flex", alignItems: "center" }}>
+                      {t.swatches.map((color, idx) => (
+                        <span
+                          key={color}
+                          style={{
+                            width: 9,
+                            height: 9,
+                            borderRadius: 99,
+                            background: color,
+                            border: `1px solid ${t.palette.graphite}`,
+                            marginLeft: idx === 0 ? 0 : -3,
+                            flex: "0 0 auto",
+                          }}
+                        />
+                      ))}
+                    </span>
+                    <span>{t.name}</span>
                   </span>
-                  <span>{t.name}</span>
-                </span>
-              ),
-            }))}
+                ),
+              }))}
           />
         </div>
       </div>
