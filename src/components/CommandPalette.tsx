@@ -311,7 +311,7 @@ export function CommandPaletteProvider({ children }: { children: ReactNode }) {
       {
         id: "nav.settings",
         group: "Navigation",
-        label: "Go to Preferences",
+        label: "Go to Settings",
         keywords: "navigation page settings preferences config",
         icon: <SettingOutlined />,
         action: () => navigate("/settings"),

@@ -22,14 +22,14 @@ const NAV = [
   { key: "/containers", label: "Containers", icon: CodeSandboxOutlined },
   { key: "/images", label: "Images", icon: BlockOutlined },
   { key: "/volumes", label: "Volumes", icon: HddOutlined },
-  { key: "/settings", label: "Preferences", icon: SettingOutlined },
+  { key: "/settings", label: "Settings", icon: SettingOutlined },
 ];
 
 const TITLES: Record<string, string> = {
   "/containers": "Containers",
   "/images": "Images",
   "/volumes": "Volumes",
-  "/settings": "Preferences",
+  "/settings": "Settings",
 };
 
 function WindowControls() {

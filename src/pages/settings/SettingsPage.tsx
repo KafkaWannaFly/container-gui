@@ -28,9 +28,7 @@ const StringListSchema = z.array(z.string());
 
 const BEHAVIORS: [string, string, string][] = [
   ["autoRefresh", "Live metrics", "Poll container stats every 2s"],
-  ["autoScroll", "Follow logs", "Pause auto-scroll when scrolled up"],
   ["confirm", "Confirm destructive actions", "Remove, terminate, prune"],
-  ["telemetry", "Anonymous telemetry", "Never sent by default"],
 ];
 
 function kindFromHost(host: string): ConnectionConfig["kind"] {
@@ -102,9 +100,7 @@ export default function SettingsPage() {
   const [ping, setPing] = useState<DockerStatus | null>(null);
   const [toggles, setToggles] = useState<Record<string, boolean>>({
     autoRefresh: true,
-    autoScroll: true,
     confirm: true,
-    telemetry: false,
   });
 
   const contexts = useQuery({ queryKey: queryKeys.contexts(), queryFn: listDockerContexts });

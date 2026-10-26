@@ -2216,3 +2216,48 @@ html[data-theme="genesis"] .nav-item.active {
   border-color: rgba(99, 102, 241, 0.35);
   background: rgba(99, 102, 241, 0.08);
 }
+
+/* ---------- VoiceBox (prototypes/voicebox.md) ---------- */
+html[data-theme="voicebox"] .card,
+html[data-theme="voicebox"] .card.subtle,
+html[data-theme="voicebox"] .nav-item,
+html[data-theme="voicebox"] .code-view,
+html[data-theme="voicebox"] .log-view,
+html[data-theme="voicebox"] .df-view,
+html[data-theme="voicebox"] .fs,
+html[data-theme="voicebox"] .term-host,
+html[data-theme="voicebox"] .sheet,
+html[data-theme="voicebox"] .g-col,
+html[data-theme="voicebox"] .g-code-box,
+html[data-theme="voicebox"] .g-dag-node {
+  border-radius: 0;
+}
+
+html[data-theme="voicebox"] .card {
+  background: #fafafa;
+  border: 2px solid #e5e5e5;
+  box-shadow: none;
+}
+
+html[data-theme="voicebox"] .ant-btn-primary {
+  background: #0a0a0a;
+  border-color: #0a0a0a;
+  color: #fafafa;
+  letter-spacing: 0.04em;
+}
+
+html[data-theme="voicebox"] .ant-btn-primary:not(:disabled):hover {
+  background: #ef4444;
+  border-color: #ef4444;
+  color: #fafafa;
+}
+
+html[data-theme="voicebox"] .ant-btn-primary:not(:disabled):active {
+  background: #dc2626;
+  border-color: #dc2626;
+}
+
+html[data-theme="voicebox"] .nav-item.active {
+  font-weight: 700;
+  border-bottom: 3px solid #ef4444;
+}

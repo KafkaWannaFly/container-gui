@@ -37,6 +37,7 @@ export const THEME_IDS = [
   "origami",
   "flip7",
   "genesis",
+  "voicebox",
 ] as const;
 export const ThemeIdSchema = z.enum(THEME_IDS);
 export type ThemeId = z.infer<typeof ThemeIdSchema>;
@@ -630,6 +631,45 @@ export const genesisTheme: AppTheme = {
   }),
 };
 
+const voiceboxPalette: ThemePalette = {
+  void: "#fafafa",
+  carbon: "#f5f5f5",
+  obsidian: "#e5e5e5",
+  graphite: "#d4d4d4",
+  smoke: "#a3a3a3",
+  ash: "#737373",
+  fog: "#525252",
+  mist: "#0a0a0a",
+  bone: "#0a0a0a",
+  paper: "#0a0a0a",
+  lime: "#0a0a0a",
+  green: "#16a34a",
+  coral: "#ef4444",
+  teal: "#0a0a0a",
+  violet: "#525252",
+  lav: "#dc2626",
+  amber: "#ca8a04",
+};
+
+/**
+ * VoiceBox theme (prototypes/voicebox.md:
+ * Black #0A0A0A, Red #EF4444, White #FAFAFA, Surface #F5F5F5, sharp 0px edges).
+ */
+export const voiceboxTheme: AppTheme = {
+  id: "voicebox",
+  name: "VoiceBox",
+  description: "High-contrast magazine editorial with stark black & red accents",
+  mode: "light",
+  palette: voiceboxPalette,
+  swatches: ["#0a0a0a", "#ef4444", "#fafafa"],
+  antd: buildAntdTheme("light", voiceboxPalette, {
+    primaryText: "#fafafa",
+    buttonRadius: 0,
+    cardRadius: 0,
+    buttonWeight: 700,
+  }),
+};
+
 export const THEMES: readonly AppTheme[] = [
   highPerformanceTheme,
   auroraTheme,
@@ -643,6 +683,7 @@ export const THEMES: readonly AppTheme[] = [
   memphisTheme,
   swissMinimalTheme,
   origamiTheme,
+  voiceboxTheme,
 ].sort((a, b) => a.name.localeCompare(b.name));
 
 export const antdTheme: ThemeConfig = linearTheme.antd;
