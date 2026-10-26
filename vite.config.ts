@@ -4,8 +4,11 @@ import fs from "node:fs";
 import process from "node:process";
 import { icons as catppuccin } from "@iconify-json/catppuccin";
 import { icons as codicon } from "@iconify-json/codicon";
-import { icons as hugeicons } from "@iconify-json/hugeicons";
+import { icons as fluentColor } from "@iconify-json/fluent-color";
+import { icons as iconPark } from "@iconify-json/icon-park";
 import { icons as lucide } from "@iconify-json/lucide";
+import { icons as materialIconTheme } from "@iconify-json/material-icon-theme";
+import { icons as streamlineColor } from "@iconify-json/streamline-color";
 import { icons as vscodeIcons } from "@iconify-json/vscode-icons";
 import type { IconifyJSON } from "@iconify/types";
 import react from "@vitejs/plugin-react";
@@ -18,17 +21,23 @@ const RESOLVED_PREFIX = `\0${PACK_VIRTUAL_PREFIX}`;
 
 const SETS: Record<string, IconifyJSON> = {
   lucide,
-  hugeicons,
   "vscode-icons": vscodeIcons,
   codicon,
   catppuccin,
+  "material-icon-theme": materialIconTheme,
+  "fluent-color": fluentColor,
+  "icon-park": iconPark,
+  "streamline-color": streamlineColor,
 };
 
 const PACK_PREFIXES: Record<string, readonly string[]> = {
-  lucide: ["lucide"],
-  hugeicons: ["hugeicons"],
   "vscode-icons": ["vscode-icons", "codicon"],
   catppuccin: ["catppuccin", "lucide"],
+  "material-icon-theme": ["material-icon-theme", "codicon"],
+  "fluent-color": ["fluent-color", "icon-park"],
+  "icon-park": ["icon-park"],
+  "streamline-color": ["streamline-color", "icon-park"],
+  lucide: ["lucide"],
 };
 
 const CATPPUCCIN_MOCHA_COLORS: Record<string, string> = {
@@ -63,7 +72,8 @@ function iconifyOfflinePlugin(): Plugin {
 
       const source = fs.readFileSync("src/components/icons.tsx", "utf8");
       const byPrefix = new Map<string, Set<string>>();
-      const re = /\b(lucide|hugeicons|vscode-icons|codicon|catppuccin):([a-z0-9-]+)\b/g;
+      const re =
+        /\b(lucide|vscode-icons|codicon|catppuccin|material-icon-theme|fluent-color|icon-park|streamline-color):([a-z0-9-]+)\b/g;
       for (const match of source.matchAll(re)) {
         const [, prefix, name] = match;
         if (!allowedPrefixes.includes(prefix)) continue;

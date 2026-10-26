@@ -692,10 +692,18 @@ export function getTheme(id: ThemeId): AppTheme {
   return THEMES.find((t) => t.id === id) ?? linearTheme;
 }
 
-export const ICON_PACK_IDS = ["antd", "vscode-icons", "catppuccin", "lucide", "hugeicons"] as const;
+export const ICON_PACK_IDS = [
+  "vscode-icons",
+  "catppuccin",
+  "material-icon-theme",
+  "fluent-color",
+  "icon-park",
+  "streamline-color",
+  "lucide",
+] as const;
 export const IconPackIdSchema = z.enum(ICON_PACK_IDS);
 export type IconPackId = z.infer<typeof IconPackIdSchema>;
-export const DEFAULT_ICON_PACK_ID: IconPackId = "antd";
+export const DEFAULT_ICON_PACK_ID: IconPackId = "vscode-icons";
 
 export interface IconPack {
   id: IconPackId;
@@ -705,12 +713,6 @@ export interface IconPack {
 }
 
 export const ICON_PACKS: readonly IconPack[] = [
-  {
-    id: "antd",
-    name: "Ant Design",
-    description: "Default outlined geometric system icons",
-    keywords: "current ant design antd default",
-  },
   {
     id: "vscode-icons",
     name: "VSCode Icons",
@@ -724,18 +726,36 @@ export const ICON_PACKS: readonly IconPack[] = [
     keywords: "catppuccin pastel",
   },
   {
+    id: "material-icon-theme",
+    name: "Material Icon Theme",
+    description: "Material Design file, folder & resource icons",
+    keywords: "material icon theme google",
+  },
+  {
+    id: "fluent-color",
+    name: "Fluent UI Color",
+    description: "Microsoft Windows 11 multi-color gradient icons",
+    keywords: "fluent ui color microsoft windows 11",
+  },
+  {
+    id: "icon-park",
+    name: "IconPark",
+    description: "ByteDance multi-tone colored interface icons",
+    keywords: "iconpark icon-park multicolor bytedance",
+  },
+  {
+    id: "streamline-color",
+    name: "Streamline Color",
+    description: "Duotone colorful vector interface icons",
+    keywords: "streamline color duotone flat",
+  },
+  {
     id: "lucide",
     name: "Lucide",
     description: "Clean, consistent 2px stroke vector icons",
-    keywords: "lucide stroke",
+    keywords: "lucide stroke monochrome",
   },
-  {
-    id: "hugeicons",
-    name: "Huge Icons",
-    description: "Modern rounded stroke interface icons",
-    keywords: "huge icon hugeicons rounded",
-  },
-];
+].sort((a, b) => a.name.localeCompare(b.name));
 
 export function getIconPack(id: IconPackId): IconPack {
   return ICON_PACKS.find((p) => p.id === id) ?? ICON_PACKS[0];

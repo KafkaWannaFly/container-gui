@@ -1,70 +1,12 @@
-import {
-  ApartmentOutlined as AntApartmentOutlined,
-  ApiOutlined as AntApiOutlined,
-  ArrowLeftOutlined as AntArrowLeftOutlined,
-  ArrowUpOutlined as AntArrowUpOutlined,
-  BlockOutlined as AntBlockOutlined,
-  BuildOutlined as AntBuildOutlined,
-  CaretRightOutlined as AntCaretRightOutlined,
-  CheckCircleOutlined as AntCheckCircleOutlined,
-  CheckOutlined as AntCheckOutlined,
-  ClearOutlined as AntClearOutlined,
-  CloudDownloadOutlined as AntCloudDownloadOutlined,
-  CodeOutlined as AntCodeOutlined,
-  CodeSandboxOutlined as AntCodeSandboxOutlined,
-  ColumnHeightOutlined as AntColumnHeightOutlined,
-  CopyOutlined as AntCopyOutlined,
-  DeleteOutlined as AntDeleteOutlined,
-  DisconnectOutlined as AntDisconnectOutlined,
-  DownloadOutlined as AntDownloadOutlined,
-  DownOutlined as AntDownOutlined,
-  EnterOutlined as AntEnterOutlined,
-  ExpandAltOutlined as AntExpandAltOutlined,
-  ExportOutlined as AntExportOutlined,
-  EyeInvisibleOutlined as AntEyeInvisibleOutlined,
-  EyeOutlined as AntEyeOutlined,
-  FileOutlined as AntFileOutlined,
-  FileTextOutlined as AntFileTextOutlined,
-  FolderOpenOutlined as AntFolderOpenOutlined,
-  FolderOutlined as AntFolderOutlined,
-  HddOutlined as AntHddOutlined,
-  HistoryOutlined as AntHistoryOutlined,
-  InfoCircleOutlined as AntInfoCircleOutlined,
-  LineChartOutlined as AntLineChartOutlined,
-  LinkOutlined as AntLinkOutlined,
-  LockOutlined as AntLockOutlined,
-  MenuFoldOutlined as AntMenuFoldOutlined,
-  MenuUnfoldOutlined as AntMenuUnfoldOutlined,
-  MinusCircleOutlined as AntMinusCircleOutlined,
-  MinusOutlined as AntMinusOutlined,
-  MoreOutlined as AntMoreOutlined,
-  PauseCircleOutlined as AntPauseCircleOutlined,
-  PlayCircleOutlined as AntPlayCircleOutlined,
-  PlusOutlined as AntPlusOutlined,
-  PoweroffOutlined as AntPoweroffOutlined,
-  ReloadOutlined as AntReloadOutlined,
-  RightOutlined as AntRightOutlined,
-  SearchOutlined as AntSearchOutlined,
-  SettingOutlined as AntSettingOutlined,
-  ShrinkOutlined as AntShrinkOutlined,
-  StopOutlined as AntStopOutlined,
-  SyncOutlined as AntSyncOutlined,
-  TableOutlined as AntTableOutlined,
-  TagOutlined as AntTagOutlined,
-  VerticalAlignBottomOutlined as AntVerticalAlignBottomOutlined,
-  VerticalAlignMiddleOutlined as AntVerticalAlignMiddleOutlined,
-  WarningOutlined as AntWarningOutlined,
-} from "@ant-design/icons";
 import { addCollection, Icon } from "@iconify/react";
 import { type ComponentType, type CSSProperties, type HTMLAttributes, useSyncExternalStore } from "react";
 import { type IconPackId, useTheme } from "../theme/antdTheme";
 import type { FsEntry } from "../types/docker";
 
-type NonAntdPackId = Exclude<IconPackId, "antd">;
 type IconSpec = string | { icon: string; color?: string };
 
-const loadedPacks = new Set<NonAntdPackId>();
-const loadingPromises = new Map<NonAntdPackId, Promise<void>>();
+const loadedPacks = new Set<IconPackId>();
+const loadingPromises = new Map<IconPackId, Promise<void>>();
 const packListeners = new Set<() => void>();
 
 function subscribePackStore(listener: () => void) {
@@ -75,17 +17,23 @@ function subscribePackStore(listener: () => void) {
 }
 
 export function ensureIconPackLoaded(pack: IconPackId): Promise<void> {
-  if (pack === "antd" || loadedPacks.has(pack)) return Promise.resolve();
+  if (loadedPacks.has(pack)) return Promise.resolve();
   const existing = loadingPromises.get(pack);
   if (existing) return existing;
   const loader =
-    pack === "lucide"
-      ? import("virtual:iconify-pack/lucide")
-      : pack === "hugeicons"
-        ? import("virtual:iconify-pack/hugeicons")
-        : pack === "vscode-icons"
-          ? import("virtual:iconify-pack/vscode-icons")
-          : import("virtual:iconify-pack/catppuccin");
+    pack === "vscode-icons"
+      ? import("virtual:iconify-pack/vscode-icons")
+      : pack === "catppuccin"
+        ? import("virtual:iconify-pack/catppuccin")
+        : pack === "material-icon-theme"
+          ? import("virtual:iconify-pack/material-icon-theme")
+          : pack === "fluent-color"
+            ? import("virtual:iconify-pack/fluent-color")
+            : pack === "icon-park"
+              ? import("virtual:iconify-pack/icon-park")
+              : pack === "streamline-color"
+                ? import("virtual:iconify-pack/streamline-color")
+                : import("virtual:iconify-pack/lucide");
   const promise = loader.then((mod) => {
     for (const collection of mod.default) {
       addCollection(collection);
@@ -100,8 +48,8 @@ export function ensureIconPackLoaded(pack: IconPackId): Promise<void> {
 }
 
 function useIconPackReady(pack: IconPackId): boolean {
-  const ready = useSyncExternalStore(subscribePackStore, () => pack === "antd" || loadedPacks.has(pack));
-  if (!ready && pack !== "antd") {
+  const ready = useSyncExternalStore(subscribePackStore, () => loadedPacks.has(pack));
+  if (!ready) {
     void ensureIconPackLoaded(pack);
   }
   return ready;
@@ -109,336 +57,501 @@ function useIconPackReady(pack: IconPackId): boolean {
 
 const ICON_MAP = {
   ApartmentOutlined: {
-    lucide: "lucide:network",
-    hugeicons: "hugeicons:hierarchy-square-01",
     "vscode-icons": "vscode-icons:file-type-docker2",
     catppuccin: "catppuccin:workflow",
+    "material-icon-theme": "material-icon-theme:tree",
+    "fluent-color": "fluent-color:org-20",
+    "icon-park": "icon-park:network-tree",
+    "streamline-color": "streamline-color:hierarchy-2-flat",
+    lucide: "lucide:network",
   },
   ApiOutlined: {
-    lucide: "lucide:plug",
-    hugeicons: "hugeicons:plug-01",
     "vscode-icons": "codicon:plug",
     catppuccin: { icon: "lucide:plug", color: "var(--ctp-teal)" },
+    "material-icon-theme": { icon: "codicon:plug", color: "#26a69a" },
+    "fluent-color": "icon-park:api",
+    "icon-park": "icon-park:api",
+    "streamline-color": "streamline-color:electric-cord-1-flat",
+    lucide: "lucide:plug",
   },
   ArrowLeftOutlined: {
-    lucide: "lucide:arrow-left",
-    hugeicons: "hugeicons:arrow-left-01",
     "vscode-icons": "codicon:arrow-left",
     catppuccin: { icon: "lucide:arrow-left", color: "var(--ctp-text)" },
+    "material-icon-theme": "codicon:arrow-left",
+    "fluent-color": "icon-park:arrow-left",
+    "icon-park": "icon-park:arrow-left",
+    "streamline-color": "icon-park:arrow-left",
+    lucide: "lucide:arrow-left",
   },
   ArrowUpOutlined: {
-    lucide: "lucide:arrow-up",
-    hugeicons: "hugeicons:arrow-up-01",
     "vscode-icons": "codicon:arrow-up",
     catppuccin: { icon: "lucide:arrow-up", color: "var(--ctp-text)" },
+    "material-icon-theme": "codicon:arrow-up",
+    "fluent-color": "icon-park:arrow-up",
+    "icon-park": "icon-park:arrow-up",
+    "streamline-color": "icon-park:arrow-up",
+    lucide: "lucide:arrow-up",
   },
   BlockOutlined: {
-    lucide: "lucide:layers",
-    hugeicons: "hugeicons:layers-01",
     "vscode-icons": "vscode-icons:folder-type-images",
     catppuccin: "catppuccin:image",
+    "material-icon-theme": "material-icon-theme:image",
+    "fluent-color": "fluent-color:layer-diagonal-person-20",
+    "icon-park": "icon-park:layers",
+    "streamline-color": "streamline-color:archive-box-flat",
+    lucide: "lucide:layers",
   },
   BuildOutlined: {
-    lucide: "lucide:hammer",
-    hugeicons: "hugeicons:wrench-01",
     "vscode-icons": { icon: "codicon:tools", color: "#e8ab53" },
     catppuccin: "catppuccin:rocket",
+    "material-icon-theme": "material-icon-theme:rocket",
+    "fluent-color": "fluent-color:wrench-20",
+    "icon-park": "icon-park:tool",
+    "streamline-color": "streamline-color:wrench-flat",
+    lucide: "lucide:hammer",
   },
   CaretRightOutlined: {
-    lucide: "lucide:chevron-right",
-    hugeicons: "hugeicons:arrow-right-01",
     "vscode-icons": "codicon:triangle-right",
     catppuccin: { icon: "lucide:chevron-right", color: "var(--ctp-text)" },
+    "material-icon-theme": "codicon:triangle-right",
+    "fluent-color": "icon-park:right-one",
+    "icon-park": "icon-park:right-one",
+    "streamline-color": "streamline-color:next",
+    lucide: "lucide:chevron-right",
   },
   CheckCircleOutlined: {
-    lucide: "lucide:circle-check",
-    hugeicons: "hugeicons:checkmark-circle-02",
     "vscode-icons": { icon: "codicon:pass", color: "#89d185" },
     catppuccin: "catppuccin:todo",
+    "material-icon-theme": "material-icon-theme:todo",
+    "fluent-color": "fluent-color:checkmark-circle-20",
+    "icon-park": "icon-park:check-one",
+    "streamline-color": "streamline-color:check-flat",
+    lucide: "lucide:circle-check",
   },
   CheckOutlined: {
-    lucide: "lucide:check",
-    hugeicons: "hugeicons:tick-02",
     "vscode-icons": "codicon:check",
     catppuccin: { icon: "lucide:check", color: "var(--ctp-green)" },
+    "material-icon-theme": { icon: "codicon:check", color: "#66bb6a" },
+    "fluent-color": "fluent-color:checkmark-circle-20",
+    "icon-park": "icon-park:check",
+    "streamline-color": "streamline-color:check-flat",
+    lucide: "lucide:check",
   },
   ClearOutlined: {
-    lucide: "lucide:brush-cleaning",
-    hugeicons: "hugeicons:clean",
     "vscode-icons": "codicon:clear-all",
     catppuccin: { icon: "lucide:brush-cleaning", color: "var(--ctp-mauve)" },
+    "material-icon-theme": { icon: "codicon:clear-all", color: "#ab47bc" },
+    "fluent-color": "fluent-color:paint-brush-20",
+    "icon-park": "icon-park:clear",
+    "streamline-color": "streamline-color:recycle-1-flat",
+    lucide: "lucide:brush-cleaning",
   },
   CloudDownloadOutlined: {
-    lucide: "lucide:cloud-download",
-    hugeicons: "hugeicons:cloud-download",
     "vscode-icons": { icon: "codicon:cloud-download", color: "#75beff" },
     catppuccin: { icon: "lucide:cloud-download", color: "var(--ctp-teal)" },
+    "material-icon-theme": { icon: "codicon:cloud-download", color: "#29b6f6" },
+    "fluent-color": "fluent-color:cloud-20",
+    "icon-park": "icon-park:cloud-storage",
+    "streamline-color": "streamline-color:cloud-flat",
+    lucide: "lucide:cloud-download",
   },
   CodeOutlined: {
-    lucide: "lucide:terminal",
-    hugeicons: "hugeicons:computer-terminal-01",
     "vscode-icons": "vscode-icons:file-type-shell",
     catppuccin: "catppuccin:bash",
+    "material-icon-theme": "material-icon-theme:console",
+    "fluent-color": "fluent-color:code-block-20",
+    "icon-park": "icon-park:terminal",
+    "streamline-color": "streamline-color:command-flat",
+    lucide: "lucide:terminal",
   },
   CodeSandboxOutlined: {
-    lucide: "lucide:box",
-    hugeicons: "hugeicons:cube",
     "vscode-icons": "vscode-icons:file-type-docker",
     catppuccin: "catppuccin:docker",
+    "material-icon-theme": "material-icon-theme:docker",
+    "fluent-color": "fluent-color:apps-20",
+    "icon-park": "icon-park:cube-three",
+    "streamline-color": "streamline-color:container-flat",
+    lucide: "lucide:box",
   },
   ColumnHeightOutlined: {
-    lucide: "lucide:chevrons-up-down",
-    hugeicons: "hugeicons:unfold-more",
     "vscode-icons": "codicon:unfold",
     catppuccin: { icon: "lucide:chevrons-up-down", color: "var(--ctp-text)" },
+    "material-icon-theme": "codicon:unfold",
+    "fluent-color": "icon-park:expand-down",
+    "icon-park": "icon-park:expand-down",
+    "streamline-color": "streamline-color:expand-flat",
+    lucide: "lucide:chevrons-up-down",
   },
   CopyOutlined: {
-    lucide: "lucide:copy",
-    hugeicons: "hugeicons:copy-01",
     "vscode-icons": "codicon:copy",
     catppuccin: { icon: "lucide:copy", color: "var(--ctp-blue)" },
+    "material-icon-theme": { icon: "codicon:copy", color: "#42a5f5" },
+    "fluent-color": "fluent-color:clipboard-20",
+    "icon-park": "icon-park:copy",
+    "streamline-color": "streamline-color:clipboard-check-flat",
+    lucide: "lucide:copy",
   },
   DeleteOutlined: {
-    lucide: "lucide:trash-2",
-    hugeicons: "hugeicons:delete-02",
     "vscode-icons": "codicon:trash",
     catppuccin: { icon: "lucide:trash-2", color: "var(--ctp-red)" },
+    "material-icon-theme": { icon: "codicon:trash", color: "#ef5350" },
+    "fluent-color": "fluent-color:dismiss-circle-20",
+    "icon-park": "icon-park:delete",
+    "streamline-color": "streamline-color:delete-1-flat",
+    lucide: "lucide:trash-2",
   },
   DisconnectOutlined: {
-    lucide: "lucide:unplug",
-    hugeicons: "hugeicons:unplug",
     "vscode-icons": { icon: "codicon:debug-disconnect", color: "#f48771" },
     catppuccin: { icon: "lucide:unplug", color: "var(--ctp-peach)" },
+    "material-icon-theme": { icon: "codicon:debug-disconnect", color: "#ffa726" },
+    "fluent-color": "icon-park:unlink",
+    "icon-park": "icon-park:unlink",
+    "streamline-color": "streamline-color:broken-link-2-flat",
+    lucide: "lucide:unplug",
   },
   DownOutlined: {
-    lucide: "lucide:chevron-down",
-    hugeicons: "hugeicons:arrow-down-01",
     "vscode-icons": "codicon:chevron-down",
     catppuccin: { icon: "lucide:chevron-down", color: "var(--ctp-text)" },
+    "material-icon-theme": "codicon:chevron-down",
+    "fluent-color": "icon-park:down",
+    "icon-park": "icon-park:down",
+    "streamline-color": "icon-park:down",
+    lucide: "lucide:chevron-down",
   },
   DownloadOutlined: {
-    lucide: "lucide:download",
-    hugeicons: "hugeicons:download-04",
     "vscode-icons": "codicon:desktop-download",
     catppuccin: { icon: "lucide:download", color: "var(--ctp-teal)" },
+    "material-icon-theme": { icon: "codicon:desktop-download", color: "#26a69a" },
+    "fluent-color": "icon-park:download",
+    "icon-park": "icon-park:download",
+    "streamline-color": "streamline-color:download-circle-flat",
+    lucide: "lucide:download",
   },
   EnterOutlined: {
-    lucide: "lucide:corner-down-left",
-    hugeicons: "hugeicons:arrow-turn-backward",
     "vscode-icons": "codicon:newline",
     catppuccin: { icon: "lucide:corner-down-left", color: "var(--ctp-peach)" },
+    "material-icon-theme": { icon: "codicon:newline", color: "#ffa726" },
+    "fluent-color": "icon-park:enter-key",
+    "icon-park": "icon-park:enter-key",
+    "streamline-color": "streamline-color:return-2-flat",
+    lucide: "lucide:corner-down-left",
   },
   ExpandAltOutlined: {
-    lucide: "lucide:maximize-2",
-    hugeicons: "hugeicons:arrow-expand-01",
     "vscode-icons": "codicon:screen-full",
     catppuccin: { icon: "lucide:maximize-2", color: "var(--ctp-text)" },
+    "material-icon-theme": "codicon:screen-full",
+    "fluent-color": "icon-park:full-screen",
+    "icon-park": "icon-park:full-screen",
+    "streamline-color": "streamline-color:expand-flat",
+    lucide: "lucide:maximize-2",
   },
   ExportOutlined: {
-    lucide: "lucide:external-link",
-    hugeicons: "hugeicons:link-square-02",
     "vscode-icons": "codicon:link-external",
     catppuccin: { icon: "lucide:external-link", color: "var(--ctp-teal)" },
+    "material-icon-theme": { icon: "codicon:link-external", color: "#26a69a" },
+    "fluent-color": "icon-park:share",
+    "icon-park": "icon-park:share",
+    "streamline-color": "streamline-color:share-link-flat",
+    lucide: "lucide:external-link",
   },
   EyeInvisibleOutlined: {
-    lucide: "lucide:eye-off",
-    hugeicons: "hugeicons:view-off-slash",
     "vscode-icons": "codicon:eye-closed",
     catppuccin: { icon: "lucide:eye-off", color: "var(--ctp-mauve)" },
+    "material-icon-theme": { icon: "codicon:eye-closed", color: "#ab47bc" },
+    "fluent-color": "icon-park:preview-close",
+    "icon-park": "icon-park:preview-close",
+    "streamline-color": "streamline-color:invisible-1-flat",
+    lucide: "lucide:eye-off",
   },
   EyeOutlined: {
-    lucide: "lucide:eye",
-    hugeicons: "hugeicons:view",
     "vscode-icons": "codicon:eye",
     catppuccin: { icon: "lucide:eye", color: "var(--ctp-mauve)" },
+    "material-icon-theme": { icon: "codicon:eye", color: "#ab47bc" },
+    "fluent-color": "icon-park:preview-open",
+    "icon-park": "icon-park:preview-open",
+    "streamline-color": "streamline-color:eye-optic-flat",
+    lucide: "lucide:eye",
   },
   FileOutlined: {
-    lucide: "lucide:file",
-    hugeicons: "hugeicons:file-01",
     "vscode-icons": "vscode-icons:default-file",
     catppuccin: "catppuccin:file",
+    "material-icon-theme": "material-icon-theme:document",
+    "fluent-color": "fluent-color:document-20",
+    "icon-park": "icon-park:file-addition",
+    "streamline-color": "streamline-color:new-file-flat",
+    lucide: "lucide:file",
   },
   FileTextOutlined: {
-    lucide: "lucide:file-text",
-    hugeicons: "hugeicons:file-02",
     "vscode-icons": "vscode-icons:file-type-log",
     catppuccin: "catppuccin:log",
+    "material-icon-theme": "material-icon-theme:log",
+    "fluent-color": "fluent-color:document-text-20",
+    "icon-park": "icon-park:file-text",
+    "streamline-color": "streamline-color:new-file-flat",
+    lucide: "lucide:file-text",
   },
   FolderOpenOutlined: {
-    lucide: "lucide:folder-open",
-    hugeicons: "hugeicons:folder-open",
     "vscode-icons": "vscode-icons:default-folder-opened",
     catppuccin: "catppuccin:folder-open",
+    "material-icon-theme": "material-icon-theme:folder-base-open",
+    "fluent-color": "fluent-color:document-folder-20",
+    "icon-park": "icon-park:folder-open",
+    "streamline-color": "streamline-color:folder-check-flat",
+    lucide: "lucide:folder-open",
   },
   FolderOutlined: {
-    lucide: "lucide:folder",
-    hugeicons: "hugeicons:folder-01",
     "vscode-icons": "vscode-icons:default-folder",
     catppuccin: "catppuccin:folder",
+    "material-icon-theme": "material-icon-theme:folder-base",
+    "fluent-color": "fluent-color:document-folder-20",
+    "icon-park": "icon-park:folder-close",
+    "streamline-color": "streamline-color:folder-check-flat",
+    lucide: "lucide:folder",
   },
   HddOutlined: {
-    lucide: "lucide:hard-drive",
-    hugeicons: "hugeicons:hard-drive",
     "vscode-icons": "vscode-icons:file-type-db",
     catppuccin: "catppuccin:database",
+    "material-icon-theme": "material-icon-theme:database",
+    "fluent-color": "fluent-color:database-20",
+    "icon-park": "icon-park:hard-disk",
+    "streamline-color": "streamline-color:database-flat",
+    lucide: "lucide:hard-drive",
   },
   HistoryOutlined: {
-    lucide: "lucide:history",
-    hugeicons: "hugeicons:time-02",
     "vscode-icons": "codicon:history",
     catppuccin: { icon: "lucide:history", color: "var(--ctp-yellow)" },
+    "material-icon-theme": { icon: "codicon:history", color: "#ffca28" },
+    "fluent-color": "fluent-color:history-20",
+    "icon-park": "icon-park:history",
+    "streamline-color": "streamline-color:circle-clock-flat",
+    lucide: "lucide:history",
   },
   InfoCircleOutlined: {
-    lucide: "lucide:info",
-    hugeicons: "hugeicons:information-circle",
     "vscode-icons": { icon: "codicon:info", color: "#75beff" },
     catppuccin: { icon: "lucide:info", color: "var(--ctp-blue)" },
+    "material-icon-theme": { icon: "codicon:info", color: "#42a5f5" },
+    "fluent-color": "fluent-color:question-circle-20",
+    "icon-park": "icon-park:info",
+    "streamline-color": "streamline-color:information-circle-flat",
+    lucide: "lucide:info",
   },
   LineChartOutlined: {
-    lucide: "lucide:chart-line",
-    hugeicons: "hugeicons:analytics-up",
     "vscode-icons": { icon: "codicon:graph-line", color: "#75beff" },
     catppuccin: { icon: "lucide:chart-line", color: "var(--ctp-mauve)" },
+    "material-icon-theme": { icon: "codicon:graph-line", color: "#ab47bc" },
+    "fluent-color": "fluent-color:data-line-20",
+    "icon-park": "icon-park:chart-line",
+    "streamline-color": "streamline-color:graph-flat",
+    lucide: "lucide:chart-line",
   },
   LinkOutlined: {
-    lucide: "lucide:link",
-    hugeicons: "hugeicons:link-01",
     "vscode-icons": "codicon:link",
     catppuccin: "catppuccin:url",
+    "material-icon-theme": "material-icon-theme:url",
+    "fluent-color": "fluent-color:link-20",
+    "icon-park": "icon-park:link",
+    "streamline-color": "streamline-color:link-chain-flat",
+    lucide: "lucide:link",
   },
   LockOutlined: {
-    lucide: "lucide:lock",
-    hugeicons: "hugeicons:square-lock-02",
     "vscode-icons": "codicon:lock",
     catppuccin: "catppuccin:lock",
+    "material-icon-theme": "material-icon-theme:lock",
+    "fluent-color": "fluent-color:lock-closed-20",
+    "icon-park": "icon-park:lock",
+    "streamline-color": "streamline-color:key-flat",
+    lucide: "lucide:lock",
   },
   MenuFoldOutlined: {
-    lucide: "lucide:panel-right-close",
-    hugeicons: "hugeicons:sidebar-right-01",
     "vscode-icons": "codicon:layout-sidebar-right-off",
     catppuccin: { icon: "lucide:panel-right-close", color: "var(--ctp-text)" },
+    "material-icon-theme": "codicon:layout-sidebar-right-off",
+    "fluent-color": "icon-park:menu-fold",
+    "icon-park": "icon-park:menu-fold",
+    "streamline-color": "streamline-color:layout-window-1-flat",
+    lucide: "lucide:panel-right-close",
   },
   MenuUnfoldOutlined: {
-    lucide: "lucide:panel-right-open",
-    hugeicons: "hugeicons:sidebar-right",
     "vscode-icons": "codicon:layout-sidebar-right",
     catppuccin: { icon: "lucide:panel-right-open", color: "var(--ctp-text)" },
+    "material-icon-theme": "codicon:layout-sidebar-right",
+    "fluent-color": "icon-park:menu-unfold",
+    "icon-park": "icon-park:menu-unfold",
+    "streamline-color": "streamline-color:layout-window-2-flat",
+    lucide: "lucide:panel-right-open",
   },
   MinusCircleOutlined: {
-    lucide: "lucide:circle-stop",
-    hugeicons: "hugeicons:stop-circle",
     "vscode-icons": { icon: "codicon:stop-circle", color: "#f48771" },
     catppuccin: { icon: "lucide:circle-stop", color: "var(--ctp-red)" },
+    "material-icon-theme": { icon: "codicon:stop-circle", color: "#ef5350" },
+    "fluent-color": "fluent-color:error-circle-20",
+    "icon-park": "icon-park:reduce-one",
+    "streamline-color": "streamline-color:button-stop-flat",
+    lucide: "lucide:circle-stop",
   },
   MinusOutlined: {
-    lucide: "lucide:minus",
-    hugeicons: "hugeicons:minus-sign",
     "vscode-icons": "codicon:remove",
     catppuccin: { icon: "lucide:minus", color: "var(--ctp-text)" },
+    "material-icon-theme": "codicon:remove",
+    "fluent-color": "icon-park:minus",
+    "icon-park": "icon-park:minus",
+    "streamline-color": "icon-park:minus",
+    lucide: "lucide:minus",
   },
   MoreOutlined: {
-    lucide: "lucide:ellipsis-vertical",
-    hugeicons: "hugeicons:more-vertical",
     "vscode-icons": "codicon:kebab-vertical",
     catppuccin: { icon: "lucide:ellipsis-vertical", color: "var(--ctp-text)" },
+    "material-icon-theme": "codicon:kebab-vertical",
+    "fluent-color": "icon-park:more-one",
+    "icon-park": "icon-park:more-one",
+    "streamline-color": "streamline-color:horizontal-menu-circle-flat",
+    lucide: "lucide:ellipsis-vertical",
   },
   PauseCircleOutlined: {
-    lucide: "lucide:circle-pause",
-    hugeicons: "hugeicons:pause-circle",
     "vscode-icons": { icon: "codicon:debug-pause", color: "#cca700" },
     catppuccin: { icon: "lucide:circle-pause", color: "var(--ctp-yellow)" },
+    "material-icon-theme": { icon: "codicon:debug-pause", color: "#ffca28" },
+    "fluent-color": "icon-park:pause-one",
+    "icon-park": "icon-park:pause-one",
+    "streamline-color": "streamline-color:button-pause-2-flat",
+    lucide: "lucide:circle-pause",
   },
   PlayCircleOutlined: {
-    lucide: "lucide:circle-play",
-    hugeicons: "hugeicons:play-circle",
     "vscode-icons": { icon: "codicon:play-circle", color: "#89d185" },
     catppuccin: { icon: "lucide:circle-play", color: "var(--ctp-green)" },
+    "material-icon-theme": { icon: "codicon:play-circle", color: "#66bb6a" },
+    "fluent-color": "fluent-color:fast-forward-circle-24",
+    "icon-park": "icon-park:play",
+    "streamline-color": "streamline-color:button-play-flat",
+    lucide: "lucide:circle-play",
   },
   PlusOutlined: {
-    lucide: "lucide:plus",
-    hugeicons: "hugeicons:plus-sign",
     "vscode-icons": "codicon:add",
     catppuccin: { icon: "lucide:plus", color: "var(--ctp-text)" },
+    "material-icon-theme": "codicon:add",
+    "fluent-color": "fluent-color:add-circle-20",
+    "icon-park": "icon-park:plus",
+    "streamline-color": "streamline-color:add-1-flat",
+    lucide: "lucide:plus",
   },
   PoweroffOutlined: {
-    lucide: "lucide:power",
-    hugeicons: "hugeicons:power-service",
     "vscode-icons": { icon: "codicon:debug-stop", color: "#f48771" },
     catppuccin: { icon: "lucide:power", color: "var(--ctp-red)" },
+    "material-icon-theme": { icon: "codicon:debug-stop", color: "#ef5350" },
+    "fluent-color": "icon-park:power",
+    "icon-park": "icon-park:power",
+    "streamline-color": "streamline-color:button-power-1-flat",
+    lucide: "lucide:power",
   },
   ReloadOutlined: {
-    lucide: "lucide:rotate-cw",
-    hugeicons: "hugeicons:reload",
     "vscode-icons": "codicon:refresh",
     catppuccin: { icon: "lucide:rotate-cw", color: "var(--ctp-blue)" },
+    "material-icon-theme": { icon: "codicon:refresh", color: "#42a5f5" },
+    "fluent-color": "fluent-color:arrow-sync-20",
+    "icon-park": "icon-park:refresh",
+    "streamline-color": "streamline-color:arrow-reload-horizontal-1-flat",
+    lucide: "lucide:rotate-cw",
   },
   RightOutlined: {
-    lucide: "lucide:chevron-right",
-    hugeicons: "hugeicons:arrow-right-01",
     "vscode-icons": "codicon:chevron-right",
     catppuccin: { icon: "lucide:chevron-right", color: "var(--ctp-text)" },
+    "material-icon-theme": "codicon:chevron-right",
+    "fluent-color": "icon-park:right",
+    "icon-park": "icon-park:right",
+    "streamline-color": "streamline-color:next",
+    lucide: "lucide:chevron-right",
   },
   SearchOutlined: {
-    lucide: "lucide:search",
-    hugeicons: "hugeicons:search-01",
     "vscode-icons": "codicon:search",
     catppuccin: "catppuccin:search",
+    "material-icon-theme": "material-icon-theme:search",
+    "fluent-color": "fluent-color:search-visual-20",
+    "icon-park": "icon-park:search",
+    "streamline-color": "streamline-color:magnifying-glass-flat",
+    lucide: "lucide:search",
   },
   SettingOutlined: {
-    lucide: "lucide:settings",
-    hugeicons: "hugeicons:settings-01",
     "vscode-icons": "vscode-icons:file-type-config",
     catppuccin: "catppuccin:config",
+    "material-icon-theme": "material-icon-theme:settings",
+    "fluent-color": "fluent-color:settings-20",
+    "icon-park": "icon-park:setting-two",
+    "streamline-color": "streamline-color:cog-flat",
+    lucide: "lucide:settings",
   },
   ShrinkOutlined: {
-    lucide: "lucide:minimize-2",
-    hugeicons: "hugeicons:arrow-shrink-01",
     "vscode-icons": "codicon:screen-normal",
     catppuccin: { icon: "lucide:minimize-2", color: "var(--ctp-text)" },
+    "material-icon-theme": "codicon:screen-normal",
+    "fluent-color": "icon-park:off-screen",
+    "icon-park": "icon-park:off-screen",
+    "streamline-color": "streamline-color:arrow-shrink-flat",
+    lucide: "lucide:minimize-2",
   },
   StopOutlined: {
-    lucide: "lucide:ban",
-    hugeicons: "hugeicons:unavailable",
     "vscode-icons": { icon: "codicon:circle-slash", color: "#f48771" },
     catppuccin: { icon: "lucide:ban", color: "var(--ctp-red)" },
+    "material-icon-theme": { icon: "codicon:circle-slash", color: "#ef5350" },
+    "fluent-color": "fluent-color:dismiss-circle-20",
+    "icon-park": "icon-park:forbid",
+    "streamline-color": "streamline-color:button-stop-flat",
+    lucide: "lucide:ban",
   },
   SyncOutlined: {
-    lucide: "lucide:refresh-cw",
-    hugeicons: "hugeicons:refresh",
     "vscode-icons": "codicon:sync",
     catppuccin: { icon: "lucide:refresh-cw", color: "var(--ctp-blue)" },
+    "material-icon-theme": { icon: "codicon:sync", color: "#42a5f5" },
+    "fluent-color": "fluent-color:arrow-sync-20",
+    "icon-park": "icon-park:sync",
+    "streamline-color": "streamline-color:arrow-reload-horizontal-2-flat",
+    lucide: "lucide:refresh-cw",
   },
   TableOutlined: {
-    lucide: "lucide:table",
-    hugeicons: "hugeicons:table",
     "vscode-icons": "codicon:table",
     catppuccin: { icon: "lucide:table", color: "var(--ctp-teal)" },
+    "material-icon-theme": "material-icon-theme:table",
+    "fluent-color": "fluent-color:table-20",
+    "icon-park": "icon-park:table-file",
+    "streamline-color": "icon-park:table-file",
+    lucide: "lucide:table",
   },
   TagOutlined: {
-    lucide: "lucide:tag",
-    hugeicons: "hugeicons:tag-01",
     "vscode-icons": "codicon:tag",
     catppuccin: { icon: "lucide:tag", color: "var(--ctp-mauve)" },
+    "material-icon-theme": { icon: "codicon:tag", color: "#ab47bc" },
+    "fluent-color": "fluent-color:bookmark-20",
+    "icon-park": "icon-park:tag-one",
+    "streamline-color": "streamline-color:tag-flat",
+    lucide: "lucide:tag",
   },
   VerticalAlignBottomOutlined: {
-    lucide: "lucide:arrow-down-to-line",
-    hugeicons: "hugeicons:arrow-down-03",
     "vscode-icons": "codicon:fold-down",
     catppuccin: { icon: "lucide:arrow-down-to-line", color: "var(--ctp-text)" },
+    "material-icon-theme": "codicon:fold-down",
+    "fluent-color": "icon-park:to-bottom",
+    "icon-park": "icon-park:to-bottom",
+    "streamline-color": "icon-park:to-bottom",
+    lucide: "lucide:arrow-down-to-line",
   },
   VerticalAlignMiddleOutlined: {
-    lucide: "lucide:chevrons-down-up",
-    hugeicons: "hugeicons:unfold-less",
     "vscode-icons": "codicon:fold",
     catppuccin: { icon: "lucide:chevrons-down-up", color: "var(--ctp-text)" },
+    "material-icon-theme": "codicon:fold",
+    "fluent-color": "icon-park:collapse-text-input",
+    "icon-park": "icon-park:collapse-text-input",
+    "streamline-color": "icon-park:collapse-text-input",
+    lucide: "lucide:chevrons-down-up",
   },
   WarningOutlined: {
-    lucide: "lucide:triangle-alert",
-    hugeicons: "hugeicons:alert-02",
     "vscode-icons": { icon: "codicon:warning", color: "#cca700" },
     catppuccin: { icon: "lucide:triangle-alert", color: "var(--ctp-yellow)" },
+    "material-icon-theme": { icon: "codicon:warning", color: "#ffca28" },
+    "fluent-color": "fluent-color:warning-20",
+    "icon-park": "icon-park:attention",
+    "streamline-color": "streamline-color:dangerous-zone-sign-flat",
+    lucide: "lucide:triangle-alert",
   },
-} satisfies Record<string, Record<NonAntdPackId, IconSpec>>;
+} satisfies Record<string, Record<IconPackId, IconSpec>>;
 
 type IconName = keyof typeof ICON_MAP;
 
@@ -477,118 +590,107 @@ function IconifySpan({
   );
 }
 
-function createPackIcon(
-  name: IconName,
-  AntComp: ComponentType<Omit<AppIconProps, "packOverride">>,
-): ComponentType<AppIconProps> {
+function createPackIcon(name: IconName): ComponentType<AppIconProps> {
   function PackIcon({ packOverride, ...props }: AppIconProps) {
     const { iconPackId } = useTheme();
     const activePack = packOverride ?? iconPackId;
-    const ready = useIconPackReady(activePack);
-    if (activePack === "antd" || !ready) {
-      return <AntComp {...props} />;
-    }
+    useIconPackReady(activePack);
     return <IconifySpan spec={ICON_MAP[name][activePack]} {...props} />;
   }
   PackIcon.displayName = name;
   return PackIcon;
 }
 
-export const ApartmentOutlined = createPackIcon("ApartmentOutlined", AntApartmentOutlined);
-export const ApiOutlined = createPackIcon("ApiOutlined", AntApiOutlined);
-export const ArrowLeftOutlined = createPackIcon("ArrowLeftOutlined", AntArrowLeftOutlined);
-export const ArrowUpOutlined = createPackIcon("ArrowUpOutlined", AntArrowUpOutlined);
-export const BlockOutlined = createPackIcon("BlockOutlined", AntBlockOutlined);
-export const BuildOutlined = createPackIcon("BuildOutlined", AntBuildOutlined);
-export const CaretRightOutlined = createPackIcon("CaretRightOutlined", AntCaretRightOutlined);
-export const CheckCircleOutlined = createPackIcon("CheckCircleOutlined", AntCheckCircleOutlined);
-export const CheckOutlined = createPackIcon("CheckOutlined", AntCheckOutlined);
-export const ClearOutlined = createPackIcon("ClearOutlined", AntClearOutlined);
-export const CloudDownloadOutlined = createPackIcon("CloudDownloadOutlined", AntCloudDownloadOutlined);
-export const CodeOutlined = createPackIcon("CodeOutlined", AntCodeOutlined);
-export const CodeSandboxOutlined = createPackIcon("CodeSandboxOutlined", AntCodeSandboxOutlined);
-export const ColumnHeightOutlined = createPackIcon("ColumnHeightOutlined", AntColumnHeightOutlined);
-export const CopyOutlined = createPackIcon("CopyOutlined", AntCopyOutlined);
-export const DeleteOutlined = createPackIcon("DeleteOutlined", AntDeleteOutlined);
-export const DisconnectOutlined = createPackIcon("DisconnectOutlined", AntDisconnectOutlined);
-export const DownOutlined = createPackIcon("DownOutlined", AntDownOutlined);
-export const DownloadOutlined = createPackIcon("DownloadOutlined", AntDownloadOutlined);
-export const EnterOutlined = createPackIcon("EnterOutlined", AntEnterOutlined);
-export const ExpandAltOutlined = createPackIcon("ExpandAltOutlined", AntExpandAltOutlined);
-export const ExportOutlined = createPackIcon("ExportOutlined", AntExportOutlined);
-export const EyeInvisibleOutlined = createPackIcon("EyeInvisibleOutlined", AntEyeInvisibleOutlined);
-export const EyeOutlined = createPackIcon("EyeOutlined", AntEyeOutlined);
-export const FileOutlined = createPackIcon("FileOutlined", AntFileOutlined);
-export const FileTextOutlined = createPackIcon("FileTextOutlined", AntFileTextOutlined);
-export const FolderOpenOutlined = createPackIcon("FolderOpenOutlined", AntFolderOpenOutlined);
-export const FolderOutlined = createPackIcon("FolderOutlined", AntFolderOutlined);
-export const HddOutlined = createPackIcon("HddOutlined", AntHddOutlined);
-export const HistoryOutlined = createPackIcon("HistoryOutlined", AntHistoryOutlined);
-export const InfoCircleOutlined = createPackIcon("InfoCircleOutlined", AntInfoCircleOutlined);
-export const LineChartOutlined = createPackIcon("LineChartOutlined", AntLineChartOutlined);
-export const LinkOutlined = createPackIcon("LinkOutlined", AntLinkOutlined);
-export const LockOutlined = createPackIcon("LockOutlined", AntLockOutlined);
-export const MenuFoldOutlined = createPackIcon("MenuFoldOutlined", AntMenuFoldOutlined);
-export const MenuUnfoldOutlined = createPackIcon("MenuUnfoldOutlined", AntMenuUnfoldOutlined);
-export const MinusCircleOutlined = createPackIcon("MinusCircleOutlined", AntMinusCircleOutlined);
-export const MinusOutlined = createPackIcon("MinusOutlined", AntMinusOutlined);
-export const MoreOutlined = createPackIcon("MoreOutlined", AntMoreOutlined);
-export const PauseCircleOutlined = createPackIcon("PauseCircleOutlined", AntPauseCircleOutlined);
-export const PlayCircleOutlined = createPackIcon("PlayCircleOutlined", AntPlayCircleOutlined);
-export const PlusOutlined = createPackIcon("PlusOutlined", AntPlusOutlined);
-export const PoweroffOutlined = createPackIcon("PoweroffOutlined", AntPoweroffOutlined);
-export const ReloadOutlined = createPackIcon("ReloadOutlined", AntReloadOutlined);
-export const RightOutlined = createPackIcon("RightOutlined", AntRightOutlined);
-export const SearchOutlined = createPackIcon("SearchOutlined", AntSearchOutlined);
-export const SettingOutlined = createPackIcon("SettingOutlined", AntSettingOutlined);
-export const ShrinkOutlined = createPackIcon("ShrinkOutlined", AntShrinkOutlined);
-export const StopOutlined = createPackIcon("StopOutlined", AntStopOutlined);
-export const SyncOutlined = createPackIcon("SyncOutlined", AntSyncOutlined);
-export const TableOutlined = createPackIcon("TableOutlined", AntTableOutlined);
-export const TagOutlined = createPackIcon("TagOutlined", AntTagOutlined);
-export const VerticalAlignBottomOutlined = createPackIcon(
-  "VerticalAlignBottomOutlined",
-  AntVerticalAlignBottomOutlined,
-);
-export const VerticalAlignMiddleOutlined = createPackIcon(
-  "VerticalAlignMiddleOutlined",
-  AntVerticalAlignMiddleOutlined,
-);
-export const WarningOutlined = createPackIcon("WarningOutlined", AntWarningOutlined);
+export const ApartmentOutlined = createPackIcon("ApartmentOutlined");
+export const ApiOutlined = createPackIcon("ApiOutlined");
+export const ArrowLeftOutlined = createPackIcon("ArrowLeftOutlined");
+export const ArrowUpOutlined = createPackIcon("ArrowUpOutlined");
+export const BlockOutlined = createPackIcon("BlockOutlined");
+export const BuildOutlined = createPackIcon("BuildOutlined");
+export const CaretRightOutlined = createPackIcon("CaretRightOutlined");
+export const CheckCircleOutlined = createPackIcon("CheckCircleOutlined");
+export const CheckOutlined = createPackIcon("CheckOutlined");
+export const ClearOutlined = createPackIcon("ClearOutlined");
+export const CloudDownloadOutlined = createPackIcon("CloudDownloadOutlined");
+export const CodeOutlined = createPackIcon("CodeOutlined");
+export const CodeSandboxOutlined = createPackIcon("CodeSandboxOutlined");
+export const ColumnHeightOutlined = createPackIcon("ColumnHeightOutlined");
+export const CopyOutlined = createPackIcon("CopyOutlined");
+export const DeleteOutlined = createPackIcon("DeleteOutlined");
+export const DisconnectOutlined = createPackIcon("DisconnectOutlined");
+export const DownOutlined = createPackIcon("DownOutlined");
+export const DownloadOutlined = createPackIcon("DownloadOutlined");
+export const EnterOutlined = createPackIcon("EnterOutlined");
+export const ExpandAltOutlined = createPackIcon("ExpandAltOutlined");
+export const ExportOutlined = createPackIcon("ExportOutlined");
+export const EyeInvisibleOutlined = createPackIcon("EyeInvisibleOutlined");
+export const EyeOutlined = createPackIcon("EyeOutlined");
+export const FileOutlined = createPackIcon("FileOutlined");
+export const FileTextOutlined = createPackIcon("FileTextOutlined");
+export const FolderOpenOutlined = createPackIcon("FolderOpenOutlined");
+export const FolderOutlined = createPackIcon("FolderOutlined");
+export const HddOutlined = createPackIcon("HddOutlined");
+export const HistoryOutlined = createPackIcon("HistoryOutlined");
+export const InfoCircleOutlined = createPackIcon("InfoCircleOutlined");
+export const LineChartOutlined = createPackIcon("LineChartOutlined");
+export const LinkOutlined = createPackIcon("LinkOutlined");
+export const LockOutlined = createPackIcon("LockOutlined");
+export const MenuFoldOutlined = createPackIcon("MenuFoldOutlined");
+export const MenuUnfoldOutlined = createPackIcon("MenuUnfoldOutlined");
+export const MinusCircleOutlined = createPackIcon("MinusCircleOutlined");
+export const MinusOutlined = createPackIcon("MinusOutlined");
+export const MoreOutlined = createPackIcon("MoreOutlined");
+export const PauseCircleOutlined = createPackIcon("PauseCircleOutlined");
+export const PlayCircleOutlined = createPackIcon("PlayCircleOutlined");
+export const PlusOutlined = createPackIcon("PlusOutlined");
+export const PoweroffOutlined = createPackIcon("PoweroffOutlined");
+export const ReloadOutlined = createPackIcon("ReloadOutlined");
+export const RightOutlined = createPackIcon("RightOutlined");
+export const SearchOutlined = createPackIcon("SearchOutlined");
+export const SettingOutlined = createPackIcon("SettingOutlined");
+export const ShrinkOutlined = createPackIcon("ShrinkOutlined");
+export const StopOutlined = createPackIcon("StopOutlined");
+export const SyncOutlined = createPackIcon("SyncOutlined");
+export const TableOutlined = createPackIcon("TableOutlined");
+export const TagOutlined = createPackIcon("TagOutlined");
+export const VerticalAlignBottomOutlined = createPackIcon("VerticalAlignBottomOutlined");
+export const VerticalAlignMiddleOutlined = createPackIcon("VerticalAlignMiddleOutlined");
+export const WarningOutlined = createPackIcon("WarningOutlined");
 
-function resolveFolderSpec(
-  pack: "vscode-icons" | "catppuccin",
-  name: string,
-  open: boolean,
-  isRoot?: boolean,
-): string | null {
+type RichFsPack = "vscode-icons" | "catppuccin" | "material-icon-theme";
+
+function isRichFsPack(pack: IconPackId): pack is RichFsPack {
+  return pack === "vscode-icons" || pack === "catppuccin" || pack === "material-icon-theme";
+}
+
+function resolveFolderSpec(pack: RichFsPack, name: string, open: boolean, isRoot?: boolean): string | null {
   if (isRoot) {
-    return pack === "vscode-icons"
-      ? open
-        ? "vscode-icons:default-root-folder-opened"
-        : "vscode-icons:default-root-folder"
-      : open
-        ? "catppuccin:root-open"
-        : "catppuccin:root";
+    if (pack === "vscode-icons") {
+      return open ? "vscode-icons:default-root-folder-opened" : "vscode-icons:default-root-folder";
+    }
+    if (pack === "material-icon-theme") {
+      return open ? "material-icon-theme:folder-core-open" : "material-icon-theme:folder-core";
+    }
+    return open ? "catppuccin:root-open" : "catppuccin:root";
   }
   const lower = name.toLowerCase();
   if (lower === "etc" || lower === "conf" || lower === "config" || lower === ".config") {
-    return pack === "vscode-icons"
-      ? open
-        ? "vscode-icons:folder-type-config-opened"
-        : "vscode-icons:folder-type-config"
-      : open
-        ? "catppuccin:folder-config-open"
-        : "catppuccin:folder-config";
+    if (pack === "vscode-icons") {
+      return open ? "vscode-icons:folder-type-config-opened" : "vscode-icons:folder-type-config";
+    }
+    if (pack === "material-icon-theme") {
+      return open ? "material-icon-theme:folder-config-open" : "material-icon-theme:folder-config";
+    }
+    return open ? "catppuccin:folder-config-open" : "catppuccin:folder-config";
   }
   if (lower === "var" || lower === "log" || lower === "logs") {
-    return pack === "vscode-icons"
-      ? open
-        ? "vscode-icons:folder-type-log-opened"
-        : "vscode-icons:folder-type-log"
-      : open
-        ? "catppuccin:folder-audit-open"
-        : "catppuccin:folder-audit";
+    if (pack === "vscode-icons") {
+      return open ? "vscode-icons:folder-type-log-opened" : "vscode-icons:folder-type-log";
+    }
+    if (pack === "material-icon-theme") {
+      return open ? "material-icon-theme:folder-log-open" : "material-icon-theme:folder-log";
+    }
+    return open ? "catppuccin:folder-audit-open" : "catppuccin:folder-audit";
   }
   if (
     lower === "db" ||
@@ -598,36 +700,48 @@ function resolveFolderSpec(
     lower === "mysql" ||
     lower === "redis"
   ) {
-    return pack === "vscode-icons"
-      ? open
-        ? "vscode-icons:folder-type-db-opened"
-        : "vscode-icons:folder-type-db"
-      : open
-        ? "catppuccin:folder-database-open"
-        : "catppuccin:folder-database";
+    if (pack === "vscode-icons") {
+      return open ? "vscode-icons:folder-type-db-opened" : "vscode-icons:folder-type-db";
+    }
+    if (pack === "material-icon-theme") {
+      return open ? "material-icon-theme:folder-database-open" : "material-icon-theme:folder-database";
+    }
+    return open ? "catppuccin:folder-database-open" : "catppuccin:folder-database";
   }
   if (lower === "docker" || lower === ".docker") {
-    return pack === "vscode-icons"
-      ? open
-        ? "vscode-icons:folder-type-docker-opened"
-        : "vscode-icons:folder-type-docker"
-      : open
-        ? "catppuccin:folder-docker-open"
-        : "catppuccin:folder-docker";
+    if (pack === "vscode-icons") {
+      return open ? "vscode-icons:folder-type-docker-opened" : "vscode-icons:folder-type-docker";
+    }
+    if (pack === "material-icon-theme") {
+      return open ? "material-icon-theme:folder-docker-open" : "material-icon-theme:folder-docker";
+    }
+    return open ? "catppuccin:folder-docker-open" : "catppuccin:folder-docker";
   }
   return null;
 }
 
-function resolveFileSpec(pack: "vscode-icons" | "catppuccin", name: string): string | null {
+function resolveFileSpec(pack: RichFsPack, name: string): string | null {
   const lower = name.toLowerCase();
   if (lower.startsWith("dockerfile") || lower.endsWith(".dockerfile") || lower === ".dockerignore") {
-    return pack === "vscode-icons" ? "vscode-icons:file-type-docker" : "catppuccin:docker";
+    return pack === "vscode-icons"
+      ? "vscode-icons:file-type-docker"
+      : pack === "material-icon-theme"
+        ? "material-icon-theme:docker"
+        : "catppuccin:docker";
   }
   if (lower === "compose.yaml" || lower === "compose.yml" || lower.startsWith("docker-compose.")) {
-    return pack === "vscode-icons" ? "vscode-icons:file-type-docker2" : "catppuccin:docker-compose";
+    return pack === "vscode-icons"
+      ? "vscode-icons:file-type-docker2"
+      : pack === "material-icon-theme"
+        ? "material-icon-theme:docker"
+        : "catppuccin:docker-compose";
   }
   if (lower === ".env" || lower.startsWith(".env.") || lower.endsWith(".env")) {
-    return pack === "vscode-icons" ? "vscode-icons:file-type-dotenv" : "catppuccin:env";
+    return pack === "vscode-icons"
+      ? "vscode-icons:file-type-dotenv"
+      : pack === "material-icon-theme"
+        ? "material-icon-theme:tune"
+        : "catppuccin:env";
   }
   if (
     lower === "hosts" ||
@@ -639,10 +753,18 @@ function resolveFileSpec(pack: "vscode-icons" | "catppuccin", name: string): str
     lower === "fstab" ||
     lower === "crontab"
   ) {
-    return pack === "vscode-icons" ? "vscode-icons:file-type-config" : "catppuccin:config";
+    return pack === "vscode-icons"
+      ? "vscode-icons:file-type-config"
+      : pack === "material-icon-theme"
+        ? "material-icon-theme:settings"
+        : "catppuccin:config";
   }
   if (lower === ".bashrc" || lower === ".bash_profile" || lower === ".profile" || lower === ".zshrc") {
-    return pack === "vscode-icons" ? "vscode-icons:file-type-shell" : "catppuccin:bash";
+    return pack === "vscode-icons"
+      ? "vscode-icons:file-type-shell"
+      : pack === "material-icon-theme"
+        ? "material-icon-theme:console"
+        : "catppuccin:bash";
   }
   const dot = lower.lastIndexOf(".");
   const ext = dot >= 0 ? lower.slice(dot + 1) : "";
@@ -650,50 +772,102 @@ function resolveFileSpec(pack: "vscode-icons" | "catppuccin", name: string): str
     case "json":
     case "jsonc":
     case "json5":
-      return pack === "vscode-icons" ? "vscode-icons:file-type-json" : "catppuccin:json";
+      return pack === "vscode-icons"
+        ? "vscode-icons:file-type-json"
+        : pack === "material-icon-theme"
+          ? "material-icon-theme:json"
+          : "catppuccin:json";
     case "yaml":
     case "yml":
-      return pack === "vscode-icons" ? "vscode-icons:file-type-yaml" : "catppuccin:yaml";
+      return pack === "vscode-icons"
+        ? "vscode-icons:file-type-yaml"
+        : pack === "material-icon-theme"
+          ? "material-icon-theme:yaml"
+          : "catppuccin:yaml";
     case "toml":
-      return pack === "vscode-icons" ? "vscode-icons:file-type-toml" : "catppuccin:toml";
+      return pack === "vscode-icons"
+        ? "vscode-icons:file-type-toml"
+        : pack === "material-icon-theme"
+          ? "material-icon-theme:toml"
+          : "catppuccin:toml";
     case "conf":
     case "cfg":
     case "ini":
     case "cnf":
     case "properties":
     case "service":
-      return pack === "vscode-icons" ? "vscode-icons:file-type-config" : "catppuccin:config";
+      return pack === "vscode-icons"
+        ? "vscode-icons:file-type-config"
+        : pack === "material-icon-theme"
+          ? "material-icon-theme:settings"
+          : "catppuccin:config";
     case "sh":
     case "bash":
     case "zsh":
-      return pack === "vscode-icons" ? "vscode-icons:file-type-shell" : "catppuccin:bash";
+      return pack === "vscode-icons"
+        ? "vscode-icons:file-type-shell"
+        : pack === "material-icon-theme"
+          ? "material-icon-theme:console"
+          : "catppuccin:bash";
     case "js":
     case "mjs":
     case "cjs":
-      return pack === "vscode-icons" ? "vscode-icons:file-type-js" : "catppuccin:javascript";
+      return pack === "vscode-icons"
+        ? "vscode-icons:file-type-js"
+        : pack === "material-icon-theme"
+          ? "material-icon-theme:javascript"
+          : "catppuccin:javascript";
     case "ts":
     case "mts":
     case "cts":
     case "tsx":
     case "jsx":
-      return pack === "vscode-icons" ? "vscode-icons:file-type-typescript" : "catppuccin:typescript";
+      return pack === "vscode-icons"
+        ? "vscode-icons:file-type-typescript"
+        : pack === "material-icon-theme"
+          ? "material-icon-theme:typescript"
+          : "catppuccin:typescript";
     case "py":
     case "pyc":
-      return pack === "vscode-icons" ? "vscode-icons:file-type-python" : "catppuccin:python";
+      return pack === "vscode-icons"
+        ? "vscode-icons:file-type-python"
+        : pack === "material-icon-theme"
+          ? "material-icon-theme:python"
+          : "catppuccin:python";
     case "go":
-      return pack === "vscode-icons" ? "vscode-icons:file-type-go" : "catppuccin:go";
+      return pack === "vscode-icons"
+        ? "vscode-icons:file-type-go"
+        : pack === "material-icon-theme"
+          ? "material-icon-theme:go"
+          : "catppuccin:go";
     case "md":
     case "markdown":
-      return pack === "vscode-icons" ? "vscode-icons:file-type-markdown" : "catppuccin:markdown";
+      return pack === "vscode-icons"
+        ? "vscode-icons:file-type-markdown"
+        : pack === "material-icon-theme"
+          ? "material-icon-theme:markdown"
+          : "catppuccin:markdown";
     case "log":
-      return pack === "vscode-icons" ? "vscode-icons:file-type-log" : "catppuccin:log";
+      return pack === "vscode-icons"
+        ? "vscode-icons:file-type-log"
+        : pack === "material-icon-theme"
+          ? "material-icon-theme:log"
+          : "catppuccin:log";
     case "sql":
     case "db":
     case "sqlite":
     case "sqlite3":
-      return pack === "vscode-icons" ? "vscode-icons:file-type-sql" : "catppuccin:database";
+      return pack === "vscode-icons"
+        ? "vscode-icons:file-type-sql"
+        : pack === "material-icon-theme"
+          ? "material-icon-theme:database"
+          : "catppuccin:database";
     case "lock":
-      return pack === "vscode-icons" ? "codicon:lock" : "catppuccin:lock";
+      return pack === "vscode-icons"
+        ? "codicon:lock"
+        : pack === "material-icon-theme"
+          ? "material-icon-theme:lock"
+          : "catppuccin:lock";
     case "png":
     case "jpg":
     case "jpeg":
@@ -701,14 +875,22 @@ function resolveFileSpec(pack: "vscode-icons" | "catppuccin", name: string): str
     case "webp":
     case "ico":
     case "svg":
-      return pack === "vscode-icons" ? "vscode-icons:file-type-image" : "catppuccin:image";
+      return pack === "vscode-icons"
+        ? "vscode-icons:file-type-image"
+        : pack === "material-icon-theme"
+          ? "material-icon-theme:image"
+          : "catppuccin:image";
     case "so":
     case "bin":
     case "exe":
     case "o":
     case "a":
     case "wasm":
-      return pack === "vscode-icons" ? "vscode-icons:file-type-binary" : "catppuccin:binary";
+      return pack === "vscode-icons"
+        ? "vscode-icons:file-type-binary"
+        : pack === "material-icon-theme"
+          ? "material-icon-theme:hex"
+          : "catppuccin:binary";
     default:
       return null;
   }
@@ -727,7 +909,7 @@ export function FolderEntryIcon({
 }) {
   const { iconPackId } = useTheme();
   const ready = useIconPackReady(iconPackId);
-  if (ready && (iconPackId === "vscode-icons" || iconPackId === "catppuccin")) {
+  if (ready && isRichFsPack(iconPackId)) {
     const spec = resolveFolderSpec(iconPackId, name, open, isRoot);
     if (spec) return <IconifySpan spec={spec} style={style} />;
   }
@@ -738,14 +920,13 @@ export function FolderEntryIcon({
 export function FileEntryIcon({ entry }: { entry: FsEntry }) {
   const { iconPackId } = useTheme();
   const ready = useIconPackReady(iconPackId);
-  const richPack =
-    ready && (iconPackId === "vscode-icons" || iconPackId === "catppuccin") ? iconPackId : null;
+  const richPack = ready && isRichFsPack(iconPackId) ? iconPackId : null;
 
   if (entry.kind === "dir") {
     return (
       <FolderEntryIcon
         name={entry.name}
-        style={richPack === "vscode-icons" ? undefined : { color: "var(--fog)" }}
+        style={iconPackId === "lucide" ? { color: "var(--fog)" } : undefined}
       />
     );
   }
@@ -756,7 +937,9 @@ export function FileEntryIcon({ entry }: { entry: FsEntry }) {
           spec={
             richPack === "vscode-icons"
               ? { icon: "codicon:file-symlink-file", color: "var(--teal)" }
-              : "catppuccin:symlink"
+              : richPack === "material-icon-theme"
+                ? "material-icon-theme:url"
+                : "catppuccin:symlink"
           }
         />
       );
@@ -770,5 +953,5 @@ export function FileEntryIcon({ entry }: { entry: FsEntry }) {
     const spec = resolveFileSpec(richPack, entry.name);
     if (spec) return <IconifySpan spec={spec} />;
   }
-  return <FileTextOutlined style={richPack === "vscode-icons" ? undefined : { color: "var(--fog)" }} />;
+  return <FileTextOutlined style={iconPackId === "lucide" ? { color: "var(--fog)" } : undefined} />;
 }

@@ -423,11 +423,13 @@ export default function SettingsPage() {
                     .toLowerCase()
                     .includes(input.trim().toLowerCase()),
               }}
-              options={ICON_PACKS.map((p) => ({
-                value: p.id,
-                label: p.name,
-                keywords: p.keywords,
-              }))}
+              options={[...ICON_PACKS]
+                .sort((a, b) => a.name.localeCompare(b.name))
+                .map((p) => ({
+                  value: p.id,
+                  label: p.name,
+                  keywords: p.keywords,
+                }))}
               labelRender={({ value: val }) => {
                 const pack = ICON_PACKS.find((p) => p.id === val) ?? iconPack;
                 return (
