@@ -712,50 +712,52 @@ export interface IconPack {
   keywords: string;
 }
 
-export const ICON_PACKS: readonly IconPack[] = [
-  {
-    id: "vscode-icons",
-    name: "VSCode Icons",
-    description: "VS Code file & resource icons with Codicons",
-    keywords: "vscode-icon vscode icons codicon",
-  },
-  {
-    id: "catppuccin",
-    name: "Catppuccin",
-    description: "Soothing pastel icons from Catppuccin",
-    keywords: "catppuccin pastel",
-  },
-  {
-    id: "material-icon-theme",
-    name: "Material Icon Theme",
-    description: "Material Design file, folder & resource icons",
-    keywords: "material icon theme google",
-  },
-  {
-    id: "fluent-color",
-    name: "Fluent UI Color",
-    description: "Microsoft Windows 11 multi-color gradient icons",
-    keywords: "fluent ui color microsoft windows 11",
-  },
-  {
-    id: "icon-park",
-    name: "IconPark",
-    description: "ByteDance multi-tone colored interface icons",
-    keywords: "iconpark icon-park multicolor bytedance",
-  },
-  {
-    id: "streamline-color",
-    name: "Streamline Color",
-    description: "Duotone colorful vector interface icons",
-    keywords: "streamline color duotone flat",
-  },
-  {
-    id: "lucide",
-    name: "Lucide",
-    description: "Clean, consistent 2px stroke vector icons",
-    keywords: "lucide stroke monochrome",
-  },
-].sort((a, b) => a.name.localeCompare(b.name));
+export const ICON_PACKS: readonly IconPack[] = (
+  [
+    {
+      id: "vscode-icons",
+      name: "VSCode Icons",
+      description: "VS Code file & resource icons with Codicons",
+      keywords: "vscode-icon vscode icons codicon",
+    },
+    {
+      id: "catppuccin",
+      name: "Catppuccin",
+      description: "Soothing pastel icons from Catppuccin",
+      keywords: "catppuccin pastel",
+    },
+    {
+      id: "material-icon-theme",
+      name: "Material Icon Theme",
+      description: "Material Design file, folder & resource icons",
+      keywords: "material icon theme google",
+    },
+    {
+      id: "fluent-color",
+      name: "Fluent UI Color",
+      description: "Microsoft Windows 11 multi-color gradient icons",
+      keywords: "fluent ui color microsoft windows 11",
+    },
+    {
+      id: "icon-park",
+      name: "IconPark",
+      description: "ByteDance multi-tone colored interface icons",
+      keywords: "iconpark icon-park multicolor bytedance",
+    },
+    {
+      id: "streamline-color",
+      name: "Streamline Color",
+      description: "Duotone colorful vector interface icons",
+      keywords: "streamline color duotone flat",
+    },
+    {
+      id: "lucide",
+      name: "Lucide",
+      description: "Clean, consistent 2px stroke vector icons",
+      keywords: "lucide stroke monochrome",
+    },
+  ] satisfies IconPack[]
+).sort((a, b) => a.name.localeCompare(b.name));
 
 export function getIconPack(id: IconPackId): IconPack {
   return ICON_PACKS.find((p) => p.id === id) ?? ICON_PACKS[0];
