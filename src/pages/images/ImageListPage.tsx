@@ -13,7 +13,6 @@ import {
   App,
   Button,
   Empty,
-  Input,
   type MenuProps,
   Popconfirm,
   Spin,
@@ -26,8 +25,16 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAnimatedTree } from "../../components/AnimatedTree";
 import { usePageCommands } from "../../components/CommandPalette";
-import { MetricCard, Mono, Pill, RowActions, StateDot, useRowContextMenu } from "../../components/ui";
-import { useSearchHotkey } from "../../hooks/useSearchHotkey";
+import {
+  MetricCard,
+  Mono,
+  Pill,
+  RowActions,
+  SearchInput,
+  StateDot,
+  useRowContextMenu,
+  useSearch,
+} from "../../components/ui";
 import { queryKeys } from "../../lib/queryClient";
 import { listContainers, listImages, pruneImages, removeImage } from "../../services/tauriApi";
 import { formatBytes, type ImageItem, middleEllipsis, shortId } from "../../types/docker";
@@ -141,8 +148,7 @@ export default function ImageListPage() {
   const { modal, message } = App.useApp();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const searchRef = useSearchHotkey();
-  const [search, setSearch] = useState("");
+  const search = useSearch();
   const [selected, setSelected] = useState<React.Key[]>([]);
   const [expanded, setExpanded] = useState<React.Key[]>([]);
   const seenGroups = useRef<Set<string>>(new Set());
@@ -201,16 +207,15 @@ export default function ImageListPage() {
   const flatten = (rows: Row[]) => rows.flatMap((r) => (r.isGroup ? (r.children ?? []) : [r]));
   const images = useMemo(() => data ?? [], [data]);
   const groups = useMemo(() => buildGroups(images), [images]);
-  const needle = search.toLowerCase();
   const filtered = useMemo(() => {
-    if (!needle) return groups;
+    if (!search.active) return groups;
     return groups.flatMap((row): Row[] => {
-      if (row.repo.toLowerCase().includes(needle)) return [row];
-      if (!row.isGroup) return row.tag.toLowerCase().includes(needle) ? [row] : [];
-      const children = (row.children ?? []).filter((c) => c.tag.toLowerCase().includes(needle));
+      if (search.match(row.repo)) return [row];
+      if (!row.isGroup) return search.match(row.tag) ? [row] : [];
+      const children = (row.children ?? []).filter((c) => search.match(c.tag));
       return children.length ? [{ ...row, children, count: children.length }] : [];
     });
-  }, [groups, needle]);
+  }, [groups, search]);
 
   // Expand newly discovered groups, keep the user's collapse choices.
   // `seenGroups` changes outside the updater: StrictMode runs updaters twice.
@@ -453,14 +458,7 @@ export default function ImageListPage() {
 
       <div className="card">
         <div className="toolbar" style={{ marginBottom: 16 }}>
-          <Input
-            ref={searchRef}
-            placeholder="Search repository or tag"
-            allowClear
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={{ width: 260 }}
-          />
+          <SearchInput {...search.inputProps} placeholder="Search repository or tag" style={{ width: 320 }} />
           <Tooltip title={treeTable.allExpanded ? "Collapse all" : "Expand all"}>
             <Button
               icon={treeTable.allExpanded ? <ShrinkOutlined /> : <ExpandAltOutlined />}

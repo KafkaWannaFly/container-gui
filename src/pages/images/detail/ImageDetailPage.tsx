@@ -106,6 +106,7 @@ function KeyValueTable({
       pagination={false}
       rowKey={(r) => r[0]}
       dataSource={rows}
+      scroll={{ x: "max-content" }}
       locale={{ emptyText: <Empty description={`No ${title}`} /> }}
       columns={[
         { title: head[0], width: 260, render: (_, r) => <span className="mono">{r[0]}</span> },
@@ -297,12 +298,13 @@ function ContainersTab({ containers }: { containers: ContainerSummary[] }) {
           rowKey="id"
           pagination={false}
           dataSource={containers}
+          scroll={{ x: "max-content" }}
           locale={{ emptyText: <Empty description="No containers use this image" /> }}
           columns={[
             {
               title: "Name",
               render: (_, c) => (
-                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 2, whiteSpace: "nowrap" }}>
                   <span>
                     <Link to={`/containers/${c.id}`} className="row-link">
                       {c.names[0] ?? shortId(c.id)}
@@ -322,13 +324,21 @@ function ContainersTab({ containers }: { containers: ContainerSummary[] }) {
               ),
             },
             { title: "State", width: 130, render: (_, c) => <StateTag state={c.state} /> },
-            { title: "Status", width: 210, render: (_, c) => <span className="mono dim">{c.status}</span> },
+            {
+              title: "Status",
+              width: 210,
+              render: (_, c) => (
+                <span className="mono dim" style={{ whiteSpace: "nowrap" }}>
+                  {c.status}
+                </span>
+              ),
+            },
             {
               title: "Ports",
               width: 200,
               render: (_, c) =>
                 c.ports.length ? (
-                  <div style={{ display: "flex", flexDirection: "column" }}>
+                  <div style={{ display: "flex", flexDirection: "column", whiteSpace: "nowrap" }}>
                     {c.ports.map((p) => (
                       <span key={portLabel(p)} className="mono dim">
                         {portLabel(p)}

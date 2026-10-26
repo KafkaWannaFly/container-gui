@@ -34,10 +34,9 @@ import { format } from "date-fns";
 import { Fragment, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 import CodeView, { detectLanguage } from "../../../components/CodeView";
-import { Mono, Pill } from "../../../components/ui";
+import { Mono, Pill, SearchInput, useSearch } from "../../../components/ui";
 import { usePersistentState } from "../../../hooks/usePersistentState";
 import { useSaveFile } from "../../../hooks/useSaveFile";
-import { useSearchHotkey } from "../../../hooks/useSearchHotkey";
 import { queryKeys } from "../../../lib/queryClient";
 import {
   containerChanges,
@@ -162,8 +161,7 @@ export default function FilesTab({ ctr, onCopy, onOpenTab }: TabProps) {
   const [expanded, setExpanded] = useState<string[]>(["/"]);
   const [limits, setLimits] = useState<Record<string, number>>({});
   const [growing, setGrowing] = useState<string | null>(null);
-  const searchRef = useSearchHotkey();
-  const [q, setQ] = useState("");
+  const search = useSearch();
   const [pathInput, setPathInput] = useState("");
   const [showHidden, setShowHidden] = usePersistentState("files.hidden", z.boolean(), false);
   const [wrap, setWrap] = usePersistentState("files.wrap", z.boolean(), false);
@@ -245,7 +243,7 @@ export default function FilesTab({ ctr, onCopy, onOpenTab }: TabProps) {
   const go = (path: string) => {
     setCwd(path);
     setOpen(null);
-    setQ("");
+    search.setQuery("");
     expandTo(path);
   };
 
@@ -413,7 +411,7 @@ export default function FilesTab({ ctr, onCopy, onOpenTab }: TabProps) {
   const hiddenCount = allEntries.filter((e) => e.name.startsWith(".")).length;
   const rows = sortEntries(allEntries)
     .filter(visible)
-    .filter((e) => !q || e.name.toLowerCase().includes(q.toLowerCase()))
+    .filter((e) => search.match(e.name))
     .map((entry) => ({ key: join(cwd, entry.name), path: join(cwd, entry.name), entry }));
 
   const shownPath = open ?? cwd;
@@ -582,7 +580,7 @@ export default function FilesTab({ ctr, onCopy, onOpenTab }: TabProps) {
         <Table
           size="small"
           virtual
-          scroll={{ y: bodyHeight - 40 - (cwdState.listing?.truncated ? 34 : 0) }}
+          scroll={{ x: 560, y: bodyHeight - 40 - (cwdState.listing?.truncated ? 34 : 0) }}
           columns={cols}
           dataSource={rows}
           pagination={false}
@@ -596,7 +594,7 @@ export default function FilesTab({ ctr, onCopy, onOpenTab }: TabProps) {
               <Empty
                 image={Empty.PRESENTED_IMAGE_SIMPLE}
                 description={
-                  q
+                  search.active
                     ? "No matching entries"
                     : hiddenCount && !showHidden
                       ? `Only hidden files (${hiddenCount})`
@@ -788,15 +786,12 @@ export default function FilesTab({ ctr, onCopy, onOpenTab }: TabProps) {
               </>
             ) : (
               <>
-                <Input
-                  ref={searchRef}
+                <SearchInput
+                  {...search.inputProps}
                   size="small"
                   placeholder="Filter"
-                  allowClear
-                  value={q}
-                  onChange={(e) => setQ(e.target.value)}
                   prefix={<SearchOutlined style={{ color: "var(--ash)" }} />}
-                  style={{ width: 170 }}
+                  style={{ width: 250 }}
                 />
                 <span className="switch-label">
                   <Switch size="small" checked={showHidden} onChange={setShowHidden} />

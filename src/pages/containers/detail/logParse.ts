@@ -80,19 +80,84 @@ function parseJson(text: string): NonNullable<ParsedLine["json"]> & { level: Lev
   };
 }
 
+export const LOCAL_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+/** "off", "local" (follows the OS setting) or an IANA zone name. */
+export type Stamps = string;
+export const TZ_PREFIX = "tz:";
+
+export function resolveZone(stamps: Stamps): string | null {
+  if (stamps === "off") return null;
+  if (stamps === "local") return LOCAL_TZ;
+  try {
+    new Intl.DateTimeFormat("en", { timeZone: stamps });
+    return stamps;
+  } catch {
+    return LOCAL_TZ; // A stored zone this runtime doesn't know.
+  }
+}
+
+/**
+ * One zone per common UTC offset, named by well-known cities. Cities in
+ * one entry share DST rules, so the offset shown is right for all of them.
+ */
+export const ZONES: [tz: string, cities: string][] = [
+  ["Pacific/Pago_Pago", "Pago Pago"],
+  ["Pacific/Honolulu", "Honolulu"],
+  ["America/Anchorage", "Anchorage"],
+  ["America/Los_Angeles", "Los Angeles, Vancouver"],
+  ["America/Denver", "Denver, Calgary"],
+  ["America/Chicago", "Chicago, Dallas"],
+  ["America/New_York", "New York, Toronto"],
+  ["America/Halifax", "Halifax"],
+  ["America/Sao_Paulo", "São Paulo, Buenos Aires"],
+  ["Atlantic/South_Georgia", "South Georgia"],
+  ["Atlantic/Azores", "Azores"],
+  ["Europe/London", "London, Dublin, Lisbon"],
+  ["Europe/Paris", "Paris, Berlin, Rome"],
+  ["Europe/Athens", "Athens, Helsinki, Kyiv"],
+  ["Europe/Istanbul", "Istanbul, Moscow, Riyadh"],
+  ["Asia/Dubai", "Dubai, Baku"],
+  ["Asia/Karachi", "Karachi, Tashkent"],
+  ["Asia/Kolkata", "Mumbai, New Delhi"],
+  ["Asia/Dhaka", "Dhaka"],
+  ["Asia/Bangkok", "Bangkok, Jakarta, Ho Chi Minh City"],
+  ["Asia/Singapore", "Singapore, Beijing, Perth"],
+  ["Asia/Tokyo", "Tokyo, Seoul"],
+  ["Australia/Sydney", "Sydney, Melbourne"],
+  ["Pacific/Auckland", "Auckland"],
+];
+const CITIES = new Map(ZONES);
+
+/** " (local time)" or " (Tokyo, Seoul)" for the footer. */
+export function zoneCities(stamps: Stamps, zone: string): string {
+  if (stamps === "local") return " (local time)";
+  const cities = CITIES.get(zone);
+  return cities ? ` (${cities})` : "";
+}
+
+/** `+05:30` → 330, for ordering zones by their current offset. */
+export function offsetMinutes(offset: string): number {
+  const [h, m] = offset.slice(1).split(":").map(Number);
+  return (offset.startsWith("-") ? -1 : 1) * (h * 60 + m);
+}
+
+export function stampsLabelOf(stamps: Stamps, zone: string | null): string {
+  if (zone === null) return "Hidden";
+  if (stamps === "local") return "Local";
+  if (zone === "UTC") return "UTC";
+  return `UTC${zoneOffset(zone)}`;
+}
+
 /** Docker sends nanoseconds; Date only keeps milliseconds. */
-function epochMs(ts: string): number {
+export function epochMs(ts: string): number {
   return ts ? new Date(ts.replace(/(\.\d{3})\d+/, "$1")).getTime() : Number.NaN;
 }
 
 const stampFormats = new Map<string, Intl.DateTimeFormat>();
 
-/**
- * `yyyy-MM-dd HH:mm:ss.SSS` in `timeZone`. Formatters are cached; only
- * visible rows are formatted, so this stays cheap for big logs.
- */
-export function formatStamp(line: ParsedLine, timeZone: string): string {
-  if (Number.isNaN(line.ms)) return line.ts;
+function formatMs(ms: number, fallback: string, timeZone: string): string {
+  if (Number.isNaN(ms)) return fallback;
   let fmt = stampFormats.get(timeZone);
   if (!fmt) {
     fmt = new Intl.DateTimeFormat("en-CA", {
@@ -109,8 +174,20 @@ export function formatStamp(line: ParsedLine, timeZone: string): string {
     stampFormats.set(timeZone, fmt);
   }
   const p: Record<string, string> = {};
-  for (const part of fmt.formatToParts(line.ms)) p[part.type] = part.value;
+  for (const part of fmt.formatToParts(ms)) p[part.type] = part.value;
   return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}:${p.second}.${p.fractionalSecond}`;
+}
+
+/**
+ * `yyyy-MM-dd HH:mm:ss.SSS` in `timeZone`. Formatters are cached; only
+ * visible rows are formatted, so this stays cheap for big logs.
+ */
+export function formatStamp(line: ParsedLine, timeZone: string): string {
+  return formatMs(line.ms, line.ts, timeZone);
+}
+
+export function formatTimestamp(ts: string, timeZone: string): string {
+  return formatMs(epochMs(ts), ts, timeZone);
 }
 
 /** `+08:00` style offset of `timeZone` right now. */

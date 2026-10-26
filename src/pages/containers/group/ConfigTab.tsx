@@ -7,6 +7,7 @@ import {
 } from "@ant-design/icons";
 import { App, Button, Empty, Segmented } from "antd";
 import { useMemo, useState } from "react";
+import CodeView, { detectLanguage } from "../../../components/CodeView";
 import type { ComposeProject } from "../../../types/docker";
 import { isSecret } from "../detail/model";
 
@@ -22,41 +23,6 @@ function secretValues(config: ComposeProject): string[] {
     }
   }
   return [...values];
-}
-
-function YamlView({ text }: { text: string }) {
-  return (
-    <div className="g-code-box">
-      <div className="g-code">
-        {text.split("\n").map((line, i) => {
-          const comment = /^(\s*)(#.*)$/.exec(line);
-          const kv = /^(\s*-?\s*)([\w.-]+)(:)(.*)$/.exec(line);
-          return (
-            <div key={i} className="g-ln">
-              <span className="n">{i + 1}</span>
-              <span className="t">
-                {comment ? (
-                  <>
-                    {comment[1]}
-                    <span className="y-c">{comment[2]}</span>
-                  </>
-                ) : kv ? (
-                  <>
-                    {kv[1]}
-                    <span className="y-k">{kv[2]}</span>
-                    <span className="y-c">{kv[3]}</span>
-                    {kv[4]}
-                  </>
-                ) : (
-                  line || " "
-                )}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
 }
 
 export default function ConfigTab({ config }: { config: ComposeProject }) {
@@ -90,6 +56,11 @@ export default function ConfigTab({ config }: { config: ComposeProject }) {
     }
     return found.content;
   }, [file, reveal, config, secrets]);
+
+  const language = useMemo(
+    () => (file === "resolved" ? "yaml" : (detectLanguage(file, text) ?? "yaml")),
+    [file, text],
+  );
 
   if (!config.files.length) return <Empty description="No compose files found" />;
 
@@ -130,7 +101,9 @@ export default function ConfigTab({ config }: { config: ComposeProject }) {
             Copy
           </Button>
         </div>
-        <YamlView text={text} />
+        <div className="df-view">
+          <CodeView value={text} language={language} />
+        </div>
         <div className="toolbar" style={{ marginTop: 10 }}>
           <span className="dim" style={{ fontSize: 12 }}>
             Read-only · edits happen in your editor; this view reloads when the file changes.

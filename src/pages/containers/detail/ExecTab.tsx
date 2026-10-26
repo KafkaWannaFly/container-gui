@@ -11,10 +11,10 @@ import { useQuery } from "@tanstack/react-query";
 import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
-import { Button, Empty, Input, Result, Select, Spin, Tooltip } from "antd";
+import { Button, Empty, Result, Select, Spin, Tooltip } from "antd";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
-import { Mono, StateDot } from "../../../components/ui";
+import { Mono, SearchInput, StateDot, useSearch } from "../../../components/ui";
 import { usePersistentState } from "../../../hooks/usePersistentState";
 import { queryKeys } from "../../../lib/queryClient";
 import { type ExecSession, execProbe, startExec } from "../../../services/tauriApi";
@@ -51,7 +51,7 @@ export default function ExecTab({ ctr, onCopy }: TabProps) {
   const [user, setUser] = useState<string | null>(null);
   const [status, setStatus] = useState<"idle" | "attached" | "ended">("idle");
   const [showSheet, setShowSheet] = usePersistentState("exec.cheatsheet", z.boolean(), true);
-  const [filter, setFilter] = useState("");
+  const search = useSearch();
   const [session, setSession] = useState(0);
   const hostRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
@@ -149,16 +149,13 @@ export default function ExecTab({ ctr, onCopy }: TabProps) {
   };
 
   const groups = useMemo(() => {
-    const needle = filter.toLowerCase();
     return cheatSheet(probe.data?.osId ?? "")
       .map((g) => ({
         ...g,
-        items: g.items.filter(
-          (c) => !needle || c.cmd.toLowerCase().includes(needle) || c.desc.toLowerCase().includes(needle),
-        ),
+        items: g.items.filter((c) => search.matchAny(c.cmd, c.desc)),
       }))
       .filter((g) => g.items.length);
-  }, [filter, probe.data?.osId]);
+  }, [search, probe.data?.osId]);
 
   if (!running) {
     return (
@@ -254,13 +251,11 @@ export default function ExecTab({ ctr, onCopy }: TabProps) {
         <div className="term-host" ref={hostRef} />
         {showSheet ? (
           <aside className="sheet">
-            <Input
+            <SearchInput
+              {...search.inputProps}
               size="small"
-              allowClear
               placeholder="Filter commands"
               prefix={<SearchOutlined style={{ color: "var(--ash)" }} />}
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
             />
             <div className="sheet-body">
               {groups.length === 0 ? (

@@ -201,26 +201,6 @@ export default function MainLayout() {
               <span data-tauri-drag-region>Container GUI</span>
             </div>
             {nav}
-            <div className="side-foot">
-              <span
-                style={{
-                  width: 6,
-                  height: 6,
-                  flex: "0 0 auto",
-                  borderRadius: 99,
-                  background:
-                    status?.state === "connected"
-                      ? "var(--green)"
-                      : (status?.state ?? "connecting") === "connecting"
-                        ? "var(--amber)"
-                        : "var(--coral)",
-                }}
-              />
-              <span className="mono side-foot-endpoint" title={status?.endpoint}>
-                {status?.endpoint ?? "connecting…"}
-              </span>
-              {status?.pingMs != null ? <span className="mono">{status.pingMs}ms</span> : null}
-            </div>
           </aside>
 
           <main className="main">
@@ -259,6 +239,29 @@ export default function MainLayout() {
               )}
             </div>
           </main>
+
+          <footer className="statusbar">
+            <div className="statusbar-item">
+              <span
+                style={{
+                  width: 6,
+                  height: 6,
+                  flex: "0 0 auto",
+                  borderRadius: 99,
+                  background:
+                    status?.state === "connected"
+                      ? "var(--green)"
+                      : (status?.state ?? "connecting") === "connecting"
+                        ? "var(--amber)"
+                        : "var(--coral)",
+                }}
+              />
+              <span className="mono statusbar-endpoint" title={status?.endpoint}>
+                {status?.endpoint ?? "connecting…"}
+              </span>
+              {status?.pingMs != null ? <span className="mono statusbar-ping">{status.pingMs}ms</span> : null}
+            </div>
+          </footer>
         </div>
       </CommandPaletteProvider>
     </HotkeysProvider>

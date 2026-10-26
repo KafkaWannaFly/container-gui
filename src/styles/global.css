@@ -50,6 +50,81 @@ body {
   letter-spacing: -0.013em;
 }
 
+.kbd {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 4px;
+  border: 1px solid var(--graphite);
+  background: color-mix(in srgb, var(--paper) 4%, transparent);
+  color: var(--ash);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  user-select: none;
+  pointer-events: none;
+}
+
+.ant-input-affix-wrapper-focused .kbd {
+  display: none;
+}
+
+.search-suffix {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.search-toggles {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.search-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 18px;
+  min-width: 20px;
+  padding: 0 3px;
+  border-radius: 3px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--ash);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  cursor: pointer;
+  user-select: none;
+  transition:
+    color 0.12s ease,
+    background-color 0.12s ease,
+    border-color 0.12s ease;
+}
+
+.search-toggle:hover {
+  color: var(--mist);
+  background: color-mix(in srgb, var(--paper) 6%, transparent);
+}
+
+.search-toggle.on {
+  color: var(--lime);
+  background: color-mix(in srgb, var(--lime) 14%, transparent);
+  border-color: color-mix(in srgb, var(--lime) 35%, transparent);
+}
+
+.search-whole-word {
+  display: inline-block;
+  padding: 0 1px 1px;
+  line-height: 1;
+  border-bottom: 1.5px solid currentColor;
+}
+
 .dim {
   color: var(--ash);
 }
@@ -59,17 +134,16 @@ body {
 }
 
 .app-shell {
-  display: flex;
+  display: grid;
+  grid-template-columns: 224px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto;
   height: 100vh;
   overflow: hidden;
 }
 
 .side {
   width: 224px;
-  flex: 0 0 224px;
-  height: 100vh;
-  position: sticky;
-  top: 0;
+  min-height: 0;
   background: var(--carbon);
   border-right: 1px solid var(--graphite);
   padding: 14px 10px;
@@ -113,29 +187,42 @@ body {
   color: var(--paper);
 }
 
-.side-foot {
-  margin-top: auto;
-  padding: 10px 8px 2px;
+.statusbar {
+  grid-column: 1 / -1;
+  height: 26px;
+  padding: 0 12px;
+  background: var(--carbon);
   border-top: 1px solid var(--graphite);
   color: var(--ash);
   display: flex;
   align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  user-select: none;
+}
+
+.statusbar-item {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
   gap: 6px;
 }
 
-.side-foot-endpoint {
-  flex: 1;
-  min-width: 0;
+.statusbar-endpoint {
   font-size: 11px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+.statusbar-ping {
+  font-size: 11px;
+  color: var(--fog);
+}
+
 .main {
-  flex: 1;
   min-width: 0;
-  height: 100vh;
+  min-height: 0;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -592,8 +679,23 @@ pre.logs .dim {
   flex: 1;
 }
 
+.card,
+.sec-body,
+.ant-table-wrapper {
+  min-width: 0;
+  max-width: 100%;
+}
+
 .card .ant-table-wrapper .ant-table {
   background: transparent;
+}
+
+.ant-table-wrapper .ant-table-content {
+  overflow-x: auto;
+}
+
+.ant-table-wrapper .ant-table-thead > tr > th {
+  white-space: nowrap;
 }
 
 .mon-grid {
@@ -638,7 +740,9 @@ pre.logs .dim {
   padding: 12px;
   height: calc(100vh - 430px);
   min-height: 300px;
-  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   color: var(--mist);
   font-family: var(--font-mono);
   font-size: 12px;
@@ -646,22 +750,22 @@ pre.logs .dim {
   letter-spacing: -0.013em;
   white-space: pre-wrap;
   word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .log-view.nowrap {
   white-space: pre;
   word-break: normal;
-}
-
-.log-view {
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
+  overflow-wrap: normal;
 }
 
 .lg-list {
   flex: 1;
   min-height: 0;
+}
+
+.log-view:not(.nowrap) .lg-list {
+  overflow-x: hidden !important;
 }
 
 .lg-row {
@@ -1419,23 +1523,47 @@ pre.logs .dim {
   padding: 12px 0;
   height: calc(100vh - 470px);
   min-height: 320px;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
   color: var(--mist);
   font-family: var(--font-mono);
   font-size: 12px;
   line-height: 1.75;
   letter-spacing: -0.013em;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.g-log.nowrap {
+  overflow-x: auto;
+  white-space: pre;
+  word-break: normal;
+  overflow-wrap: normal;
 }
 
 .g-row {
   padding: 0 12px;
   display: flex;
   gap: 10px;
+  min-width: 0;
+}
+
+.g-log.nowrap .g-row {
+  width: max-content;
+  min-width: 100%;
 }
 
 .g-row > .msg {
   flex: 1;
   min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.g-log.nowrap .g-row > .msg {
+  overflow-wrap: normal;
+  word-break: normal;
 }
 
 .g-ts,
@@ -1450,6 +1578,7 @@ pre.logs .dim {
   color: var(--ash);
   cursor: pointer;
   flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .g-ts:hover {
@@ -1461,6 +1590,7 @@ pre.logs .dim {
   flex: 0 0 130px;
   cursor: pointer;
   overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
   border-left: 2px solid;
   padding-left: 8px;
@@ -1764,7 +1894,8 @@ html[data-theme="aurora"] .app-shell::before {
   animation: aurora-drift 10s ease-in-out infinite;
 }
 
-html[data-theme="aurora"] .side {
+html[data-theme="aurora"] .side,
+html[data-theme="aurora"] .statusbar {
   background: color-mix(in srgb, var(--carbon) 88%, transparent);
   backdrop-filter: blur(14px);
 }
@@ -1959,7 +2090,8 @@ html[data-theme="liquid-glass"] .app-shell::before {
   animation: aurora-drift 11s ease-in-out infinite;
 }
 
-html[data-theme="liquid-glass"] .side {
+html[data-theme="liquid-glass"] .side,
+html[data-theme="liquid-glass"] .statusbar {
   background: color-mix(in srgb, var(--carbon) 68%, transparent);
   backdrop-filter: blur(20px) saturate(160%);
 }

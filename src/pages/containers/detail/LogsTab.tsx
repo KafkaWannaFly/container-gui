@@ -7,85 +7,37 @@ import {
   SearchOutlined,
   VerticalAlignBottomOutlined,
 } from "@ant-design/icons";
-import { Alert, Button, Checkbox, Dropdown, Input, type MenuProps, Select, Tooltip } from "antd";
+import { Alert, Button, Checkbox, Dropdown, type MenuProps, Select, Tooltip } from "antd";
 import { format } from "date-fns";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 import { z } from "zod";
+import { SearchInput, useSearch } from "../../../components/ui";
 import { usePersistentState } from "../../../hooks/usePersistentState";
 import { useSaveFile } from "../../../hooks/useSaveFile";
-import { useSearchHotkey } from "../../../hooks/useSearchHotkey";
 import { saveContainerLogs, streamContainerLogs } from "../../../services/tauriApi";
-import { formatStamp, type Level, type ParsedLine, parseLine, zoneOffset } from "./logParse";
+import {
+  formatStamp,
+  type Level,
+  LOCAL_TZ,
+  offsetMinutes,
+  type ParsedLine,
+  parseLine,
+  resolveZone,
+  type Stamps,
+  stampsLabelOf,
+  TZ_PREFIX,
+  ZONES,
+  zoneCities,
+  zoneOffset,
+} from "./logParse";
 import { containerName, type TabProps } from "./model";
 
 /** Lines kept in memory; the oldest are dropped in chunks past this. */
 const MAX_LINES = 50_000;
 const DROP_CHUNK = 5_000;
-const LOCAL_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-/** "off", "local" (follows the OS setting) or an IANA zone name. */
-type Stamps = string;
-const TZ_PREFIX = "tz:";
-
-function resolveZone(stamps: Stamps): string | null {
-  if (stamps === "off") return null;
-  if (stamps === "local") return LOCAL_TZ;
-  try {
-    new Intl.DateTimeFormat("en", { timeZone: stamps });
-    return stamps;
-  } catch {
-    return LOCAL_TZ; // A stored zone this runtime doesn't know.
-  }
-}
-
-/** Every IANA zone with its current offset; built on first open of the menu. */
-/**
- * One zone per common UTC offset, named by well-known cities. Cities in
- * one entry share DST rules, so the offset shown is right for all of them.
- */
-const ZONES: [tz: string, cities: string][] = [
-  ["Pacific/Pago_Pago", "Pago Pago"],
-  ["Pacific/Honolulu", "Honolulu"],
-  ["America/Anchorage", "Anchorage"],
-  ["America/Los_Angeles", "Los Angeles, Vancouver"],
-  ["America/Denver", "Denver, Calgary"],
-  ["America/Chicago", "Chicago, Dallas"],
-  ["America/New_York", "New York, Toronto"],
-  ["America/Halifax", "Halifax"],
-  ["America/Sao_Paulo", "São Paulo, Buenos Aires"],
-  ["Atlantic/South_Georgia", "South Georgia"],
-  ["Atlantic/Azores", "Azores"],
-  ["Europe/London", "London, Dublin, Lisbon"],
-  ["Europe/Paris", "Paris, Berlin, Rome"],
-  ["Europe/Athens", "Athens, Helsinki, Kyiv"],
-  ["Europe/Istanbul", "Istanbul, Moscow, Riyadh"],
-  ["Asia/Dubai", "Dubai, Baku"],
-  ["Asia/Karachi", "Karachi, Tashkent"],
-  ["Asia/Kolkata", "Mumbai, New Delhi"],
-  ["Asia/Dhaka", "Dhaka"],
-  ["Asia/Bangkok", "Bangkok, Jakarta, Ho Chi Minh City"],
-  ["Asia/Singapore", "Singapore, Beijing, Perth"],
-  ["Asia/Tokyo", "Tokyo, Seoul"],
-  ["Australia/Sydney", "Sydney, Melbourne"],
-  ["Pacific/Auckland", "Auckland"],
-];
-const CITIES = new Map(ZONES);
-
-/** " (local time)" or " (Tokyo, Seoul)" for the footer. */
-function zoneCities(stamps: Stamps, zone: string): string {
-  if (stamps === "local") return " (local time)";
-  const cities = CITIES.get(zone);
-  return cities ? ` (${cities})` : "";
-}
-
-/** `+05:30` → 330, for ordering zones by their current offset. */
-function offsetMinutes(offset: string): number {
-  const [h, m] = offset.slice(1).split(":").map(Number);
-  return (offset.startsWith("-") ? -1 : 1) * (h * 60 + m);
-}
-
-function zoneItems(selected: Stamps): NonNullable<MenuProps["items"]> {
+export function zoneItems(selected: Stamps): NonNullable<MenuProps["items"]> {
   const check = (key: Stamps) => (selected === key ? <CheckOutlined /> : <span className="lg-nocheck" />);
   const zones = ZONES.map(([tz, cities]) => ({ tz, cities, offset: zoneOffset(tz) })).sort(
     (a, b) => offsetMinutes(a.offset) - offsetMinutes(b.offset),
@@ -116,26 +68,7 @@ function zoneItems(selected: Stamps): NonNullable<MenuProps["items"]> {
 const clearedAt = new Map<string, string>();
 
 type Filter = "all" | Level;
-type Options = { zone: string | null; pretty: boolean; q: string };
-
-function highlight(text: string, q: string): ReactNode {
-  if (!q) return text;
-  const lower = text.toLowerCase();
-  const needle = q.toLowerCase();
-  const out: ReactNode[] = [];
-  let from = 0;
-  for (let at = lower.indexOf(needle); at >= 0; at = lower.indexOf(needle, from)) {
-    out.push(
-      text.slice(from, at),
-      <span key={at} className="hl">
-        {text.slice(at, at + q.length)}
-      </span>,
-    );
-    from = at + q.length;
-  }
-  out.push(text.slice(from));
-  return out;
-}
+type Options = { zone: string | null; pretty: boolean; highlight: (text: string) => ReactNode };
 
 function LogRow({ line, opts }: { line: ParsedLine; opts: Options }) {
   const [open, setOpen] = useState(false);
@@ -157,18 +90,18 @@ function LogRow({ line, opts }: { line: ParsedLine; opts: Options }) {
               setOpen((o) => !o);
             }}
           >
-            {json.msg ? highlight(json.msg, opts.q) : null}
+            {json.msg ? opts.highlight(json.msg) : null}
             {json.fields.map(([k, v], i) => (
               <span key={k} className="lg-field">
                 {json.msg || i > 0 ? " " : ""}
-                {k}={highlight(v, opts.q)}
+                {k}={opts.highlight(v)}
               </span>
             ))}
           </summary>
           {open ? <pre className="lg-pretty">{JSON.stringify(json.raw, null, 2)}</pre> : null}
         </details>
       ) : (
-        <span>{highlight(line.text, opts.q)}</span>
+        <span>{opts.highlight(line.text)}</span>
       )}
     </div>
   );
@@ -176,8 +109,7 @@ function LogRow({ line, opts }: { line: ParsedLine; opts: Options }) {
 
 export default function LogsTab({ ctr }: TabProps) {
   const id = ctr.Id;
-  const searchRef = useSearchHotkey();
-  const [q, setQ] = useState("");
+  const search = useSearch();
   const [level, setLevel] = useState<Filter>("all");
   const [follow, setFollow] = useState(true);
   const [stamps, setStamps] = usePersistentState<Stamps>("logs.timestamps", z.string(), "local");
@@ -247,13 +179,11 @@ export default function LogsTab({ ctr }: TabProps) {
       counts[line.level] += 1;
       visible.push(line);
     }
-    const needle = q.toLowerCase();
     const rows = visible.filter(
-      (line) =>
-        (level === "all" || line.level === level) && (!needle || line.text.toLowerCase().includes(needle)),
+      (line) => (level === "all" || line.level === level) && search.match(line.text),
     );
     return { rows, visible, counts };
-  }, [lines, q, level, cutoff]);
+  }, [lines, search, level, cutoff]);
 
   const hidden = lines.length - visible.length;
   const hasJson = useMemo(() => rows.some((line) => line.json), [rows]);
@@ -274,7 +204,7 @@ export default function LogsTab({ ctr }: TabProps) {
   };
 
   const zone = useMemo(() => resolveZone(stamps), [stamps]);
-  const opts: Options = { zone, pretty, q };
+  const opts: Options = { zone, pretty, highlight: search.highlight };
   // Built lazily: formatting ~400 zone offsets is only worth it once the menu opens.
   const zones = useMemo(() => (displayOpen ? zoneItems(stamps) : []), [displayOpen, stamps]);
   const onDisplayClick: MenuProps["onClick"] = ({ key }) => {
@@ -285,28 +215,18 @@ export default function LogsTab({ ctr }: TabProps) {
       setDisplayOpen(false);
     }
   };
-  const stampsLabel =
-    zone === null
-      ? "Hidden"
-      : stamps === "local"
-        ? "Local"
-        : zone === "UTC"
-          ? "UTC"
-          : `UTC${zoneOffset(zone)}`;
-  const filtered = q || level !== "all";
+  const stampsLabel = stampsLabelOf(stamps, zone);
+  const filtered = search.active || level !== "all";
   const running = !!ctr.State?.Running;
 
   return (
     <div className="card">
       <div className="toolbar" style={{ marginBottom: 12 }}>
-        <Input
-          ref={searchRef}
+        <SearchInput
+          {...search.inputProps}
           placeholder="Search in logs"
-          allowClear
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
           prefix={<SearchOutlined style={{ color: "var(--ash)" }} />}
-          style={{ width: 220 }}
+          style={{ width: 300 }}
         />
         <Tooltip title="Levels are inferred from the text; Docker does not record them.">
           <Select<Filter>

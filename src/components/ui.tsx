@@ -1,14 +1,18 @@
 import { CopyOutlined, MoreOutlined } from "@ant-design/icons";
-import { App, Button, Dropdown, type MenuProps, Tooltip } from "antd";
+import { useHotkey } from "@tanstack/react-hotkeys";
+import { App, Button, Dropdown, Input, type MenuProps, Tooltip } from "antd";
 import {
+  type CSSProperties,
   type HTMLAttributes,
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
   useEffect,
+  useMemo,
   useState,
 } from "react";
 import { createPortal } from "react-dom";
 import whale from "../assets/whale.png";
+import { useSearchHotkey } from "../hooks/useSearchHotkey";
 
 export const STATE_COLORS: Record<string, string> = {
   running: "var(--green)",
@@ -127,6 +131,227 @@ export function CopyButton({ text, what }: { text: string; what: string }) {
 
 export function Mono({ children }: { children: ReactNode }) {
   return <span className="mono">{children}</span>;
+}
+
+export function ShortcutBadge({ children = "Ctrl + F" }: { children?: ReactNode }) {
+  return <kbd className="kbd">{children}</kbd>;
+}
+
+export interface SearchOptions {
+  caseSensitive: boolean;
+  wholeWord: boolean;
+  regex: boolean;
+}
+
+const DEFAULT_SEARCH_OPTIONS: SearchOptions = {
+  caseSensitive: false,
+  wholeWord: false,
+  regex: false,
+};
+
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function buildSearchPattern(
+  query: string,
+  options: SearchOptions,
+): { testRe: RegExp | null; highlightRe: RegExp | null; error: string | null } {
+  if (!query) return { testRe: null, highlightRe: null, error: null };
+  const base = options.regex ? query : escapeRegExp(query);
+  const source = options.wholeWord ? `(?<![a-zA-Z0-9_])(?:${base})(?![a-zA-Z0-9_])` : base;
+  const flags = options.caseSensitive ? "" : "i";
+  try {
+    return {
+      testRe: new RegExp(source, flags),
+      highlightRe: new RegExp(source, `${flags}g`),
+      error: null,
+    };
+  } catch (err) {
+    return {
+      testRe: null,
+      highlightRe: null,
+      error: err instanceof Error ? err.message : "Invalid regular expression",
+    };
+  }
+}
+
+export function useSearch(initialQuery = "") {
+  const [query, setQuery] = useState(initialQuery);
+  const [options, setOptions] = useState<SearchOptions>(DEFAULT_SEARCH_OPTIONS);
+
+  return useMemo(() => {
+    const { testRe, highlightRe, error } = buildSearchPattern(query, options);
+    const active = query.length > 0;
+    const match = (text: string): boolean => {
+      if (!active) return true;
+      if (!testRe) return false;
+      return testRe.test(text);
+    };
+    const matchAny = (...texts: string[]): boolean => {
+      if (!active) return true;
+      if (!testRe) return false;
+      return texts.some((t) => testRe.test(t));
+    };
+    const highlight = (text: string): ReactNode => {
+      if (!active || !highlightRe || !text) return text;
+      highlightRe.lastIndex = 0;
+      const out: ReactNode[] = [];
+      let lastIndex = 0;
+      for (let m = highlightRe.exec(text); m !== null; m = highlightRe.exec(text)) {
+        const start = m.index;
+        const end = start + m[0].length;
+        if (end === start) {
+          if (highlightRe.lastIndex === start) highlightRe.lastIndex = start + 1;
+          if (highlightRe.lastIndex > text.length) break;
+          continue;
+        }
+        if (start > lastIndex) out.push(text.slice(lastIndex, start));
+        out.push(
+          <span key={start} className="hl">
+            {m[0]}
+          </span>,
+        );
+        lastIndex = end;
+      }
+      if (out.length === 0) return text;
+      if (lastIndex < text.length) out.push(text.slice(lastIndex));
+      return out;
+    };
+
+    return {
+      query,
+      setQuery,
+      options,
+      setOptions,
+      active,
+      invalidRegex: error,
+      match,
+      matchAny,
+      highlight,
+      inputProps: {
+        value: query,
+        onChange: setQuery,
+        options,
+        onOptionsChange: setOptions,
+        invalidRegex: error,
+      },
+    };
+  }, [query, options]);
+}
+
+export function SearchInput({
+  value,
+  onChange,
+  options,
+  onOptionsChange,
+  invalidRegex,
+  placeholder,
+  size,
+  prefix,
+  style,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  options: SearchOptions;
+  onOptionsChange: (options: SearchOptions) => void;
+  invalidRegex?: string | null;
+  placeholder?: string;
+  size?: "small" | "middle" | "large";
+  prefix?: ReactNode;
+  style?: CSSProperties;
+}) {
+  const searchRef = useSearchHotkey();
+  const [focused, setFocused] = useState(false);
+  const toggle = (key: keyof SearchOptions) => onOptionsChange({ ...options, [key]: !options[key] });
+  const hotkeyOpts = { ignoreInputs: false, requireReset: true, conflictBehavior: "allow" as const };
+  useHotkey(
+    "Alt+C",
+    () => {
+      if (document.activeElement?.closest(".xterm")) return;
+      toggle("caseSensitive");
+    },
+    hotkeyOpts,
+  );
+  useHotkey(
+    "Alt+W",
+    () => {
+      if (document.activeElement?.closest(".xterm")) return;
+      toggle("wholeWord");
+    },
+    hotkeyOpts,
+  );
+  useHotkey(
+    "Alt+R",
+    () => {
+      if (document.activeElement?.closest(".xterm")) return;
+      toggle("regex");
+    },
+    hotkeyOpts,
+  );
+
+  return (
+    <Input
+      ref={searchRef}
+      size={size}
+      placeholder={placeholder}
+      allowClear
+      status={invalidRegex ? "error" : undefined}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
+      prefix={prefix}
+      style={style}
+      suffix={
+        <span className="search-suffix">
+          {!focused ? <ShortcutBadge /> : null}
+          <span className="search-toggles">
+            <Tooltip title="Match Case (Alt+C)">
+              <button
+                type="button"
+                className={`search-toggle${options.caseSensitive ? " on" : ""}`}
+                aria-label="Match Case (Alt+C)"
+                aria-pressed={options.caseSensitive}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => toggle("caseSensitive")}
+              >
+                Aa
+              </button>
+            </Tooltip>
+            <Tooltip title="Match Whole Word (Alt+W)">
+              <button
+                type="button"
+                className={`search-toggle${options.wholeWord ? " on" : ""}`}
+                aria-label="Match Whole Word (Alt+W)"
+                aria-pressed={options.wholeWord}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => toggle("wholeWord")}
+              >
+                <span className="search-whole-word">ab</span>
+              </button>
+            </Tooltip>
+            <Tooltip
+              title={
+                invalidRegex ? `Invalid regex: ${invalidRegex} (Alt+R)` : "Use Regular Expression (Alt+R)"
+              }
+            >
+              <button
+                type="button"
+                className={`search-toggle${options.regex ? " on" : ""}`}
+                aria-label="Use Regular Expression (Alt+R)"
+                aria-pressed={options.regex}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => toggle("regex")}
+              >
+                .*
+              </button>
+            </Tooltip>
+          </span>
+        </span>
+      }
+    />
+  );
 }
 
 /** Flatten menu groups into one list, with dividers between non-empty groups. */

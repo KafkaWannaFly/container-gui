@@ -5,7 +5,6 @@ import {
   App,
   Button,
   Empty,
-  Input,
   type MenuProps,
   Popconfirm,
   Spin,
@@ -16,8 +15,16 @@ import {
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { usePageCommands } from "../../components/CommandPalette";
-import { MetricCard, Mono, Pill, RowActions, StateDot, useRowContextMenu } from "../../components/ui";
-import { useSearchHotkey } from "../../hooks/useSearchHotkey";
+import {
+  MetricCard,
+  Mono,
+  Pill,
+  RowActions,
+  SearchInput,
+  StateDot,
+  useRowContextMenu,
+  useSearch,
+} from "../../components/ui";
 import { queryKeys } from "../../lib/queryClient";
 import { listVolumes, pruneVolumes, refreshVolumeSizes, removeVolume } from "../../services/tauriApi";
 import { formatBytes, middleEllipsis, type VolumeItem } from "../../types/docker";
@@ -28,8 +35,7 @@ const MAX_MOUNT_LEN = 38;
 export default function VolumeListPage() {
   const { modal, message } = App.useApp();
   const queryClient = useQueryClient();
-  const searchRef = useSearchHotkey();
-  const [search, setSearch] = useState("");
+  const search = useSearch();
   const [selected, setSelected] = useState<React.Key[]>([]);
 
   const [pending, setPending] = useState<Set<string>>(new Set());
@@ -68,10 +74,7 @@ export default function VolumeListPage() {
     );
   };
 
-  const rows = useMemo(
-    () => (data ?? []).filter((v) => v.name.toLowerCase().includes(search.toLowerCase())),
-    [data, search],
-  );
+  const rows = useMemo(() => (data ?? []).filter((v) => search.match(v.name)), [data, search]);
   const orphans = (data ?? []).filter((v) => !v.inUse);
   const reclaimable = orphans.reduce((sum, v) => sum + (v.sizeBytes ?? 0), 0);
   const unmeasured = orphans.filter((v) => v.sizeBytes === null).length;
@@ -293,14 +296,7 @@ export default function VolumeListPage() {
 
       <div className="card">
         <div className="toolbar" style={{ marginBottom: 16 }}>
-          <Input
-            ref={searchRef}
-            placeholder="Search volumes"
-            allowClear
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={{ width: 240 }}
-          />
+          <SearchInput {...search.inputProps} placeholder="Search volumes" style={{ width: 300 }} />
           <span className="spacer" />
           {refresh.isPending ? (
             <span className="dim" style={{ fontSize: 12 }}>

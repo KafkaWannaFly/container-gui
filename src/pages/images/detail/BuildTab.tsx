@@ -185,6 +185,7 @@ export default function BuildTab({ name, layers: history, loading, error, image,
             pagination={false}
             dataSource={layers}
             columns={columns}
+            scroll={{ x: 640 }}
             expandable={{
               expandedRowKeys: expanded,
               onExpandedRowsChange: (keys) => setExpanded(keys.map(String)),

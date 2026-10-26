@@ -1,12 +1,28 @@
-import { ClearOutlined, SearchOutlined, VerticalAlignBottomOutlined } from "@ant-design/icons";
-import { Button, Empty, Input, Segmented, Select, Switch, Tooltip } from "antd";
-import { format } from "date-fns";
+import {
+  ClearOutlined,
+  DownOutlined,
+  EyeOutlined,
+  SearchOutlined,
+  VerticalAlignBottomOutlined,
+} from "@ant-design/icons";
+import { Button, Checkbox, Dropdown, Empty, type MenuProps, Segmented, Select, Tooltip } from "antd";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { StateDot } from "../../../components/ui";
+import { z } from "zod";
+import { SearchInput, StateDot, useSearch } from "../../../components/ui";
 import { useTauriEvent } from "../../../hooks/useDockerEvents";
-import { useSearchHotkey } from "../../../hooks/useSearchHotkey";
+import { usePersistentState } from "../../../hooks/usePersistentState";
 import { streamContainerLogs } from "../../../services/tauriApi";
 import { type ContainerSummary, DockerEventSchema, middleEllipsis } from "../../../types/docker";
+import {
+  formatTimestamp,
+  resolveZone,
+  type Stamps,
+  stampsLabelOf,
+  TZ_PREFIX,
+  zoneCities,
+  zoneOffset,
+} from "../detail/logParse";
+import { zoneItems } from "../detail/LogsTab";
 import { ContainerFilter } from "./components";
 import { svcColor } from "./model";
 
@@ -14,7 +30,6 @@ type Level = "debug" | "info" | "warn" | "error" | "event";
 type GLine = { seq: number; id: string; ts: string; level: Level; text: string };
 
 const MAX_LINES = 4000;
-const LOCAL_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 /** Log lines carry no level field, so guess it from the message. */
 function levelOf(text: string): Level {
@@ -38,14 +53,14 @@ export default function LogsTab({
   states: Map<string, string>;
   solo: string | null;
 }) {
-  const searchRef = useSearchHotkey();
-  const [query, setQuery] = useState("");
+  const search = useSearch();
   const [level, setLevel] = useState("all");
   const [events, setEvents] = useState(true);
   const [view, setView] = useState("merged");
   const [follow, setFollow] = useState(true);
-  const [timestamps, setTimestamps] = useState(true);
-  const [wrap, setWrap] = useState(true);
+  const [stamps, setStamps] = usePersistentState<Stamps>("logs.timestamps", z.string(), "local");
+  const [wrap, setWrap] = usePersistentState("logs.wrap", z.boolean(), true);
+  const [displayOpen, setDisplayOpen] = useState(false);
   const [tail, setTail] = useState("500");
   const [anchor, setAnchor] = useState<string | null>(null);
   const [hidden, setHidden] = useState<string[]>(
@@ -122,10 +137,10 @@ export default function LogsTab({
           (line) =>
             shownSet.has(line.id) &&
             (line.level === "event" ? events : level === "all" || line.level === level) &&
-            (!query || line.text.toLowerCase().includes(query.toLowerCase())),
+            search.match(line.text),
         )
         .slice(cleared),
-    [allLines, shownSet, events, level, query, cleared],
+    [allLines, shownSet, events, level, search, cleared],
   );
 
   const infoCount = allLines.filter((line) => line.level === "info" && shownSet.has(line.id)).length;
@@ -152,32 +167,30 @@ export default function LogsTab({
 
   const only = (id: string) => setHidden(containers.filter((ctr) => ctr.id !== id).map((ctr) => ctr.id));
 
-  const renderText = (text: string) => {
-    if (!query) return text;
-    const index = text.toLowerCase().indexOf(query.toLowerCase());
-    if (index < 0) return text;
-    return (
-      <>
-        {text.slice(0, index)}
-        <span className="hl">{text.slice(index, index + query.length)}</span>
-        {text.slice(index + query.length)}
-      </>
-    );
+  const zone = useMemo(() => resolveZone(stamps), [stamps]);
+  const zones = useMemo(() => (displayOpen ? zoneItems(stamps) : []), [displayOpen, stamps]);
+  const stampsLabel = stampsLabelOf(stamps, zone);
+  const onDisplayClick: MenuProps["onClick"] = ({ key }) => {
+    if (key === "wrap") setWrap((on) => !on);
+    else if (key.startsWith(TZ_PREFIX)) {
+      setStamps(key.slice(TZ_PREFIX.length));
+      setDisplayOpen(false);
+    }
   };
 
   const line = (item: GLine, withTag: boolean) => {
     const color = svcColor(containers.find((ctr) => ctr.id === item.id)?.composeService ?? "");
     const cls = `g-row g-${item.level}${anchor === item.ts ? " g-anchor" : near(item.ts) ? " g-near" : ""}`;
     return (
-      <div key={item.seq} className={cls} style={{ whiteSpace: wrap ? "pre-wrap" : "pre" }}>
-        {timestamps ? (
+      <div key={item.seq} className={cls}>
+        {zone ? (
           <button
             type="button"
             className="g-ts"
-            title="Highlight everything within ±2s across containers"
+            title={`${item.ts} (UTC) — click to highlight everything within ±2s across containers`}
             onClick={() => setAnchor((prev) => (prev === item.ts ? null : item.ts))}
           >
-            {item.ts ? format(new Date(item.ts), "HH:mm:ss.SSS") : "--:--:--.---"}
+            {item.ts ? formatTimestamp(item.ts, zone) : "--:--:--.---"}
           </button>
         ) : null}
         {withTag ? (
@@ -192,7 +205,7 @@ export default function LogsTab({
           </button>
         ) : null}
         <span className="g-lvl">{item.level === "event" ? "●" : item.level.toUpperCase()}</span>
-        <span className="msg">{renderText(item.text)}</span>
+        <span className="msg">{search.highlight(item.text)}</span>
       </div>
     );
   };
@@ -206,14 +219,11 @@ export default function LogsTab({
   return (
     <div className="card">
       <div className="toolbar" style={{ marginBottom: 10 }}>
-        <Input
-          ref={searchRef}
+        <SearchInput
+          {...search.inputProps}
           placeholder="Search all containers"
-          allowClear
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
           prefix={<SearchOutlined style={{ color: "var(--smoke)" }} />}
-          style={{ width: 220 }}
+          style={{ width: 310 }}
         />
         <Select
           value={level}
@@ -238,20 +248,35 @@ export default function LogsTab({
           ]}
         />
         <span className="spacer" />
-        <span className="switch-label">
-          <Switch size="small" checked={timestamps} onChange={setTimestamps} />
-          <span className="dim" style={{ fontSize: 12 }}>
-            Timestamps
-          </span>
-        </span>
-        {view === "merged" ? (
-          <span className="switch-label">
-            <Switch size="small" checked={wrap} onChange={setWrap} />
-            <span className="dim" style={{ fontSize: 12 }}>
-              Wrap
-            </span>
-          </span>
-        ) : null}
+        <Dropdown
+          trigger={["click"]}
+          placement="bottomRight"
+          open={displayOpen}
+          onOpenChange={(next, info) => {
+            if (info.source === "trigger") setDisplayOpen(next);
+          }}
+          menu={{
+            onClick: onDisplayClick,
+            items: [
+              {
+                key: "timestamps",
+                label: (
+                  <span className="lg-menu-row">
+                    Timestamps <span className="dim">{stampsLabel}</span>
+                  </span>
+                ),
+                popupClassName: "lg-tz-menu",
+                children: zones,
+              },
+              { type: "divider" },
+              { key: "wrap", label: <Checkbox checked={wrap}>Wrap lines</Checkbox> },
+            ],
+          }}
+        >
+          <Button icon={<EyeOutlined />}>
+            Display <DownOutlined style={{ fontSize: 12 }} />
+          </Button>
+        </Dropdown>
         <Tooltip
           title={
             follow
@@ -301,11 +326,11 @@ export default function LogsTab({
 
       <div ref={paneRef}>
         {view === "merged" ? (
-          <div className="g-log" data-pane="1" onScroll={onPaneScroll}>
+          <div className={`g-log${wrap ? "" : " nowrap"}`} data-pane="1" onScroll={onPaneScroll}>
             {rows.length ? rows.map((item) => line(item, true)) : empty}
           </div>
         ) : shownKeys.length === 0 ? (
-          <div className="g-log">{empty}</div>
+          <div className={`g-log${wrap ? "" : " nowrap"}`}>{empty}</div>
         ) : (
           <div className="g-split">
             {shownKeys.map((ctr) => {
@@ -320,7 +345,7 @@ export default function LogsTab({
                     <span style={{ flex: 1 }} />
                     <span className="mono dim">{mine.length}</span>
                   </div>
-                  <div className="g-log" data-pane="1" onScroll={onPaneScroll}>
+                  <div className={`g-log${wrap ? "" : " nowrap"}`} data-pane="1" onScroll={onPaneScroll}>
                     {mine.length ? (
                       mine.map((item) => line(item, false))
                     ) : (
@@ -339,12 +364,12 @@ export default function LogsTab({
       <div className="toolbar" style={{ marginTop: 10 }}>
         <span className="dim" style={{ fontSize: 12 }}>
           {rows.length} lines from {shownKeys.length} of {containers.length} containers
-          {timestamps ? ` · times in ${LOCAL_TZ}` : ""}
+          {zone ? ` · times in UTC${zoneOffset(zone)}${zoneCities(stamps, zone)}` : ""}
         </span>
         <span className="spacer" />
         {anchor ? (
           <span style={{ fontSize: 12, color: "var(--teal)" }}>
-            Highlighting ±2s around {format(new Date(anchor), "HH:mm:ss.SSS")}
+            Highlighting ±2s around {formatTimestamp(anchor, zone ?? "UTC")}
             <button
               type="button"
               className="link-btn"

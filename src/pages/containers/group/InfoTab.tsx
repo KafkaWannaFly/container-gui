@@ -16,7 +16,7 @@ import { useDebounceFn } from "ahooks";
 import { Button, Descriptions, Dropdown, type MenuProps, Table, Tooltip } from "antd";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { CopyButton, Mono, Pill, StateDot } from "../../../components/ui";
+import { CopyButton, Mono, Pill, StateDot, useRowContextMenu } from "../../../components/ui";
 import { compactDuration } from "../../../lib/format";
 import type {
   ComposeProject,
@@ -24,12 +24,14 @@ import type {
   ContainerStats,
   ContainerSummary,
 } from "../../../types/docker";
-import { formatBytes, formatRate, portUrl } from "../../../types/docker";
+import { formatBytes, formatRate, middleEllipsis, portUrl } from "../../../types/docker";
 import { Section, useSections } from "./components";
 import DependencyGraph from "./DependencyGraph";
 import { impactOf, type ServiceInfo, type ServiceState, svcColor } from "./model";
 
 const SECTIONS = ["general", "services", "deps", "networks", "volumes"];
+const MAX_NAME_LEN = 15;
+const MAX_IMAGE_LEN = 15;
 
 /** Two stacked rates, e.g. ↓ received over ↑ sent. */
 function RatePair({ a, b, labels }: { a: number | null; b: number | null; labels: [string, string] }) {
@@ -100,6 +102,69 @@ export default function InfoTab({
   const running = (ctr: ContainerSummary) => states.get(ctr.id) === "running";
   const replicas = (service: string) => byService.get(service)?.length ?? 0;
   const serviceNameSet = useMemo(() => new Set(services.map((svc) => svc.name)), [services]);
+
+  const rowMenuGroups = (ctr: ContainerSummary): MenuProps["items"][] => {
+    if (!serviceNameSet.has(ctr.composeService ?? "")) return [];
+    const state = states.get(ctr.id) ?? ctr.state;
+    return [
+      [
+        { key: "lg", icon: <FileTextOutlined />, label: "Logs", onClick: () => onLogs(ctr.id) },
+        {
+          key: "fs",
+          icon: <FolderOutlined />,
+          label: "Files",
+          onClick: () => onOpenContainer(ctr.id, "files"),
+        },
+        {
+          key: "ex",
+          icon: <CodeOutlined />,
+          label: "Exec",
+          disabled: state !== "running",
+          onClick: () => onOpenContainer(ctr.id, "exec"),
+        },
+      ],
+      [
+        state === "running"
+          ? {
+              key: "stop",
+              icon: <PoweroffOutlined />,
+              label: "Stop",
+              danger: true,
+              onClick: () => act(ctr, "stop"),
+            }
+          : {
+              key: "start",
+              icon: <PlayCircleOutlined />,
+              label: "Start",
+              disabled: state !== "exited" && state !== "created" && state !== "dead",
+              onClick: () => act(ctr, "start"),
+            },
+        {
+          key: "rs",
+          icon: <ReloadOutlined />,
+          label: "Restart",
+          disabled: state !== "running",
+          onClick: () => act(ctr, "restart"),
+        },
+        state === "paused"
+          ? { key: "unpause", icon: <PlayCircleOutlined />, label: "Resume", onClick: () => pause(ctr) }
+          : {
+              key: "pause",
+              icon: <PauseCircleOutlined />,
+              label: "Pause",
+              disabled: state !== "running",
+              onClick: () => pause(ctr),
+            },
+        {
+          key: "op",
+          icon: <InfoCircleOutlined />,
+          label: "Open container",
+          onClick: () => onOpenContainer(ctr.id, "info"),
+        },
+      ],
+    ];
+  };
+  const rowContext = useRowContextMenu(rowMenuGroups);
 
   const general = [
     {
@@ -229,7 +294,6 @@ export default function InfoTab({
     {
       title: "Service",
       key: "service",
-      width: 270,
       render: (_: unknown, ctr: ContainerSummary) => {
         const service = ctr.composeService ?? "";
         const info = services.find((svc) => svc.name === service);
@@ -237,9 +301,12 @@ export default function InfoTab({
         const orphan = !serviceNameSet.has(service);
         const count = replicas(service);
         const ordinal = (byService.get(service)?.indexOf(ctr) ?? -1) + 1;
+        const full = nameOf(ctr);
+        const short = middleEllipsis(full, MAX_NAME_LEN);
+        const image = middleEllipsis(ctr.image, MAX_IMAGE_LEN);
         return (
           <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}>
               <span style={{ width: 3, height: 12, borderRadius: 2, background: svcColor(service) }} />
               <span style={{ color: orphan ? "var(--fog)" : "var(--paper)" }}>{service || "—"}</span>
               {count > 1 ? <span className="mono dim">#{ordinal}</span> : null}
@@ -277,8 +344,16 @@ export default function InfoTab({
                 </Tooltip>
               ) : null}
             </span>
-            <span className="mono dim">{nameOf(ctr)}</span>
-            <span className="mono">{ctr.image}</span>
+            <Tooltip title={short !== full ? full : undefined}>
+              <span className="mono dim" style={{ whiteSpace: "nowrap" }}>
+                {short}
+              </span>
+            </Tooltip>
+            <Tooltip title={image !== ctr.image ? ctr.image : undefined}>
+              <span className="mono" style={{ whiteSpace: "nowrap" }}>
+                {image}
+              </span>
+            </Tooltip>
           </div>
         );
       },
@@ -286,7 +361,6 @@ export default function InfoTab({
     {
       title: "Ports",
       key: "ports",
-      width: 170,
       render: (_: unknown, ctr: ContainerSummary) => {
         const published = [
           ...new Map(
@@ -326,7 +400,9 @@ export default function InfoTab({
       render: (_: unknown, ctr: ContainerSummary) => {
         const stat = running(ctr) ? statsById.get(ctr.id) : undefined;
         return (
-          <span className="mono">{stat?.cpuPercent != null ? `${stat.cpuPercent.toFixed(1)}%` : "—"}</span>
+          <span className="mono" style={{ whiteSpace: "nowrap" }}>
+            {stat?.cpuPercent != null ? `${stat.cpuPercent.toFixed(1)}%` : "—"}
+          </span>
         );
       },
     },
@@ -375,7 +451,10 @@ export default function InfoTab({
         return (
           <span
             className="fs12"
-            style={state === "exited" ? { color: "var(--coral)" } : { color: "var(--fog)" }}
+            style={{
+              whiteSpace: "nowrap",
+              ...(state === "exited" ? { color: "var(--coral)" } : { color: "var(--fog)" }),
+            }}
           >
             {state === "running" && started && !started.startsWith("0001")
               ? `up ${compactDuration(Date.now() - new Date(started).getTime())}`
@@ -395,47 +474,13 @@ export default function InfoTab({
       width: 96,
       align: "right" as const,
       render: (_: unknown, ctr: ContainerSummary) => {
-        if (!serviceNameSet.has(ctr.composeService ?? "")) return null;
+        const groups = rowMenuGroups(ctr);
+        if (!groups.length) return null;
         const state = states.get(ctr.id) ?? ctr.state;
-        const items: MenuProps["items"] = [
-          { key: "lg", icon: <FileTextOutlined />, label: "Logs", onClick: () => onLogs(ctr.id) },
-          {
-            key: "fs",
-            icon: <FolderOutlined />,
-            label: "Files",
-            onClick: () => onOpenContainer(ctr.id, "files"),
-          },
-          {
-            key: "ex",
-            icon: <CodeOutlined />,
-            label: "Exec",
-            disabled: state !== "running",
-            onClick: () => onOpenContainer(ctr.id, "exec"),
-          },
-          { type: "divider" },
-          {
-            key: "rs",
-            icon: <ReloadOutlined />,
-            label: "Restart",
-            disabled: state !== "running",
-            onClick: () => act(ctr, "restart"),
-          },
-          state === "paused"
-            ? { key: "unpause", icon: <PlayCircleOutlined />, label: "Resume", onClick: () => pause(ctr) }
-            : {
-                key: "pause",
-                icon: <PauseCircleOutlined />,
-                label: "Pause",
-                disabled: state !== "running",
-                onClick: () => pause(ctr),
-              },
-          {
-            key: "op",
-            icon: <InfoCircleOutlined />,
-            label: "Open container",
-            onClick: () => onOpenContainer(ctr.id, "info"),
-          },
-        ];
+        const items: MenuProps["items"] = groups.flatMap((group, i) => [
+          ...(i > 0 && group?.length ? [{ type: "divider" as const }] : []),
+          ...(group ?? []),
+        ]);
         return (
           <span className="row-act" style={{ display: "inline-flex", alignItems: "center", gap: 0 }}>
             {state === "running" ? (
@@ -558,9 +603,14 @@ export default function InfoTab({
           rowKey="id"
           dataSource={containers}
           columns={svcColumns}
+          scroll={{ x: "max-content" }}
           rowClassName={(ctr) => (flash === ctr.composeService ? "g-flash" : "")}
-          onRow={(ctr) => ({ onClick: () => onOpenContainer(ctr.id, "info") })}
+          onRow={(ctr) => ({
+            onClick: () => onOpenContainer(ctr.id, "info"),
+            ...rowContext.onRow(ctr),
+          })}
         />
+        {rowContext.contextMenu}
         {inactive.length ? (
           <div className="g-inactive">
             <div className="dim" style={{ fontSize: 12, marginBottom: 4 }}>
@@ -601,12 +651,13 @@ export default function InfoTab({
           size="small"
           pagination={false}
           dataSource={networkRows}
+          scroll={{ x: "max-content" }}
           columns={[
             {
               title: "Network",
               dataIndex: "name",
               render: (value: string, row) => (
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}>
                   <span style={{ color: "var(--paper)" }}>{value}</span>
                   {row.external ? <Pill tone="lav">external</Pill> : null}
                 </span>
@@ -622,6 +673,7 @@ export default function InfoTab({
           size="small"
           pagination={false}
           dataSource={volumes}
+          scroll={{ x: "max-content" }}
           columns={[
             {
               title: "Source",

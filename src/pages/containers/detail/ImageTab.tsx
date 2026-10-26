@@ -276,6 +276,7 @@ export default function ImageTab({ ctr, image, onCopy }: TabProps) {
             pagination={false}
             dataSource={layers}
             columns={layerCols}
+            scroll={{ x: 640 }}
             expandable={{
               expandedRowKeys: expanded,
               onExpandedRowsChange: (keys) => setExpanded(keys.map(String)),

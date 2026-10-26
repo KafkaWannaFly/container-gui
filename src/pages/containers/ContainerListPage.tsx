@@ -17,7 +17,6 @@ import {
   App,
   Button,
   Empty,
-  Input,
   type MenuProps,
   Popconfirm,
   Select,
@@ -31,8 +30,16 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAnimatedTree } from "../../components/AnimatedTree";
 import { usePageCommands } from "../../components/CommandPalette";
-import { CopyButton, MetricCard, Mono, RowActions, StateDot, useRowContextMenu } from "../../components/ui";
-import { useSearchHotkey } from "../../hooks/useSearchHotkey";
+import {
+  CopyButton,
+  MetricCard,
+  Mono,
+  RowActions,
+  SearchInput,
+  StateDot,
+  useRowContextMenu,
+  useSearch,
+} from "../../components/ui";
 import { queryKeys } from "../../lib/queryClient";
 import type { ContainerActionKind } from "../../services/tauriApi";
 import { containerAction, getSystemInfo, listContainers, metricsLatest } from "../../services/tauriApi";
@@ -86,9 +93,8 @@ function uniquePorts(ports: PortMapping[]): PortMapping[] {
 export default function ContainerListPage() {
   const { modal, message } = App.useApp();
   const queryClient = useQueryClient();
-  const [search, setSearch] = useState("");
+  const search = useSearch();
   const [state, setState] = useState("all");
-  const searchRef = useSearchHotkey();
   const [selected, setSelected] = useState<React.Key[]>([]);
   const navigate = useNavigate();
   const [expanded, setExpanded] = useState<React.Key[]>([]);
@@ -153,7 +159,7 @@ export default function ContainerListPage() {
     const list = data ?? [];
     return list.filter((c) => {
       const name = c.names[0] ?? "";
-      const matchesSearch = name.toLowerCase().includes(search.toLowerCase()) || c.image.includes(search);
+      const matchesSearch = search.matchAny(name, c.image);
       const matchesState = state === "all" || c.state === state;
       return matchesSearch && matchesState;
     });
@@ -699,14 +705,7 @@ export default function ContainerListPage() {
 
       <div className="card">
         <div className="toolbar" style={{ marginBottom: 16 }}>
-          <Input
-            ref={searchRef}
-            placeholder="Search containers"
-            allowClear
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={{ width: 240 }}
-          />
+          <SearchInput {...search.inputProps} placeholder="Search containers" style={{ width: 300 }} />
           <Select
             value={state}
             onChange={(value) => setState(String(value))}

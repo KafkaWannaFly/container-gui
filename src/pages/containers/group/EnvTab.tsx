@@ -5,10 +5,9 @@ import {
   EyeOutlined,
   SearchOutlined,
 } from "@ant-design/icons";
-import { App, Button, Empty, Input, Segmented, Table, Tooltip } from "antd";
+import { App, Button, Empty, Segmented, Table, Tooltip } from "antd";
 import { useCallback, useMemo, useState } from "react";
-import { Pill, StateDot } from "../../../components/ui";
-import { useSearchHotkey } from "../../../hooks/useSearchHotkey";
+import { Pill, SearchInput, StateDot, useSearch } from "../../../components/ui";
 import type { ContainerInspect, ContainerSummary, ImageInspect } from "../../../types/docker";
 import { type EnvRow, envRows } from "../detail/model";
 import { Section, useSections } from "./components";
@@ -40,8 +39,7 @@ export default function EnvTab({
   onOpenContainer: (id: string, tab: string) => void;
 }) {
   const { message } = App.useApp();
-  const searchRef = useSearchHotkey();
-  const [query, setQuery] = useState("");
+  const search = useSearch();
   const [source, setSource] = useState("all");
   const [mode, setMode] = useState("list");
   const [reveal, setReveal] = useState(false);
@@ -65,12 +63,9 @@ export default function EnvTab({
 
   const { closed, onToggle, button } = useSections(containers.map((ctr) => ctr.id));
 
-  const q = query.toLowerCase();
   const match = useCallback(
-    (row: EnvRow) =>
-      (source === "all" || row.source === source) &&
-      (!q || row.key.toLowerCase().includes(q) || row.value.toLowerCase().includes(q)),
-    [source, q],
+    (row: EnvRow) => (source === "all" || row.source === source) && search.matchAny(row.key, row.value),
+    [source, search],
   );
   const shown = (row: EnvRow) => (row.secret && !reveal ? MASK : row.value);
 
@@ -201,19 +196,16 @@ export default function EnvTab({
 
   const visible = containers
     .map((ctr) => ({ ctr, rows: rowsById.get(ctr.id) ?? [] }))
-    .filter(({ rows }) => !q || rows.filter(match).length > 0);
+    .filter(({ rows }) => !search.active || rows.filter(match).length > 0);
 
   return (
     <div className="tab-stack">
       <div className="toolbar">
-        <Input
-          ref={searchRef}
+        <SearchInput
+          {...search.inputProps}
           placeholder="Filter across all containers"
-          allowClear
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
           prefix={<SearchOutlined style={{ color: "var(--smoke)" }} />}
-          style={{ width: 260 }}
+          style={{ width: 340 }}
         />
         <Segmented
           value={source}
@@ -306,6 +298,7 @@ export default function EnvTab({
                   rowKey="id"
                   columns={listColumns}
                   dataSource={filtered.map((row, index) => ({ ...row, id: index }))}
+                  scroll={{ x: "max-content" }}
                   pagination={false}
                   locale={{ emptyText: <Empty description="No matching variables" /> }}
                 />

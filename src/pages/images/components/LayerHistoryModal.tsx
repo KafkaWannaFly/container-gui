@@ -40,6 +40,7 @@ export default function LayerHistoryModal({ reference, onClose }: Props) {
           size="small"
           pagination={false}
           dataSource={rows}
+          scroll={{ x: "max-content" }}
           locale={{ emptyText: <Empty description="No layer history" /> }}
           columns={[
             {

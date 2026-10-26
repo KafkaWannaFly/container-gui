@@ -10,10 +10,10 @@ import {
   SettingOutlined,
   TableOutlined,
 } from "@ant-design/icons";
-import { Button, Dropdown, Empty, Input, Segmented, Table, Tooltip } from "antd";
+import { Button, Dropdown, Empty, Segmented, Table, Tooltip } from "antd";
 import { type ComponentType, useMemo, useState } from "react";
-import { Pill } from "../../../components/ui";
-import { useSearchHotkey } from "../../../hooks/useSearchHotkey";
+import CodeView from "../../../components/CodeView";
+import { Pill, SearchInput, useSearch } from "../../../components/ui";
 import { type EnvRow, envRows, type TabProps } from "./model";
 
 const MASK = "••••••••••••••••";
@@ -53,34 +53,14 @@ function serialize(kind: Exclude<ViewKey, "table">, rows: EnvRow[], valueFor: (r
   });
 }
 
-/** Split a serialized line into key / separator / value for tinting. */
-function Tinted({ kind, line }: { kind: ViewKey; line: string }) {
-  const sep = kind === "env" ? "=" : ":";
-  const at = line.indexOf(sep);
-  if (at < 0 || (kind === "json" && !line.startsWith("  "))) return <div className="cv-s">{line}</div>;
-  return (
-    <div>
-      <span className="cv-k">{line.slice(0, at)}</span>
-      <span className="cv-s">{sep}</span>
-      <span>{line.slice(at + 1)}</span>
-    </div>
-  );
-}
-
 export default function EnvTab({ ctr, image, onCopy }: TabProps) {
-  const searchRef = useSearchHotkey();
-  const [q, setQ] = useState("");
+  const search = useSearch();
   const [src, setSrc] = useState("all");
   const [revealed, setRevealed] = useState<string[]>([]);
   const [view, setView] = useState<ViewKey>("table");
 
   const all = useMemo(() => envRows(ctr, image), [ctr, image]);
-  const needle = q.toLowerCase();
-  const rows = all.filter(
-    (e) =>
-      (src === "all" || e.source === src) &&
-      (e.key.toLowerCase().includes(needle) || e.value.toLowerCase().includes(needle)),
-  );
+  const rows = all.filter((e) => (src === "all" || e.source === src) && search.matchAny(e.key, e.value));
   const secrets = all.filter((e) => e.secret).map((e) => e.key);
 
   const toggle = (key: string) =>
@@ -126,14 +106,11 @@ export default function EnvTab({ ctr, image, onCopy }: TabProps) {
   return (
     <div className="card">
       <div className="toolbar" style={{ marginBottom: 14 }}>
-        <Input
-          ref={searchRef}
+        <SearchInput
+          {...search.inputProps}
           placeholder="Filter variables"
-          allowClear
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
           prefix={<SearchOutlined style={{ color: "var(--ash)" }} />}
-          style={{ width: 260 }}
+          style={{ width: 310 }}
         />
         <Segmented
           value={src}
@@ -168,6 +145,7 @@ export default function EnvTab({ ctr, image, onCopy }: TabProps) {
           size="small"
           rowKey="key"
           dataSource={rows}
+          scroll={{ x: "max-content" }}
           pagination={false}
           locale={{ emptyText: empty }}
           columns={[
@@ -236,11 +214,12 @@ export default function EnvTab({ ctr, image, onCopy }: TabProps) {
       ) : rows.length === 0 ? (
         empty
       ) : (
-        <pre className="code-view">
-          {serialize(view, rows, shown).map((line, i) => (
-            <Tinted key={i} kind={view} line={line} />
-          ))}
-        </pre>
+        <div className="df-view">
+          <CodeView
+            value={serialize(view, rows, shown).join("\n")}
+            language={view === "env" ? "properties" : view}
+          />
+        </div>
       )}
 
       <div className="toolbar" style={{ marginTop: 12 }}>

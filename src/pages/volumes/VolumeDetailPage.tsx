@@ -27,6 +27,7 @@ function KeyValueTable({ rows, empty }: { rows: [string, string][]; empty: strin
       pagination={false}
       rowKey={(row) => row[0]}
       dataSource={rows}
+      scroll={{ x: "max-content" }}
       locale={{ emptyText: <Empty description={empty} /> }}
       columns={[
         { title: "Key", width: 260, render: (_, row) => <Mono>{row[0]}</Mono> },
@@ -435,13 +436,13 @@ export default function VolumeDetailPage() {
                 rowKey="id"
                 pagination={false}
                 dataSource={containers}
-                scroll={{ x: 700 }}
+                scroll={{ x: "max-content" }}
                 locale={{ emptyText: <Empty description="No containers use this volume" /> }}
                 columns={[
                   {
                     title: "Name",
                     render: (_, container) => (
-                      <div>
+                      <div style={{ whiteSpace: "nowrap" }}>
                         <Link to={`/containers/${container.id}`} className="row-link">
                           {container.name}
                         </Link>
@@ -458,7 +459,11 @@ export default function VolumeDetailPage() {
                   },
                   {
                     title: "Status",
-                    render: (_, container) => <span className="dim">{container.status}</span>,
+                    render: (_, container) => (
+                      <span className="dim" style={{ whiteSpace: "nowrap" }}>
+                        {container.status}
+                      </span>
+                    ),
                   },
                   {
                     title: "Container mount",

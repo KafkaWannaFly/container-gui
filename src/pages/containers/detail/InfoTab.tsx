@@ -256,6 +256,7 @@ export default function InfoTab({ ctr, image, onCopy }: TabProps) {
           size="small"
           pagination={false}
           dataSource={ports}
+          scroll={{ x: "max-content" }}
           locale={{ emptyText: "No exposed ports" }}
           columns={[
             {
@@ -303,6 +304,7 @@ export default function InfoTab({ ctr, image, onCopy }: TabProps) {
           size="small"
           pagination={false}
           dataSource={mounts}
+          scroll={{ x: "max-content" }}
           locale={{ emptyText: "No mounts" }}
           columns={[
             {
@@ -343,6 +345,7 @@ export default function InfoTab({ ctr, image, onCopy }: TabProps) {
           size="small"
           pagination={false}
           dataSource={networks}
+          scroll={{ x: "max-content" }}
           locale={{ emptyText: `Network mode: ${ctr.HostConfig?.NetworkMode ?? "none"}` }}
           columns={[
             {
@@ -392,6 +395,7 @@ export default function InfoTab({ ctr, image, onCopy }: TabProps) {
           pagination={false}
           showHeader={false}
           dataSource={labels}
+          scroll={{ x: "max-content" }}
           locale={{ emptyText: "No labels" }}
           columns={[
             {
