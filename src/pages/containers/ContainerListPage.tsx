@@ -1,16 +1,3 @@
-import {
-  DeleteOutlined,
-  ExpandAltOutlined,
-  FileTextOutlined,
-  InfoCircleOutlined,
-  MinusCircleOutlined,
-  PauseCircleOutlined,
-  PlayCircleOutlined,
-  ReloadOutlined,
-  ShrinkOutlined,
-  StopOutlined,
-  SyncOutlined,
-} from "@ant-design/icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import {
@@ -30,6 +17,19 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAnimatedTree } from "../../components/AnimatedTree";
 import { usePageCommands } from "../../components/CommandPalette";
+import {
+  DeleteOutlined,
+  ExpandAltOutlined,
+  FileTextOutlined,
+  InfoCircleOutlined,
+  MinusCircleOutlined,
+  PauseCircleOutlined,
+  PlayCircleOutlined,
+  ReloadOutlined,
+  ShrinkOutlined,
+  StopOutlined,
+  SyncOutlined,
+} from "../../components/icons";
 import {
   CopyButton,
   MetricCard,

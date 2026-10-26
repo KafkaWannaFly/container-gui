@@ -1,20 +1,3 @@
-import {
-  ApiOutlined,
-  ArrowUpOutlined,
-  CopyOutlined,
-  DownloadOutlined,
-  EyeOutlined,
-  FileOutlined,
-  FileTextOutlined,
-  FolderOpenOutlined,
-  FolderOutlined,
-  HddOutlined,
-  LinkOutlined,
-  LockOutlined,
-  MoreOutlined,
-  ReloadOutlined,
-  SearchOutlined,
-} from "@ant-design/icons";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSize } from "ahooks";
 import {
@@ -34,6 +17,23 @@ import { format } from "date-fns";
 import { Fragment, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 import CodeView, { detectLanguage } from "../../../components/CodeView";
+import {
+  ApiOutlined,
+  ArrowUpOutlined,
+  CopyOutlined,
+  DownloadOutlined,
+  EyeOutlined,
+  FileEntryIcon,
+  FileOutlined,
+  FileTextOutlined,
+  FolderEntryIcon,
+  FolderOutlined,
+  LinkOutlined,
+  LockOutlined,
+  MoreOutlined,
+  ReloadOutlined,
+  SearchOutlined,
+} from "../../../components/icons";
 import { Mono, Pill, SearchInput, useSearch } from "../../../components/ui";
 import { usePersistentState } from "../../../hooks/usePersistentState";
 import { useSaveFile } from "../../../hooks/useSaveFile";
@@ -99,15 +99,6 @@ function useHeight<T extends HTMLElement>() {
   const ref = useRef<T>(null);
   const size = useSize(ref);
   return [ref, size ? Math.max(120, Math.floor(size.height)) : 400] as const;
-}
-
-function EntryIcon({ entry }: { entry: FsEntry }) {
-  if (entry.kind === "dir") return <FolderOutlined style={{ color: "var(--fog)" }} />;
-  if (entry.kind === "link") return <LinkOutlined style={{ color: "var(--teal)" }} />;
-  if (entry.kind === "char" || entry.kind === "block" || entry.kind === "fifo" || entry.kind === "socket") {
-    return <ApiOutlined style={{ color: "var(--ash)" }} />;
-  }
-  return <FileTextOutlined style={{ color: "var(--fog)" }} />;
 }
 
 function DiffPill({ kind }: { kind: FsChange["kind"] }) {
@@ -354,7 +345,7 @@ export default function FilesTab({ ctr, onCopy, onOpenTab }: TabProps) {
     const diff = changeMap.get(path);
     return (
       <span className="fs-name">
-        {inTree ? null : <EntryIcon entry={entry} />}
+        {inTree ? null : <FileEntryIcon entry={entry} />}
         <span className={`mono fs-label${entry.kind === "dir" ? " dir" : inTree ? " tree" : ""}`}>
           {entry.name}
         </span>
@@ -389,13 +380,12 @@ export default function FilesTab({ ctr, onCopy, onOpenTab }: TabProps) {
         entry,
         isLeaf: entry.kind !== "dir" || (state?.error != null && !state.listing),
         icon:
-          path === "/" ? (
-            <HddOutlined />
-          ) : entry.kind === "dir" ? (
-            ({ expanded: isOpen }: { expanded?: boolean }) =>
-              isOpen ? <FolderOpenOutlined /> : <FolderOutlined />
+          entry.kind === "dir" ? (
+            ({ expanded: isOpen }: { expanded?: boolean }) => (
+              <FolderEntryIcon name={entry.name} open={isOpen} isRoot={path === "/"} />
+            )
           ) : (
-            <EntryIcon entry={entry} />
+            <FileEntryIcon entry={entry} />
           ),
         title: path,
         children: kids,

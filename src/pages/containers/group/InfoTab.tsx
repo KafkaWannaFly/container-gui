@@ -1,3 +1,8 @@
+import { openUrl } from "@tauri-apps/plugin-opener";
+import { useDebounceFn } from "ahooks";
+import { Button, Descriptions, Dropdown, type MenuProps, Table, Tooltip } from "antd";
+import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   CodeOutlined,
   FileTextOutlined,
@@ -10,12 +15,7 @@ import {
   PlusOutlined,
   PoweroffOutlined,
   ReloadOutlined,
-} from "@ant-design/icons";
-import { openUrl } from "@tauri-apps/plugin-opener";
-import { useDebounceFn } from "ahooks";
-import { Button, Descriptions, Dropdown, type MenuProps, Table, Tooltip } from "antd";
-import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+} from "../../../components/icons";
 import { CopyButton, Mono, Pill, StateDot, useRowContextMenu } from "../../../components/ui";
 import { compactDuration } from "../../../lib/format";
 import type {

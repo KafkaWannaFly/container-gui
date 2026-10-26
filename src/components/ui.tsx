@@ -1,4 +1,3 @@
-import { CopyOutlined, MoreOutlined } from "@ant-design/icons";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { App, Button, Dropdown, Input, type MenuProps, Tooltip } from "antd";
 import {
@@ -13,6 +12,7 @@ import {
 import { createPortal } from "react-dom";
 import whale from "../assets/whale.png";
 import { useSearchHotkey } from "../hooks/useSearchHotkey";
+import { CopyOutlined, MoreOutlined } from "./icons";
 
 export const STATE_COLORS: Record<string, string> = {
   running: "var(--green)",

@@ -692,21 +692,78 @@ export function getTheme(id: ThemeId): AppTheme {
   return THEMES.find((t) => t.id === id) ?? linearTheme;
 }
 
+export const ICON_PACK_IDS = ["antd", "vscode-icons", "catppuccin", "lucide", "hugeicons"] as const;
+export const IconPackIdSchema = z.enum(ICON_PACK_IDS);
+export type IconPackId = z.infer<typeof IconPackIdSchema>;
+export const DEFAULT_ICON_PACK_ID: IconPackId = "antd";
+
+export interface IconPack {
+  id: IconPackId;
+  name: string;
+  description: string;
+  keywords: string;
+}
+
+export const ICON_PACKS: readonly IconPack[] = [
+  {
+    id: "antd",
+    name: "Ant Design",
+    description: "Default outlined geometric system icons",
+    keywords: "current ant design antd default",
+  },
+  {
+    id: "vscode-icons",
+    name: "VSCode Icons",
+    description: "VS Code file & resource icons with Codicons",
+    keywords: "vscode-icon vscode icons codicon",
+  },
+  {
+    id: "catppuccin",
+    name: "Catppuccin",
+    description: "Soothing pastel icons from Catppuccin",
+    keywords: "catppuccin pastel",
+  },
+  {
+    id: "lucide",
+    name: "Lucide",
+    description: "Clean, consistent 2px stroke vector icons",
+    keywords: "lucide stroke",
+  },
+  {
+    id: "hugeicons",
+    name: "Huge Icons",
+    description: "Modern rounded stroke interface icons",
+    keywords: "huge icon hugeicons rounded",
+  },
+];
+
+export function getIconPack(id: IconPackId): IconPack {
+  return ICON_PACKS.find((p) => p.id === id) ?? ICON_PACKS[0];
+}
+
 interface ThemeContextValue {
   themeId: ThemeId;
   theme: AppTheme;
   setThemeId: (next: ThemeId) => void;
+  iconPackId: IconPackId;
+  iconPack: IconPack;
+  setIconPackId: (next: IconPackId) => void;
 }
 
 const ThemeContext = createContext<ThemeContextValue>({
   themeId: DEFAULT_THEME_ID,
   theme: linearTheme,
   setThemeId: () => {},
+  iconPackId: DEFAULT_ICON_PACK_ID,
+  iconPack: ICON_PACKS[0],
+  setIconPackId: () => {},
 });
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [themeId, setThemeId] = usePersistentState("theme", ThemeIdSchema, DEFAULT_THEME_ID);
+  const [iconPackId, setIconPackId] = usePersistentState("icon-pack", IconPackIdSchema, DEFAULT_ICON_PACK_ID);
   const currentTheme = useMemo(() => getTheme(themeId), [themeId]);
+  const currentIconPack = useMemo(() => getIconPack(iconPackId), [iconPackId]);
 
   useLayoutEffect(() => {
     const root = document.documentElement;
@@ -717,9 +774,20 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     }
   }, [currentTheme]);
 
+  useLayoutEffect(() => {
+    document.documentElement.dataset.iconPack = currentIconPack.id;
+  }, [currentIconPack]);
+
   const value = useMemo(
-    () => ({ themeId, theme: currentTheme, setThemeId }),
-    [themeId, currentTheme, setThemeId],
+    () => ({
+      themeId,
+      theme: currentTheme,
+      setThemeId,
+      iconPackId,
+      iconPack: currentIconPack,
+      setIconPackId,
+    }),
+    [themeId, currentTheme, setThemeId, iconPackId, currentIconPack, setIconPackId],
   );
 
   return createElement(ThemeContext.Provider, { value }, children);

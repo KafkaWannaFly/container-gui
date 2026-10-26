@@ -1,3 +1,6 @@
+import { Button, Dropdown, Empty, Segmented, Table, Tooltip } from "antd";
+import { type ComponentType, useMemo, useState } from "react";
+import CodeView from "../../../components/CodeView";
 import {
   CheckOutlined,
   CodeOutlined,
@@ -9,10 +12,7 @@ import {
   SearchOutlined,
   SettingOutlined,
   TableOutlined,
-} from "@ant-design/icons";
-import { Button, Dropdown, Empty, Segmented, Table, Tooltip } from "antd";
-import { type ComponentType, useMemo, useState } from "react";
-import CodeView from "../../../components/CodeView";
+} from "../../../components/icons";
 import { Pill, SearchInput, useSearch } from "../../../components/ui";
 import { type EnvRow, envRows, type TabProps } from "./model";
 

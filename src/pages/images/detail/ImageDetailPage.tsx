@@ -1,11 +1,3 @@
-import {
-  ArrowLeftOutlined,
-  BlockOutlined,
-  CopyOutlined,
-  DeleteOutlined,
-  HistoryOutlined,
-  InfoCircleOutlined,
-} from "@ant-design/icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   App,
@@ -22,6 +14,14 @@ import {
 import { formatDistanceToNow } from "date-fns";
 import { type ReactNode, useMemo } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import {
+  ArrowLeftOutlined,
+  BlockOutlined,
+  CopyOutlined,
+  DeleteOutlined,
+  HistoryOutlined,
+  InfoCircleOutlined,
+} from "../../../components/icons";
 import { Section, useSections } from "../../../components/Section";
 import { Mono, Pill, StateDot, StateTag } from "../../../components/ui";
 import { localTime } from "../../../lib/format";

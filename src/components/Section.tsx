@@ -1,9 +1,9 @@
-import { ColumnHeightOutlined, RightOutlined, VerticalAlignMiddleOutlined } from "@ant-design/icons";
 import { Button } from "antd";
 import type { ReactNode } from "react";
 import { z } from "zod";
 import { usePersistentState } from "../hooks/usePersistentState";
 import { Collapse } from "./Collapse";
+import { ColumnHeightOutlined, RightOutlined, VerticalAlignMiddleOutlined } from "./icons";
 
 /**
  * Collapsed section ids for one page, persisted across sessions. Returns

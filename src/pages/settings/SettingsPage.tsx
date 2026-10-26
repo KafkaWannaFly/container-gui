@@ -1,17 +1,20 @@
-import {
-  ApiOutlined,
-  CloudDownloadOutlined,
-  DeleteOutlined,
-  LinkOutlined,
-  PlusOutlined,
-  ReloadOutlined,
-  SyncOutlined,
-} from "@ant-design/icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getTauriVersion, getVersion } from "@tauri-apps/api/app";
 import { App, Button, Divider, Input, Progress, Select, Switch } from "antd";
 import { useMemo, useState } from "react";
 import { z } from "zod";
+import {
+  ApiOutlined,
+  BlockOutlined,
+  CloudDownloadOutlined,
+  CodeSandboxOutlined,
+  DeleteOutlined,
+  LinkOutlined,
+  PlusOutlined,
+  ReloadOutlined,
+  SettingOutlined,
+  SyncOutlined,
+} from "../../components/icons";
 import { useAppUpdater } from "../../hooks/useAppUpdater";
 import { usePersistentState } from "../../hooks/usePersistentState";
 import { queryKeys } from "../../lib/queryClient";
@@ -21,7 +24,7 @@ import {
   switchDockerEndpoint,
   testConnection,
 } from "../../services/tauriApi";
-import { THEMES, useTheme } from "../../theme/antdTheme";
+import { ICON_PACKS, THEMES, useTheme } from "../../theme/antdTheme";
 import type { ConnectionConfig, DockerStatus } from "../../types/docker";
 
 const StringListSchema = z.array(z.string());
@@ -87,7 +90,7 @@ function UpdateControls() {
 export default function SettingsPage() {
   const { message } = App.useApp();
   const queryClient = useQueryClient();
-  const { themeId, theme, setThemeId } = useTheme();
+  const { themeId, theme, setThemeId, iconPackId, iconPack, setIconPackId } = useTheme();
   // Form fields fall back to what the backend reports until the user edits them.
   const [valueChoice, setValue] = useState<string | undefined>();
   const [customInput, setCustomInput] = useState("");
@@ -355,50 +358,120 @@ export default function SettingsPage() {
       <div className="card">
         <div className="section-title">Appearance</div>
         <Divider style={{ margin: "0 0 16px" }} />
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16 }}>
-          <div>
-            <div style={{ color: "var(--bone)" }}>Theme</div>
-            <div className="dim" style={{ fontSize: 12 }}>
-              {theme.description}
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16 }}>
+            <div>
+              <div style={{ color: "var(--bone)" }}>Theme</div>
+              <div className="dim" style={{ fontSize: 12 }}>
+                {theme.description}
+              </div>
             </div>
-          </div>
-          <Select
-            aria-label="Theme"
-            style={{ width: 240 }}
-            value={themeId}
-            onChange={setThemeId}
-            showSearch={{
-              filterOption: (input, option) =>
-                (option?.name ?? "").toLowerCase().includes(input.trim().toLowerCase()),
-            }}
-            options={[...THEMES]
-              .sort((a, b) => a.name.localeCompare(b.name))
-              .map((t) => ({
-                value: t.id,
-                name: t.name,
-                label: (
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ display: "inline-flex", alignItems: "center" }}>
-                      {t.swatches.map((color, idx) => (
-                        <span
-                          key={color}
-                          style={{
-                            width: 9,
-                            height: 9,
-                            borderRadius: 99,
-                            background: color,
-                            border: `1px solid ${t.palette.graphite}`,
-                            marginLeft: idx === 0 ? 0 : -3,
-                            flex: "0 0 auto",
-                          }}
-                        />
-                      ))}
+            <Select
+              aria-label="Theme"
+              style={{ width: 240, flex: "0 0 auto" }}
+              value={themeId}
+              onChange={setThemeId}
+              showSearch={{
+                filterOption: (input, option) =>
+                  (option?.name ?? "").toLowerCase().includes(input.trim().toLowerCase()),
+              }}
+              options={[...THEMES]
+                .sort((a, b) => a.name.localeCompare(b.name))
+                .map((t) => ({
+                  value: t.id,
+                  name: t.name,
+                  label: (
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ display: "inline-flex", alignItems: "center" }}>
+                        {t.swatches.map((color, idx) => (
+                          <span
+                            key={color}
+                            style={{
+                              width: 9,
+                              height: 9,
+                              borderRadius: 99,
+                              background: color,
+                              border: `1px solid ${t.palette.graphite}`,
+                              marginLeft: idx === 0 ? 0 : -3,
+                              flex: "0 0 auto",
+                            }}
+                          />
+                        ))}
+                      </span>
+                      <span>{t.name}</span>
                     </span>
-                    <span>{t.name}</span>
-                  </span>
-                ),
+                  ),
+                }))}
+            />
+          </div>
+
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16 }}>
+            <div>
+              <div style={{ color: "var(--bone)" }}>Icon pack</div>
+              <div className="dim" style={{ fontSize: 12 }}>
+                {iconPack.description}
+              </div>
+            </div>
+            <Select
+              aria-label="Icon pack"
+              style={{ width: 240, flex: "0 0 auto" }}
+              value={iconPackId}
+              onChange={setIconPackId}
+              showSearch={{
+                filterOption: (input, option) =>
+                  `${option?.label ?? ""} ${option?.keywords ?? ""}`
+                    .toLowerCase()
+                    .includes(input.trim().toLowerCase()),
+              }}
+              options={ICON_PACKS.map((p) => ({
+                value: p.id,
+                label: p.name,
+                keywords: p.keywords,
               }))}
-          />
+              labelRender={({ value: val }) => {
+                const pack = ICON_PACKS.find((p) => p.id === val) ?? iconPack;
+                return (
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                    <span
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 4,
+                        fontSize: 13,
+                        color: "var(--fog)",
+                      }}
+                    >
+                      <CodeSandboxOutlined packOverride={pack.id} />
+                      <BlockOutlined packOverride={pack.id} />
+                      <SettingOutlined packOverride={pack.id} />
+                    </span>
+                    <span>{pack.name}</span>
+                  </span>
+                );
+              }}
+              optionRender={(option) => {
+                const packId = option.data.value;
+                return (
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                    <span
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 4,
+                        fontSize: 13,
+                        color: "var(--fog)",
+                      }}
+                    >
+                      <CodeSandboxOutlined packOverride={packId} />
+                      <BlockOutlined packOverride={packId} />
+                      <SettingOutlined packOverride={packId} />
+                    </span>
+                    <span>{option.data.label}</span>
+                  </span>
+                );
+              }}
+            />
+          </div>
         </div>
       </div>
 

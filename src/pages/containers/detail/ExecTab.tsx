@@ -1,3 +1,10 @@
+import { useQuery } from "@tanstack/react-query";
+import { FitAddon } from "@xterm/addon-fit";
+import { Terminal } from "@xterm/xterm";
+import { Button, Empty, Result, Select, Spin, Tooltip } from "antd";
+import "@xterm/xterm/css/xterm.css";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { z } from "zod";
 import {
   CodeOutlined,
   CopyOutlined,
@@ -6,14 +13,7 @@ import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   SearchOutlined,
-} from "@ant-design/icons";
-import { useQuery } from "@tanstack/react-query";
-import { FitAddon } from "@xterm/addon-fit";
-import { Terminal } from "@xterm/xterm";
-import "@xterm/xterm/css/xterm.css";
-import { Button, Empty, Result, Select, Spin, Tooltip } from "antd";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { z } from "zod";
+} from "../../../components/icons";
 import { Mono, SearchInput, StateDot, useSearch } from "../../../components/ui";
 import { usePersistentState } from "../../../hooks/usePersistentState";
 import { queryKeys } from "../../../lib/queryClient";

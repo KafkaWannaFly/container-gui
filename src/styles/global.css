@@ -18,6 +18,35 @@
   --amber: #d9a441;
   --font-ui: "Be Vietnam Pro", system-ui, -apple-system, sans-serif;
   --font-mono: "Paper Mono", ui-monospace, monospace;
+  --ctp-text: var(--bone);
+  --ctp-lavender: #b4befe;
+  --ctp-blue: #89b4fa;
+  --ctp-sapphire: #74c7ec;
+  --ctp-sky: #89dceb;
+  --ctp-teal: #94e2d5;
+  --ctp-green: #a6e3a1;
+  --ctp-yellow: #f9e2af;
+  --ctp-peach: #fab387;
+  --ctp-maroon: #eba0ac;
+  --ctp-red: #f38ba8;
+  --ctp-mauve: #cba6f7;
+  --ctp-pink: #f5c2e7;
+}
+
+html[style*="color-scheme: light"] {
+  --ctp-text: var(--bone);
+  --ctp-lavender: #7287fd;
+  --ctp-blue: #1e66f5;
+  --ctp-sapphire: #209fb5;
+  --ctp-sky: #04a5e5;
+  --ctp-teal: #179299;
+  --ctp-green: #40a02b;
+  --ctp-yellow: #df8e1d;
+  --ctp-peach: #fe640b;
+  --ctp-maroon: #e64553;
+  --ctp-red: #d20f39;
+  --ctp-mauve: #8839ef;
+  --ctp-pink: #ea76cb;
 }
 
 * {
@@ -42,6 +71,32 @@ body {
   font-family: var(--font-ui);
   -webkit-font-smoothing: antialiased;
   font-size: 14px;
+}
+
+.anticon {
+  display: inline-flex;
+  align-items: center;
+  color: inherit;
+  font-style: normal;
+  line-height: 0;
+  text-align: center;
+  text-transform: none;
+  vertical-align: -0.125em;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+.anticon > svg {
+  display: inline-block;
+  line-height: 1;
+}
+
+.ant-btn-primary .anticon svg [stroke]:not([stroke="none"]) {
+  stroke: currentColor;
+}
+
+.ant-btn-primary .anticon svg [fill]:not([fill="none"]) {
+  fill: currentColor;
 }
 
 .mono {

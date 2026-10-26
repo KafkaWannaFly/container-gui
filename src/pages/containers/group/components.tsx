@@ -1,6 +1,6 @@
-import { ColumnHeightOutlined, DownOutlined, VerticalAlignMiddleOutlined } from "@ant-design/icons";
 import { Button, Checkbox, Dropdown } from "antd";
 import { useState } from "react";
+import { ColumnHeightOutlined, DownOutlined, VerticalAlignMiddleOutlined } from "../../../components/icons";
 import type { ContainerSummary } from "../../../types/docker";
 
 /** "Containers ▾" chip with a checklist, shared by the Logs and Monitor tabs.

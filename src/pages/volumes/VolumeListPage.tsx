@@ -1,4 +1,3 @@
-import { ClearOutlined, CopyOutlined, DeleteOutlined } from "@ant-design/icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMount } from "ahooks";
 import {
@@ -15,6 +14,7 @@ import {
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { usePageCommands } from "../../components/CommandPalette";
+import { ClearOutlined, CopyOutlined, DeleteOutlined } from "../../components/icons";
 import {
   MetricCard,
   Mono,

@@ -1,13 +1,13 @@
+import { Button, Checkbox, Dropdown, Empty, type MenuProps, Segmented, Select, Tooltip } from "antd";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { z } from "zod";
 import {
   ClearOutlined,
   DownOutlined,
   EyeOutlined,
   SearchOutlined,
   VerticalAlignBottomOutlined,
-} from "@ant-design/icons";
-import { Button, Checkbox, Dropdown, Empty, type MenuProps, Segmented, Select, Tooltip } from "antd";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { z } from "zod";
+} from "../../../components/icons";
 import { SearchInput, StateDot, useSearch } from "../../../components/ui";
 import { useTauriEvent } from "../../../hooks/useDockerEvents";
 import { usePersistentState } from "../../../hooks/usePersistentState";

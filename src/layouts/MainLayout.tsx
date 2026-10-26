@@ -1,10 +1,3 @@
-import {
-  BlockOutlined,
-  CodeSandboxOutlined,
-  HddOutlined,
-  ReloadOutlined,
-  SettingOutlined,
-} from "@ant-design/icons";
 import { HotkeysProvider, useHotkey } from "@tanstack/react-hotkeys";
 import { useQuery } from "@tanstack/react-query";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -12,6 +5,13 @@ import { Button, Result, Spin } from "antd";
 import { useEffect, useMemo, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { CommandPaletteProvider } from "../components/CommandPalette";
+import {
+  BlockOutlined,
+  CodeSandboxOutlined,
+  HddOutlined,
+  ReloadOutlined,
+  SettingOutlined,
+} from "../components/icons";
 import { Glyph } from "../components/ui";
 import UpdateNotifier from "../components/UpdateNotifier";
 import { useDockerEvents } from "../hooks/useDockerEvents";

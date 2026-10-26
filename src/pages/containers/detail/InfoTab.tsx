@@ -1,8 +1,8 @@
-import { CopyOutlined, ExportOutlined } from "@ant-design/icons";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { Button, Descriptions, type DescriptionsProps, Table } from "antd";
 import { formatDistanceToNow } from "date-fns";
 import { Link } from "react-router-dom";
+import { CopyOutlined, ExportOutlined } from "../../../components/icons";
 import { CollapseAllButton, Section, useSections } from "../../../components/Section";
 import { CopyButton, Mono, Pill, StateDot } from "../../../components/ui";
 import { isZeroTime, localTime, nsDuration, shellJoin, uptimeSince } from "../../../lib/format";

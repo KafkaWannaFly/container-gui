@@ -1,12 +1,12 @@
+import { App, Button, Empty, Segmented, Table, Tooltip } from "antd";
+import { useCallback, useMemo, useState } from "react";
 import {
   CopyOutlined,
   ExportOutlined,
   EyeInvisibleOutlined,
   EyeOutlined,
   SearchOutlined,
-} from "@ant-design/icons";
-import { App, Button, Empty, Segmented, Table, Tooltip } from "antd";
-import { useCallback, useMemo, useState } from "react";
+} from "../../../components/icons";
 import { Pill, SearchInput, StateDot, useSearch } from "../../../components/ui";
 import type { ContainerInspect, ContainerSummary, ImageInspect } from "../../../types/docker";
 import { type EnvRow, envRows } from "../detail/model";

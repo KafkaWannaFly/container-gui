@@ -1,9 +1,9 @@
-import { CopyOutlined, DownloadOutlined, InfoCircleOutlined } from "@ant-design/icons";
 import { Button, Empty, Segmented, Spin, Switch, Table, Tooltip } from "antd";
 import { format } from "date-fns";
 import { useMemo, useState } from "react";
 import { z } from "zod";
 import CodeView from "../../../components/CodeView";
+import { CopyOutlined, DownloadOutlined, InfoCircleOutlined } from "../../../components/icons";
 import { Section, useSections } from "../../../components/Section";
 import { Mono, Pill } from "../../../components/ui";
 import { usePersistentState } from "../../../hooks/usePersistentState";

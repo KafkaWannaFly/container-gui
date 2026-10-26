@@ -1,4 +1,3 @@
-import { CaretRightOutlined } from "@ant-design/icons";
 import type { TableProps } from "antd";
 import { type HTMLMotionProps, motion } from "motion/react";
 import {
@@ -14,6 +13,7 @@ import {
   useState,
 } from "react";
 import { useCollapseTransition } from "./Collapse";
+import { CaretRightOutlined } from "./icons";
 
 /*
  * Animated expand/collapse for antd tree tables (rows with `children`).

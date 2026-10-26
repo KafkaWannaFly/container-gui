@@ -1,4 +1,3 @@
-import { CopyOutlined, DownloadOutlined, InfoCircleOutlined } from "@ant-design/icons";
 import { useQuery } from "@tanstack/react-query";
 import {
   Button,
@@ -16,6 +15,7 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { z } from "zod";
 import CodeView from "../../../components/CodeView";
+import { CopyOutlined, DownloadOutlined, InfoCircleOutlined } from "../../../components/icons";
 import { CollapseAllButton, Section, useSections } from "../../../components/Section";
 import { Mono, Pill } from "../../../components/ui";
 import { usePersistentState } from "../../../hooks/usePersistentState";

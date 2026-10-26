@@ -1,3 +1,7 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { App, Button, Dropdown, type MenuProps, Result, Spin, Tabs, Tooltip } from "antd";
+import { useMemo, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   ApartmentOutlined,
   ArrowLeftOutlined,
@@ -17,11 +21,7 @@ import {
   SettingOutlined,
   SyncOutlined,
   WarningOutlined,
-} from "@ant-design/icons";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { App, Button, Dropdown, type MenuProps, Result, Spin, Tabs, Tooltip } from "antd";
-import { useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+} from "../../../components/icons";
 import { Mono, Pill } from "../../../components/ui";
 import { queryKeys } from "../../../lib/queryClient";
 import {

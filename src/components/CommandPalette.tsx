@@ -1,15 +1,3 @@
-import {
-  BlockOutlined,
-  ClearOutlined,
-  CodeSandboxOutlined,
-  DeleteOutlined,
-  HddOutlined,
-  PauseCircleOutlined,
-  PlayCircleOutlined,
-  PoweroffOutlined,
-  SearchOutlined,
-  SettingOutlined,
-} from "@ant-design/icons";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { useQueryClient } from "@tanstack/react-query";
 import { App, Input, type InputRef, Modal } from "antd";
@@ -34,6 +22,18 @@ import {
   pruneVolumes,
 } from "../services/tauriApi";
 import { formatBytes, shortId } from "../types/docker";
+import {
+  BlockOutlined,
+  ClearOutlined,
+  CodeSandboxOutlined,
+  DeleteOutlined,
+  HddOutlined,
+  PauseCircleOutlined,
+  PlayCircleOutlined,
+  PoweroffOutlined,
+  SearchOutlined,
+  SettingOutlined,
+} from "./icons";
 import { Mono } from "./ui";
 
 export interface PaletteCommand {

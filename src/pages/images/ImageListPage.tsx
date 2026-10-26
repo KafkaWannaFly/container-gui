@@ -1,13 +1,3 @@
-import {
-  ClearOutlined,
-  CloudDownloadOutlined,
-  DeleteOutlined,
-  ExpandAltOutlined,
-  HistoryOutlined,
-  InfoCircleOutlined,
-  ShrinkOutlined,
-  TagOutlined,
-} from "@ant-design/icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   App,
@@ -25,6 +15,16 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAnimatedTree } from "../../components/AnimatedTree";
 import { usePageCommands } from "../../components/CommandPalette";
+import {
+  ClearOutlined,
+  CloudDownloadOutlined,
+  DeleteOutlined,
+  ExpandAltOutlined,
+  HistoryOutlined,
+  InfoCircleOutlined,
+  ShrinkOutlined,
+  TagOutlined,
+} from "../../components/icons";
 import {
   MetricCard,
   Mono,

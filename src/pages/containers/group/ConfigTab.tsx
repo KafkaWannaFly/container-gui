@@ -1,13 +1,13 @@
+import { App, Button, Empty, Segmented } from "antd";
+import { useMemo, useState } from "react";
+import CodeView, { detectLanguage } from "../../../components/CodeView";
 import {
   CheckCircleOutlined,
   CopyOutlined,
   EyeInvisibleOutlined,
   EyeOutlined,
   InfoCircleOutlined,
-} from "@ant-design/icons";
-import { App, Button, Empty, Segmented } from "antd";
-import { useMemo, useState } from "react";
-import CodeView, { detectLanguage } from "../../../components/CodeView";
+} from "../../../components/icons";
 import type { ComposeProject } from "../../../types/docker";
 import { isSecret } from "../detail/model";
 
