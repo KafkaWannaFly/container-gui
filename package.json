@@ -39,7 +39,7 @@
     "react-dom": "19.3.0",
     "react-router-dom": "7.18.4",
     "react-virtuoso": "^4.18.14",
-    "zod": "4.6.5"
+    "zod": "4.6.6"
   },
   "devDependencies": {
     "@iconify-json/catppuccin": "^1.2.17",
