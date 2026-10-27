@@ -22,12 +22,12 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Check whether this version is already released
         id: version
         shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           version="$(node -p "require('./src-tauri/tauri.conf.json').version")"
           if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]]; then
@@ -36,9 +36,9 @@ jobs:
           fi
 
           echo "version=$version" >> "$GITHUB_OUTPUT"
-          if git rev-parse --quiet --verify "refs/tags/v${version}" >/dev/null; then
+          if gh release view "v${version}" >/dev/null 2>&1; then
             echo "should_release=false" >> "$GITHUB_OUTPUT"
-            echo "Version v${version} already has a tag; skipping release."
+            echo "Version v${version} already has a GitHub release; skipping release."
           else
             echo "should_release=true" >> "$GITHUB_OUTPUT"
             echo "Version v${version} has not been released; starting release builds."
