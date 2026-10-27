@@ -617,9 +617,10 @@ pre.logs .dim {
 }
 
 .stat .v small {
+  display: block;
   font-size: 12px;
   color: var(--ash);
-  margin-left: 5px;
+  margin-top: 2px;
 }
 
 .detail-body {
@@ -1020,6 +1021,12 @@ pre.logs .dim {
 
 .row-link:hover {
   color: var(--lime);
+}
+
+.col-ellipsis-box {
+  flex: 1;
+  min-width: 180px;
+  contain: inline-size;
 }
 
 /* ---------- code views (CodeMirror) ---------- */

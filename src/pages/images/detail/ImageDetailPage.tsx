@@ -412,8 +412,14 @@ function HeaderStats({
     },
     {
       k: "Tags",
-      v: tags.length,
-      small: tag ? `:${tag}` : "dangling",
+      v: (
+        <>
+          {tags.length}
+          <small style={{ display: "inline", marginLeft: 5, marginTop: 0 }}>
+            {tag ? `:${tag}` : "dangling"}
+          </small>
+        </>
+      ),
       tip: "Repository tags pointing to this image ID.",
     },
     {

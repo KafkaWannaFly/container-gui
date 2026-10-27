@@ -111,6 +111,7 @@ impl ComposeService {
         location: &ComposeLocation,
         json: bool,
         all_profiles: bool,
+        interpolate: bool,
     ) -> AppResult<String> {
         ensure_files(location)?;
         let mut list = Vec::new();
@@ -119,6 +120,13 @@ impl ComposeService {
             list.extend(["--profile", "*"]);
         }
         list.push("config");
+        if !interpolate {
+            list.extend([
+                "--no-interpolate",
+                "--no-env-resolution",
+                "--no-path-resolution",
+            ]);
+        }
         if json {
             list.extend(["--format", "json"]);
         }
@@ -135,6 +143,23 @@ impl ComposeService {
             ));
         }
         Ok(String::from_utf8_lossy(&output.stdout).into_owned())
+    }
+
+    /// Run `docker compose config`, falling back to `--no-interpolate` when
+    /// caller-only `${VAR:?}` variables or dynamic `env_file` paths are unset.
+    async fn resolve_config(
+        &self,
+        location: &ComposeLocation,
+        json: bool,
+        all_profiles: bool,
+    ) -> AppResult<String> {
+        match self.run_config(location, json, all_profiles, true).await {
+            Ok(config) => Ok(config),
+            Err(first_err) => self
+                .run_config(location, json, all_profiles, false)
+                .await
+                .or(Err(first_err)),
+        }
     }
 
     async fn read_files(&self, location: &ComposeLocation) -> Vec<ComposeFileDto> {
@@ -183,14 +208,14 @@ impl IComposeService for ComposeService {
         // the Dependencies graph and the "profile off" list have something to show.
         // `--profile '*'` needs Compose 2.20+; fall back to the active model.
         let full_config = async {
-            match self.run_config(&location, true, true).await {
+            match self.resolve_config(&location, true, true).await {
                 Ok(config) => Ok(config),
-                Err(_) => self.run_config(&location, true, false).await,
+                Err(_) => self.resolve_config(&location, true, false).await,
             }
         };
         let (config, resolved, all_files, compose_version) = tokio::join!(
             full_config,
-            self.run_config(&location, false, false),
+            self.resolve_config(&location, false, false),
             self.read_files(&location),
             self.compose_version(&location),
         );
@@ -390,5 +415,76 @@ mod tests {
         );
         assert!(action_args(&request("rm")).is_err());
         assert!(action_args(&request("explode")).is_err());
+    }
+
+    struct FakeComposeRunner;
+
+    #[async_trait]
+    impl IComposeRunner for FakeComposeRunner {
+        async fn locate(&self, workdir: &str, files: &[String]) -> AppResult<ComposeLocation> {
+            Ok(ComposeLocation {
+                workdir: workdir.to_string(),
+                files: files.to_vec(),
+                host_workdir: std::path::PathBuf::from(workdir),
+                host_files: files.iter().map(std::path::PathBuf::from).collect(),
+                distro: None,
+            })
+        }
+
+        async fn run(
+            &self,
+            _location: &ComposeLocation,
+            args: &[String],
+        ) -> std::io::Result<Output> {
+            if args.iter().any(|arg| arg == "version") {
+                return Ok(output(0, "2.40.3\n", ""));
+            }
+            if !args.iter().any(|arg| arg == "--no-interpolate") {
+                return Ok(output(
+                    1,
+                    "",
+                    "error while interpolating: required variable FOO is missing a value",
+                ));
+            }
+            if args.iter().any(|arg| arg == "json") {
+                Ok(output(
+                    0,
+                    r#"{"name":"demo","services":{"api":{"environment":{"FOO":"${FOO:?req}"}}}}"#,
+                    "",
+                ))
+            } else {
+                Ok(output(0, "name: demo\nservices:\n  api: {}\n", ""))
+            }
+        }
+
+        async fn read_file(&self, _path: &Path) -> Option<String> {
+            Some("services:\n  api: {}\n".to_string())
+        }
+    }
+
+    fn output(code: i32, stdout: &str, stderr: &str) -> Output {
+        #[cfg(windows)]
+        let status = std::os::windows::process::ExitStatusExt::from_raw(code as u32);
+        #[cfg(unix)]
+        let status = std::os::unix::process::ExitStatusExt::from_raw(code << 8);
+        Output {
+            status,
+            stdout: stdout.as_bytes().to_vec(),
+            stderr: stderr.as_bytes().to_vec(),
+        }
+    }
+
+    #[tokio::test]
+    async fn project_falls_back_to_no_interpolate_when_required_vars_missing() {
+        let svc = ComposeService::builder()
+            .runner(Arc::new(FakeComposeRunner))
+            .build();
+        let dto = svc
+            .project("/work", &["compose.yaml".to_string()])
+            .await
+            .expect("fallback should succeed");
+        assert_eq!(dto.project, "demo");
+        assert_eq!(dto.compose_version, "2.40.3");
+        assert!(dto.resolved.contains("name: demo"));
     }
 }

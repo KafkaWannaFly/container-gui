@@ -214,8 +214,8 @@ const ComposeServiceConfigSchema = z.looseObject({
   ports: z
     .array(
       z.looseObject({
-        target: z.number(),
-        published: z.string().nullish(),
+        target: z.union([z.number(), z.string()]).nullish(),
+        published: z.union([z.string(), z.number()]).nullish(),
         protocol: z.string().nullish(),
       }),
     )
@@ -231,8 +231,15 @@ const ComposeServiceConfigSchema = z.looseObject({
     )
     .nullish(),
   networks: z.record(z.string(), z.unknown()).nullish(),
-  deploy: z.looseObject({ replicas: z.number().nullish() }).nullish(),
-  healthcheck: z.looseObject({ test: z.array(z.string()).nullish() }).nullish(),
+  deploy: z
+    .looseObject({
+      replicas: z
+        .union([z.number(), z.string()])
+        .transform((val) => (typeof val === "number" ? val : Number(val) || 1))
+        .nullish(),
+    })
+    .nullish(),
+  healthcheck: z.looseObject({ test: z.union([z.array(z.string()), z.string()]).nullish() }).nullish(),
   restart: z.string().nullish(),
 });
 export type ComposeServiceConfig = z.infer<typeof ComposeServiceConfigSchema>;

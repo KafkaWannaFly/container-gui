@@ -1,7 +1,7 @@
 import { Line } from "@ant-design/plots";
 import { useQuery } from "@tanstack/react-query";
 import { Empty } from "antd";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { queryKeys } from "../lib/queryClient";
 import { metricsSeries } from "../services/tauriApi";
 import { type AppTheme, useTheme } from "../theme/antdTheme";
@@ -24,7 +24,13 @@ type Metric = {
 const KB = 1024;
 const bytes = (v: number) => (v > 0 ? formatBytes(v) : "0 B");
 const METRICS: Metric[] = [
-  { key: "cpu", title: "CPU", value: (s) => s.cpuPercent, format: (v) => `${v.toFixed(1)}%`, floor: 1 },
+  {
+    key: "cpu",
+    title: "CPU",
+    value: (s) => (s.cpuPercent == null ? null : s.cpuPercent / 100),
+    format: (v) => `${v.toFixed(2)} cpu`,
+    floor: 0.1,
+  },
   { key: "mem", title: "Memory", value: (s) => s.memoryUsage, format: bytes, floor: KB * KB },
   { key: "rx", title: "Network received", value: (s) => s.netRxRate, format: formatRate, floor: KB },
   { key: "tx", title: "Network sent", value: (s) => s.netTxRate, format: formatRate, floor: KB },
@@ -77,19 +83,17 @@ function Chart({
   totalLabel: string;
   theme: AppTheme;
 }) {
-  const peak = rows.reduce((max, row) => (row.value != null && row.value > max ? row.value : max), 0);
-  const y = peak < metric.floor ? { domainMin: 0, domainMax: metric.floor } : { domainMin: 0, nice: true };
-  return (
-    <div className="card mon-card">
-      <div className="mon-head">
-        <h3 className="section-title">{metric.title}</h3>
-        <span className="mono mon-now">
-          {total == null ? "—" : metric.format(total)}
-          <small>{totalLabel}</small>
-        </span>
-      </div>
+  // Hold the plotted series steady while the pointer is inside the card so
+  // background 2s refreshes don't re-render G2 and dismiss the active tooltip.
+  const [frozenRows, setFrozenRows] = useState<Row[] | null>(null);
+  const activeRows = frozenRows ?? rows;
+
+  const plot = useMemo(() => {
+    const peak = activeRows.reduce((max, row) => (row.value != null && row.value > max ? row.value : max), 0);
+    const y = peak < metric.floor ? { domainMin: 0, domainMax: metric.floor } : { domainMin: 0, nice: true };
+    return (
       <Line
-        data={rows}
+        data={activeRows}
         height={180}
         autoFit
         animate={false}
@@ -97,7 +101,10 @@ function Chart({
         yField="value"
         colorField="name"
         legend={false}
-        theme={{ type: theme.mode === "dark" ? "classicDark" : "classic", view: { viewFill: "transparent" } }}
+        theme={{
+          type: theme.mode === "dark" ? "classicDark" : "classic",
+          view: { viewFill: "transparent" },
+        }}
         scale={{ color: { domain: names, range: colors }, y }}
         style={{ lineWidth: 1.5 }}
         axis={{
@@ -128,6 +135,28 @@ function Chart({
           ],
         }}
       />
+    );
+  }, [metric, activeRows, names, colors, theme]);
+
+  return (
+    <div
+      className="card mon-card"
+      onPointerEnter={() => {
+        if (rows.length > 0) setFrozenRows((prev) => prev ?? rows);
+      }}
+      onPointerMove={() => {
+        if (!frozenRows && rows.length > 0) setFrozenRows(rows);
+      }}
+      onPointerLeave={() => setFrozenRows(null)}
+    >
+      <div className="mon-head">
+        <h3 className="section-title">{metric.title}</h3>
+        <span className="mono mon-now">
+          {total == null ? "—" : metric.format(total)}
+          <small>{totalLabel}</small>
+        </span>
+      </div>
+      {plot}
     </div>
   );
 }
@@ -161,8 +190,8 @@ export default function MetricCharts({
     return shown.map((entry) => ({ name: entry.name, samples: byId.get(entry.id) ?? [] }));
   }, [query.data, shown]);
   const stepMs = query.data?.stepMs ?? POLL_MS;
-  const names = shown.map((entry) => entry.name);
-  const colors = shown.map((entry) => entry.color);
+  const names = useMemo(() => shown.map((entry) => entry.name), [shown]);
+  const colors = useMemo(() => shown.map((entry) => entry.color), [shown]);
 
   const charts = useMemo(() => {
     // The headline is "now": a stopped container's last sample is history, not

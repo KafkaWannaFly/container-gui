@@ -412,57 +412,66 @@ export default function GroupDetailPage() {
     },
   ];
 
-  const body = !config ? (
-    composeQuery.isError ? (
-      <Result
-        status="warning"
-        title="Could not read the compose project"
-        subTitle={
-          composeQuery.error instanceof Error ? composeQuery.error.message : String(composeQuery.error)
-        }
-        extra={<Button onClick={() => void composeQuery.refetch()}>Retry</Button>}
+  const body =
+    tab === "logs" ? (
+      <LogsTab key={logSolo ?? "all"} containers={containers} states={states} solo={logSolo} />
+    ) : tab === "env" ? (
+      <EnvTab
+        containers={containers}
+        inspectById={inspectById}
+        imageById={imageById}
+        states={states}
+        onOpenContainer={openContainer}
+      />
+    ) : tab === "monitor" ? (
+      <MonitorTab containers={containers} states={states} />
+    ) : !config ? (
+      composeQuery.isError || !workdir || !files.length ? (
+        <Result
+          status="warning"
+          title="Could not read the compose project"
+          subTitle={
+            composeQuery.error instanceof Error
+              ? composeQuery.error.message
+              : !workdir || !files.length
+                ? "Compose working directory or config file labels are missing on these containers."
+                : String(composeQuery.error)
+          }
+          extra={
+            workdir && files.length ? (
+              <Button onClick={() => void composeQuery.refetch()}>Retry</Button>
+            ) : undefined
+          }
+        />
+      ) : (
+        <div style={{ display: "flex", justifyContent: "center", padding: 48 }}>
+          <Spin />
+        </div>
+      )
+    ) : tab === "info" ? (
+      <InfoTab
+        config={config}
+        containers={containers}
+        byService={byService}
+        services={services}
+        activeProfiles={activeProfiles}
+        statsById={statsById}
+        inspectById={inspectById}
+        states={states}
+        serviceStates={serviceStates}
+        onOpenContainer={openContainer}
+        onLogs={(id) => {
+          setLogSolo(id);
+          setTab("logs");
+        }}
+        onScale={scale}
+        onToggleProfile={toggleProfile}
+        act={act}
+        pause={pause}
       />
     ) : (
-      <div style={{ display: "flex", justifyContent: "center", padding: 48 }}>
-        <Spin />
-      </div>
-    )
-  ) : tab === "info" ? (
-    <InfoTab
-      config={config}
-      containers={containers}
-      byService={byService}
-      services={services}
-      activeProfiles={activeProfiles}
-      statsById={statsById}
-      inspectById={inspectById}
-      states={states}
-      serviceStates={serviceStates}
-      onOpenContainer={openContainer}
-      onLogs={(id) => {
-        setLogSolo(id);
-        setTab("logs");
-      }}
-      onScale={scale}
-      onToggleProfile={toggleProfile}
-      act={act}
-      pause={pause}
-    />
-  ) : tab === "env" ? (
-    <EnvTab
-      containers={containers}
-      inspectById={inspectById}
-      imageById={imageById}
-      states={states}
-      onOpenContainer={openContainer}
-    />
-  ) : tab === "logs" ? (
-    <LogsTab key={logSolo ?? "all"} containers={containers} states={states} solo={logSolo} />
-  ) : tab === "monitor" ? (
-    <MonitorTab containers={containers} states={states} />
-  ) : (
-    <ConfigTab config={config} />
-  );
+      <ConfigTab config={config} />
+    );
 
   return (
     <div>
@@ -540,7 +549,9 @@ export default function GroupDetailPage() {
               <div className="k">Containers</div>
               <div className="v">
                 {running}
-                <small>/ {containers.length} running</small>
+                <small style={{ display: "inline", marginLeft: 5, marginTop: 0 }}>
+                  / {containers.length} running
+                </small>
               </div>
               <div className="g-run-bar">
                 {containers.map((ctr) => (
@@ -557,7 +568,7 @@ export default function GroupDetailPage() {
             <div className="stat">
               <div className="k">CPU</div>
               <div className="v">
-                {cpu.toFixed(1)}%<small>sum</small>
+                {(cpu / 100).toFixed(2)} cpu<small>sum</small>
               </div>
             </div>
             <div className="stat">

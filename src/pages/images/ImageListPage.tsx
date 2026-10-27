@@ -32,6 +32,7 @@ import {
   RowActions,
   SearchInput,
   StateDot,
+  useColumnMaxChars,
   useRowContextMenu,
   useSearch,
 } from "../../components/ui";
@@ -42,11 +43,10 @@ import LayerHistoryModal from "./components/LayerHistoryModal";
 import PullImageModal from "./components/PullImageModal";
 import TagImageModal from "./components/TagImageModal";
 
-const MAX_NAME_LEN = 15;
-
 interface Row {
   key: string;
   isGroup: boolean;
+  inGroup?: boolean;
   id: string;
   repo: string;
   tag: string;
@@ -126,7 +126,7 @@ function buildGroups(images: ImageItem[]): Row[] {
         dangling: repo === "<none>",
         sharedWith: 0,
         count: children.length,
-        children,
+        children: children.map((child) => ({ ...child, inGroup: true })),
       };
     })
     .sort((a, b) => Number(a.dangling) - Number(b.dangling) || a.repo.localeCompare(b.repo));
@@ -302,33 +302,6 @@ export default function ImageListPage() {
       );
   };
 
-  const prune = () => {
-    modal.confirm({
-      title: "Prune unused images",
-      centered: true,
-      okText: "Prune",
-      okType: "danger",
-      width: 480,
-      content: (
-        <div>
-          <p style={{ color: "var(--mist)" }}>
-            {unused.length} image(s) are not used by any running or stopped container:
-          </p>
-          <div className="card subtle mono" style={{ maxHeight: 200, overflow: "auto" }}>
-            {unused.map((img) => {
-              const tags = img.repoTags.filter((t) => t && !t.startsWith("<none>"));
-              return <div key={img.id}>{tags.length ? tags.join(", ") : shortId(img.id)}</div>;
-            })}
-          </div>
-          <p className="dim" style={{ marginBottom: 0, fontSize: 12 }}>
-            Running and stopped containers are unaffected.
-          </p>
-        </div>
-      ),
-      onOk: runPrune,
-    });
-  };
-
   const rowMenuGroups = (row: Row): MenuProps["items"][] => {
     if (row.isGroup) return [];
     return [
@@ -375,10 +348,11 @@ export default function ImageListPage() {
     ];
   };
   const rowContext = useRowContextMenu(rowMenuGroups);
+  const nameCol = useColumnMaxChars();
 
   const columns: TableColumnsType<Row> = [
     {
-      title: "Name",
+      title: nameCol.title("Name"),
       key: "name",
       render: (_, row) => {
         if (row.isGroup)
@@ -394,7 +368,7 @@ export default function ImageListPage() {
             </span>
           );
         const full = row.dangling ? "<none>" : `${row.repo}:${row.tag}`;
-        const short = middleEllipsis(full, MAX_NAME_LEN);
+        const short = middleEllipsis(full, nameCol.maxChars(row.inGroup ? 56 : 36));
         return (
           <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
             <span
@@ -408,7 +382,10 @@ export default function ImageListPage() {
             >
               {pending.has(row.ref) ? <Spin size="small" /> : <UsageDot usage={usageByImage.get(row.id)} />}
             </span>
-            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <div
+              className="col-ellipsis-box"
+              style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 2 }}
+            >
               <Tooltip title={short !== full ? full : undefined}>
                 <Link
                   to={`/images/${encodeURIComponent(row.id)}`}
@@ -510,18 +487,22 @@ export default function ImageListPage() {
               Delete
             </Button>
           </Popconfirm>
-          <Button
-            icon={<ClearOutlined />}
+          <Popconfirm
+            title={`Prune ${unused.length} unused image(s)?`}
+            okText="Prune"
+            okType="danger"
+            onConfirm={runPrune}
             disabled={!unused.length || pruneMutation.isPending}
-            onClick={prune}
           >
-            Prune unused
-            {unused.length ? (
-              <span style={{ marginLeft: 6 }}>
-                <Pill>{unused.length}</Pill>
-              </span>
-            ) : null}
-          </Button>
+            <Button icon={<ClearOutlined />} disabled={!unused.length || pruneMutation.isPending}>
+              Prune unused
+              {unused.length ? (
+                <span style={{ marginLeft: 6 }}>
+                  <Pill>{unused.length}</Pill>
+                </span>
+              ) : null}
+            </Button>
+          </Popconfirm>
           <Button type="primary" icon={<CloudDownloadOutlined />} onClick={() => setPullOpen(true)}>
             Pull image
           </Button>

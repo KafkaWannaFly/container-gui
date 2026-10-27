@@ -1,12 +1,15 @@
 import { useHotkey } from "@tanstack/react-hotkeys";
+import { useSize } from "ahooks";
 import { App, Button, Dropdown, Input, type MenuProps, Tooltip } from "antd";
 import {
   type CSSProperties,
   type HTMLAttributes,
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
+  useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { createPortal } from "react-dom";
@@ -413,6 +416,31 @@ export function useRowContextMenu<T>(groupsOf: (row: T) => MenuProps["items"][])
       )
     : null;
   return { onRow, contextMenu };
+}
+
+const DEFAULT_MIN_CHARS = 15;
+const DEFAULT_CHAR_WIDTH_PX = 7.5;
+
+/**
+ * Measures a table column header's live width via `ahooks`'s `useSize` and
+ * converts it into a character threshold for `middleEllipsis`.
+ */
+export function useColumnMaxChars(minChars = DEFAULT_MIN_CHARS) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const size = useSize(() => ref.current?.closest("th") ?? ref.current);
+  const colWidth = size?.width ?? 0;
+
+  const title = useCallback((label: ReactNode) => <span ref={ref}>{label}</span>, []);
+
+  const maxChars = useCallback(
+    (reservedPx = 36, charWidthPx = DEFAULT_CHAR_WIDTH_PX) => {
+      if (colWidth <= 0) return minChars;
+      return Math.max(minChars, Math.floor((colWidth - reservedPx) / charWidthPx));
+    },
+    [colWidth, minChars],
+  );
+
+  return { title, colWidth, maxChars };
 }
 
 export function MetricCard({

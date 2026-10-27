@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getTauriVersion, getVersion } from "@tauri-apps/api/app";
-import { App, Button, Divider, Input, Progress, Select, Switch } from "antd";
+import { App, Button, Divider, Input, Progress, Select } from "antd";
 import { useMemo, useState } from "react";
 import { z } from "zod";
 import {
@@ -28,11 +28,6 @@ import { ICON_PACKS, THEMES, useTheme } from "../../theme/antdTheme";
 import type { ConnectionConfig, DockerStatus } from "../../types/docker";
 
 const StringListSchema = z.array(z.string());
-
-const BEHAVIORS: [string, string, string][] = [
-  ["autoRefresh", "Live metrics", "Poll container stats every 2s"],
-  ["confirm", "Confirm destructive actions", "Remove, terminate, prune"],
-];
 
 function kindFromHost(host: string): ConnectionConfig["kind"] {
   const trimmed = host.trim();
@@ -101,10 +96,6 @@ export default function SettingsPage() {
     [],
   );
   const [ping, setPing] = useState<DockerStatus | null>(null);
-  const [toggles, setToggles] = useState<Record<string, boolean>>({
-    autoRefresh: true,
-    confirm: true,
-  });
 
   const contexts = useQuery({ queryKey: queryKeys.contexts(), queryFn: listDockerContexts });
   const status = useQuery({ queryKey: queryKeys.status(), queryFn: getDockerStatus });
@@ -474,28 +465,6 @@ export default function SettingsPage() {
               }}
             />
           </div>
-        </div>
-      </div>
-
-      <div className="card">
-        <div className="section-title">Behavior</div>
-        <Divider style={{ margin: "0 0 16px" }} />
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px 32px" }}>
-          {BEHAVIORS.map(([name, title, desc]) => (
-            <div key={name} style={{ display: "flex", justifyContent: "space-between", gap: 16 }}>
-              <div>
-                <div style={{ color: "var(--bone)" }}>{title}</div>
-                <div className="dim" style={{ fontSize: 12 }}>
-                  {desc}
-                </div>
-              </div>
-              <Switch
-                size="small"
-                checked={toggles[name]}
-                onChange={(checked) => setToggles((prev) => ({ ...prev, [name]: checked }))}
-              />
-            </div>
-          ))}
         </div>
       </div>
 

@@ -37,6 +37,7 @@ import {
   RowActions,
   SearchInput,
   StateDot,
+  useColumnMaxChars,
   useRowContextMenu,
   useSearch,
 } from "../../components/ui";
@@ -78,8 +79,6 @@ type ComposeGroupRow = { kind: "group"; key: string; project: string; children: 
 type Row = ContainerRow | ComposeGroupRow;
 
 const STATS_INTERVAL_MS = 2_000;
-const MAX_NAME_LEN = 15;
-const MAX_IMAGE_LEN = 15;
 
 /** Docker lists a binding once for IPv4 and once for IPv6; show it once. */
 function uniquePorts(ports: PortMapping[]): PortMapping[] {
@@ -362,7 +361,19 @@ export default function ContainerListPage() {
             icon: <StopOutlined />,
             danger: true,
             disabled: !groupEligibleIds(row.children, "kill").length,
-            onClick: () => runGroupBatch(row.children, "kill"),
+            onClick: () =>
+              modal.confirm({
+                title: "Terminate all containers in group?",
+                centered: true,
+                okText: "Terminate",
+                okType: "danger",
+                content: (
+                  <span>
+                    Running containers in <Mono>{row.project}</Mono> will be immediately terminated (SIGKILL).
+                  </span>
+                ),
+                onOk: () => runGroupBatch(row.children, "kill"),
+              }),
           },
           {
             key: "pause",
@@ -441,7 +452,19 @@ export default function ContainerListPage() {
           icon: <StopOutlined />,
           danger: true,
           disabled: !actionApplies("kill", row.state),
-          onClick: () => runAction(row.id, "kill"),
+          onClick: () =>
+            modal.confirm({
+              title: "Terminate container?",
+              centered: true,
+              okText: "Terminate",
+              okType: "danger",
+              content: (
+                <span>
+                  <Mono>{row.names[0] ?? shortId(row.id)}</Mono> will be immediately terminated (SIGKILL).
+                </span>
+              ),
+              onOk: () => runAction(row.id, "kill"),
+            }),
         },
         {
           key: paused ? "unpause" : "pause",
@@ -489,10 +512,11 @@ export default function ContainerListPage() {
     ];
   };
   const rowContext = useRowContextMenu(rowMenuGroups);
+  const nameCol = useColumnMaxChars();
 
   const columns: TableColumnsType<Row> = [
     {
-      title: "Name",
+      title: nameCol.title("Name"),
       key: "name",
       render: (_, row) => {
         if (row.kind === "group")
@@ -506,9 +530,10 @@ export default function ContainerListPage() {
               </span>
             </span>
           );
+        const reserved = row.composeProject ? 56 : 36;
         const full = row.names[0] ?? shortId(row.id);
-        const short = middleEllipsis(full, MAX_NAME_LEN);
-        const image = middleEllipsis(row.image, MAX_IMAGE_LEN);
+        const short = middleEllipsis(full, nameCol.maxChars(reserved));
+        const image = middleEllipsis(row.image, nameCol.maxChars(reserved, 7.8));
         return (
           <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
             <span
@@ -522,7 +547,10 @@ export default function ContainerListPage() {
             >
               {pending[row.id] ? <Spin size="small" /> : <StateDot state={row.state} />}
             </span>
-            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <div
+              className="col-ellipsis-box"
+              style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 2 }}
+            >
               <Tooltip title={short !== full ? full : undefined}>
                 <Link to={`/containers/${row.id}`} className="row-link" style={{ whiteSpace: "nowrap" }}>
                   {short}

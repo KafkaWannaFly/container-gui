@@ -265,7 +265,19 @@ export default function ContainerDetailPage() {
         "Kill",
         "Sends SIGKILL: processes end immediately with no graceful shutdown. Use it when Stop hangs.",
       ),
-      onClick: () => action.mutate("kill"),
+      onClick: () =>
+        modal.confirm({
+          title: "Terminate container?",
+          centered: true,
+          okText: "Terminate",
+          okType: "danger",
+          content: (
+            <span>
+              <Mono>{name}</Mono> will be immediately terminated (SIGKILL) with no graceful shutdown.
+            </span>
+          ),
+          onOk: () => action.mutateAsync("kill"),
+        }),
     },
     {
       key: "copy-id",

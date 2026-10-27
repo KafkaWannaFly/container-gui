@@ -16,7 +16,14 @@ import {
   PoweroffOutlined,
   ReloadOutlined,
 } from "../../../components/icons";
-import { CopyButton, Mono, Pill, StateDot, useRowContextMenu } from "../../../components/ui";
+import {
+  CopyButton,
+  Mono,
+  Pill,
+  StateDot,
+  useColumnMaxChars,
+  useRowContextMenu,
+} from "../../../components/ui";
 import { compactDuration } from "../../../lib/format";
 import type {
   ComposeProject,
@@ -30,8 +37,6 @@ import DependencyGraph from "./DependencyGraph";
 import { impactOf, type ServiceInfo, type ServiceState, svcColor } from "./model";
 
 const SECTIONS = ["general", "services", "deps", "networks", "volumes"];
-const MAX_NAME_LEN = 15;
-const MAX_IMAGE_LEN = 15;
 
 /** Two stacked rates, e.g. ↓ received over ↑ sent. */
 function RatePair({ a, b, labels }: { a: number | null; b: number | null; labels: [string, string] }) {
@@ -284,6 +289,7 @@ export default function InfoTab({
     },
   ];
 
+  const serviceCol = useColumnMaxChars();
   const svcColumns = [
     {
       title: "",
@@ -292,7 +298,7 @@ export default function InfoTab({
       render: (_: unknown, ctr: ContainerSummary) => <StateDot state={states.get(ctr.id) ?? ctr.state} />,
     },
     {
-      title: "Service",
+      title: serviceCol.title("Service"),
       key: "service",
       render: (_: unknown, ctr: ContainerSummary) => {
         const service = ctr.composeService ?? "";
@@ -302,10 +308,13 @@ export default function InfoTab({
         const count = replicas(service);
         const ordinal = (byService.get(service)?.indexOf(ctr) ?? -1) + 1;
         const full = nameOf(ctr);
-        const short = middleEllipsis(full, MAX_NAME_LEN);
-        const image = middleEllipsis(ctr.image, MAX_IMAGE_LEN);
+        const short = middleEllipsis(full, serviceCol.maxChars(16, 7.8));
+        const image = middleEllipsis(ctr.image, serviceCol.maxChars(16, 7.8));
         return (
-          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          <div
+            className="col-ellipsis-box"
+            style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 2 }}
+          >
             <span style={{ display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}>
               <span style={{ width: 3, height: 12, borderRadius: 2, background: svcColor(service) }} />
               <span style={{ color: orphan ? "var(--fog)" : "var(--paper)" }}>{service || "—"}</span>
@@ -396,12 +405,12 @@ export default function InfoTab({
     {
       title: "CPU",
       key: "cpu",
-      width: 74,
+      width: 84,
       render: (_: unknown, ctr: ContainerSummary) => {
         const stat = running(ctr) ? statsById.get(ctr.id) : undefined;
         return (
           <span className="mono" style={{ whiteSpace: "nowrap" }}>
-            {stat?.cpuPercent != null ? `${stat.cpuPercent.toFixed(1)}%` : "—"}
+            {stat?.cpuPercent != null ? `${(stat.cpuPercent / 100).toFixed(2)} cpu` : "—"}
           </span>
         );
       },

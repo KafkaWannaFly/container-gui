@@ -22,6 +22,7 @@ import {
   RowActions,
   SearchInput,
   StateDot,
+  useColumnMaxChars,
   useRowContextMenu,
   useSearch,
 } from "../../components/ui";
@@ -29,14 +30,13 @@ import { queryKeys } from "../../lib/queryClient";
 import { listVolumes, pruneVolumes, refreshVolumeSizes, removeVolume } from "../../services/tauriApi";
 import { formatBytes, middleEllipsis, type VolumeItem } from "../../types/docker";
 
-const MAX_NAME_LEN = 15;
-const MAX_MOUNT_LEN = 38;
-
 export default function VolumeListPage() {
   const { modal, message } = App.useApp();
   const queryClient = useQueryClient();
   const search = useSearch();
   const [selected, setSelected] = useState<React.Key[]>([]);
+  const nameCol = useColumnMaxChars();
+  const mountCol = useColumnMaxChars(28);
 
   const [pending, setPending] = useState<Set<string>>(new Set());
 
@@ -100,7 +100,7 @@ export default function VolumeListPage() {
       okType: "danger",
       content: (
         <span>
-          Data in <Mono>{middleEllipsis(row.name, MAX_NAME_LEN)}</Mono> will be permanently lost.
+          Data in <Mono>{middleEllipsis(row.name, nameCol.maxChars(40))}</Mono> will be permanently lost.
         </span>
       ),
       onOk: () => {
@@ -123,33 +123,6 @@ export default function VolumeListPage() {
         }),
       );
   };
-
-  const prune = () =>
-    modal.confirm({
-      title: "Prune unused volumes",
-      centered: true,
-      okText: "Prune",
-      okType: "danger",
-      width: 480,
-      content: (
-        <div>
-          <p style={{ color: "var(--mist)" }}>
-            {orphans.length} volume(s) are not attached to any container:
-          </p>
-          <div className="card subtle mono" style={{ maxHeight: 200, overflow: "auto" }}>
-            {orphans.map((o) => (
-              <div key={o.name} title={o.name}>
-                {middleEllipsis(o.name, MAX_NAME_LEN)}
-              </div>
-            ))}
-          </div>
-          <p className="dim" style={{ marginBottom: 0, fontSize: 12 }}>
-            This permanently deletes data.
-          </p>
-        </div>
-      ),
-      onOk: runPrune,
-    });
 
   const deleteSelected = () => {
     const names = (data ?? []).filter((v) => selected.includes(v.name) && !v.inUse).map((v) => v.name);
@@ -207,10 +180,10 @@ export default function VolumeListPage() {
 
   const columns: TableColumnsType<VolumeItem> = [
     {
-      title: "Name",
+      title: nameCol.title("Name"),
       dataIndex: "name",
       render: (value: string, row) => {
-        const short = middleEllipsis(value, MAX_NAME_LEN);
+        const short = middleEllipsis(value, nameCol.maxChars(36));
         return (
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <span
@@ -229,15 +202,17 @@ export default function VolumeListPage() {
                 <StateDot state="orphaned" label="Orphaned" />
               )}
             </span>
-            <Tooltip title={short !== value ? value : undefined}>
-              <Link
-                to={`/volumes/${encodeURIComponent(value)}`}
-                className="row-link"
-                style={{ whiteSpace: "nowrap" }}
-              >
-                {short}
-              </Link>
-            </Tooltip>
+            <div className="col-ellipsis-box">
+              <Tooltip title={short !== value ? value : undefined}>
+                <Link
+                  to={`/volumes/${encodeURIComponent(value)}`}
+                  className="row-link"
+                  style={{ whiteSpace: "nowrap" }}
+                >
+                  {short}
+                </Link>
+              </Tooltip>
+            </div>
           </div>
         );
       },
@@ -249,16 +224,18 @@ export default function VolumeListPage() {
       render: (value: string) => <Pill tone={value === "local" ? "neutral" : "teal"}>{value}</Pill>,
     },
     {
-      title: "Mountpoint",
+      title: mountCol.title("Mountpoint"),
       dataIndex: "mountpoint",
       render: (value: string) => {
-        const short = middleEllipsis(value, MAX_MOUNT_LEN);
+        const short = middleEllipsis(value, mountCol.maxChars(16, 7.8));
         return (
-          <Tooltip title={short !== value ? value : undefined}>
-            <span className="mono dim" style={{ whiteSpace: "nowrap" }}>
-              {short}
-            </span>
-          </Tooltip>
+          <div className="col-ellipsis-box">
+            <Tooltip title={short !== value ? value : undefined}>
+              <span className="mono dim" style={{ whiteSpace: "nowrap" }}>
+                {short}
+              </span>
+            </Tooltip>
+          </div>
         );
       },
     },
@@ -343,13 +320,17 @@ export default function VolumeListPage() {
               Delete
             </Button>
           </Popconfirm>
-          <Button
-            icon={<ClearOutlined />}
+          <Popconfirm
+            title={`Prune ${orphans.length} unused volume(s)?`}
+            okText="Prune"
+            okType="danger"
+            onConfirm={runPrune}
             disabled={!orphans.length || pruneMutation.isPending}
-            onClick={prune}
           >
-            Prune unused{orphans.length ? ` (${orphans.length})` : ""}
-          </Button>
+            <Button icon={<ClearOutlined />} disabled={!orphans.length || pruneMutation.isPending}>
+              Prune unused{orphans.length ? ` (${orphans.length})` : ""}
+            </Button>
+          </Popconfirm>
         </div>
 
         <Table
