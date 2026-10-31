@@ -4774,9 +4774,9 @@ dependencies = [
 
 [[package]]
 name = "tauri-plugin-pilot"
-version = "0.7.3"
+version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5533e31cc94a9ee5e6c32271bdef0ee7b05fc432d9e41f299623b51b40c8dbaf"
+checksum = "cb1870e351e575443b98ad7e3df2530146fcfc78aa01eb6aacb252a1f8f38436"
 dependencies = [
  "core-foundation 0.10.1",
  "core-graphics",
