@@ -21,7 +21,7 @@ jobs:
       should_release: ${{ steps.version.outputs.should_release }}
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Check whether this version is already released
         id: version
@@ -53,7 +53,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
