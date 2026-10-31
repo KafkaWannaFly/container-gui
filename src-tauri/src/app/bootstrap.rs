@@ -7,6 +7,7 @@ use std::sync::Arc;
 use tauri::AppHandle;
 
 use super::AppState;
+use crate::ext::IntoArc;
 use crate::repositories::fs::{FsDockerContextRepository, docker_contexts};
 use crate::repositories::memory::{
     InMemoryExecSessionRepository, InMemoryMetricsRepository, InMemoryStreamRegistry,
@@ -51,100 +52,111 @@ pub struct Composition {
 pub async fn build(app: &AppHandle, data_dir: &Path) -> Composition {
     // Repositories.
     let pool = pool::open_or_memory(&data_dir.join("app.db")).await;
-    let metrics_history: Arc<dyn IMetricsHistoryRepository> = Arc::new(
+    let metrics_history: Arc<dyn IMetricsHistoryRepository> =
         SqliteMetricsHistoryRepository::builder()
             .pool(pool.clone())
-            .build(),
-    );
-    let volume_sizes: Arc<dyn IVolumeSizeRepository> =
-        Arc::new(SqliteVolumeSizeRepository::builder().pool(pool).build());
-    let live_metrics: Arc<dyn IMetricsRepository> = Arc::new(
-        InMemoryMetricsRepository::builder()
-            .capacity(metrics::CAPACITY)
-            .build(),
-    );
-    let streams: Arc<dyn IStreamRegistry> = Arc::new(InMemoryStreamRegistry::builder().build());
+            .build()
+            .into_arc();
+    let volume_sizes: Arc<dyn IVolumeSizeRepository> = SqliteVolumeSizeRepository::builder()
+        .pool(pool)
+        .build()
+        .into_arc();
+    let live_metrics: Arc<dyn IMetricsRepository> = InMemoryMetricsRepository::builder()
+        .capacity(metrics::CAPACITY)
+        .build()
+        .into_arc();
+    let streams: Arc<dyn IStreamRegistry> = InMemoryStreamRegistry::builder().build().into_arc();
     let exec_sessions: Arc<dyn IExecSessionRepository> =
-        Arc::new(InMemoryExecSessionRepository::builder().build());
-    let contexts: Arc<dyn IDockerContextRepository> = Arc::new(
-        FsDockerContextRepository::builder()
-            .maybe_docker_dir(docker_contexts::default_docker_dir())
-            .build(),
-    );
+        InMemoryExecSessionRepository::builder().build().into_arc();
+    let contexts: Arc<dyn IDockerContextRepository> = FsDockerContextRepository::builder()
+        .maybe_docker_dir(docker_contexts::default_docker_dir())
+        .build()
+        .into_arc();
 
     // Infrastructure and engine services.
-    let publisher: Arc<dyn IEventPublisher> =
-        Arc::new(TauriEventPublisher::builder().app(app.clone()).build());
-    let file_writer: Arc<dyn IFileWriter> = Arc::new(TokioFileWriter::builder().build());
-    let compose_runner: Arc<dyn IComposeRunner> = Arc::new(DockerComposeCli::builder().build());
-    let connector: Arc<dyn IEngineConnector> = Arc::new(
-        DockerConnector::builder()
-            .contexts(contexts.clone())
-            .build(),
-    );
-    let session: Arc<dyn IEngineSession> = Arc::new(
-        EngineSession::builder()
-            .connector(connector.clone())
-            .publisher(publisher.clone())
-            .build(),
-    );
+    let publisher: Arc<dyn IEventPublisher> = TauriEventPublisher::builder()
+        .app(app.clone())
+        .build()
+        .into_arc();
+    let file_writer: Arc<dyn IFileWriter> = TokioFileWriter::builder().build().into_arc();
+    let compose_runner: Arc<dyn IComposeRunner> = DockerComposeCli::builder().build().into_arc();
+    let connector: Arc<dyn IEngineConnector> = DockerConnector::builder()
+        .contexts(contexts.clone())
+        .build()
+        .into_arc();
+    let session: Arc<dyn IEngineSession> = EngineSession::builder()
+        .connector(connector.clone())
+        .publisher(publisher.clone())
+        .build()
+        .into_arc();
 
     // Business services.
-    let metrics: Arc<dyn IMetricsService> = Arc::new(
-        MetricsService::builder()
-            .session(session.clone())
-            .live(live_metrics)
-            .history(metrics_history)
-            .build(),
-    );
+    let metrics: Arc<dyn IMetricsService> = MetricsService::builder()
+        .session(session.clone())
+        .live(live_metrics)
+        .history(metrics_history)
+        .build()
+        .into_arc();
     let state = AppState::builder()
-        .compose(Arc::new(
-            ComposeService::builder().runner(compose_runner).build(),
-        ))
-        .connection(Arc::new(
+        .compose(
+            ComposeService::builder()
+                .runner(compose_runner)
+                .build()
+                .into_arc(),
+        )
+        .connection(
             ConnectionService::builder()
                 .session(session.clone())
                 .connector(connector)
                 .contexts(contexts)
-                .build(),
-        ))
-        .containers(Arc::new(
+                .build()
+                .into_arc(),
+        )
+        .containers(
             ContainerService::builder()
                 .session(session.clone())
                 .streams(streams.clone())
                 .files(file_writer.clone())
-                .build(),
-        ))
-        .exec(Arc::new(
+                .build()
+                .into_arc(),
+        )
+        .exec(
             ExecService::builder()
                 .session(session.clone())
                 .streams(streams.clone())
                 .sessions(exec_sessions)
-                .build(),
-        ))
-        .files(Arc::new(
+                .build()
+                .into_arc(),
+        )
+        .files(
             FilesService::builder()
                 .session(session.clone())
                 .files(file_writer)
-                .build(),
-        ))
-        .images(Arc::new(
+                .build()
+                .into_arc(),
+        )
+        .images(
             ImageService::builder()
                 .session(session.clone())
                 .streams(streams.clone())
-                .build(),
-        ))
+                .build()
+                .into_arc(),
+        )
         .metrics(metrics.clone())
-        .streams(Arc::new(StreamService::builder().streams(streams).build()))
-        .system(Arc::new(
-            SystemService::builder().session(session.clone()).build(),
-        ))
-        .volumes(Arc::new(
+        .streams(StreamService::builder().streams(streams).build().into_arc())
+        .system(
+            SystemService::builder()
+                .session(session.clone())
+                .build()
+                .into_arc(),
+        )
+        .volumes(
             VolumeService::builder()
                 .session(session.clone())
                 .sizes(volume_sizes)
-                .build(),
-        ))
+                .build()
+                .into_arc(),
+        )
         .build();
 
     Composition {

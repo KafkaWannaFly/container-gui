@@ -1,6 +1,7 @@
 mod app;
 mod commands;
 mod error;
+mod ext;
 mod models;
 mod repositories;
 mod services;
