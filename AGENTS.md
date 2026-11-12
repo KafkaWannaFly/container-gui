@@ -44,6 +44,8 @@
 - The app opens persistent SQLite data under the Tauri app-data directory and falls back to in-memory databases if that directory cannot be used. Do not assume cache/history persistence in tests or runtime error paths.
 - `src-tauri/capabilities/default.json` is the permission source of truth. Add capability permissions when adding a Tauri plugin/API that needs them.
 - `make pub-win` builds the NSIS installer and signs updater artifacts. It expects `TAURI_SIGNING_PRIVATE_KEY` or `~/.tauri/container-gui.key`; never replace or generate the release signing key casually, because installed versions require the same key for updates.
+- Version bumps: update the version in `package.json`, `src-tauri/Cargo.toml`, `src-tauri/Cargo.lock` (the `container-gui` package entry), and `src-tauri/tauri.conf.json`, then keep them in sync.
+- `.github/workflows/release.yml` runs on every push to `main` that changes `src-tauri/tauri.conf.json`. If the version is not yet released, it creates the `v<version>` tag on that commit and publishes a GitHub release. Land version bumps through a reviewed PR merge, never a direct push to `main`, and only bump when the release should go out.
 
 ## Formatting
 
