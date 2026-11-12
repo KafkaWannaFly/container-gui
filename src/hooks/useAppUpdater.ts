@@ -37,15 +37,15 @@ export function useAppUpdater() {
     mutationFn: async (target: Update) => {
       setPercent(null);
       setInstalling(false);
-      let total = 0;
-      let received = 0;
+      const progress = { total: 0, received: 0 };
       await target.downloadAndInstall((event) => {
         if (event.event === "Started") {
-          total = event.data.contentLength ?? 0;
-          setPercent(total ? 0 : null);
+          progress.total = event.data.contentLength ?? 0;
+          setPercent(progress.total ? 0 : null);
         } else if (event.event === "Progress") {
-          received += event.data.chunkLength;
-          if (total) setPercent(Math.min(100, Math.round((received / total) * 100)));
+          progress.received += event.data.chunkLength;
+          if (progress.total)
+            setPercent(Math.min(100, Math.round((progress.received / progress.total) * 100)));
         } else {
           setInstalling(true);
         }
