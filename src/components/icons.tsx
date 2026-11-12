@@ -488,6 +488,42 @@ const ICON_MAP = {
     "streamline-color": "streamline-color:arrow-shrink-flat",
     lucide: "lucide:minimize-2",
   },
+  BorderOutlined: {
+    "vscode-icons": "codicon:chrome-maximize",
+    catppuccin: { icon: "lucide:square", color: "var(--ctp-text)" },
+    "material-icon-theme": "codicon:chrome-maximize",
+    "fluent-color": "icon-park:full-screen",
+    "icon-park": "icon-park:full-screen",
+    "streamline-color": "icon-park:full-screen",
+    lucide: "lucide:square",
+  },
+  CloseOutlined: {
+    "vscode-icons": "codicon:close",
+    catppuccin: { icon: "lucide:x", color: "var(--ctp-text)" },
+    "material-icon-theme": "codicon:close",
+    "fluent-color": "icon-park:close",
+    "icon-park": "icon-park:close",
+    "streamline-color": "icon-park:close",
+    lucide: "lucide:x",
+  },
+  CommandOutlined: {
+    "vscode-icons": "codicon:terminal-cmd",
+    catppuccin: { icon: "lucide:command", color: "var(--ctp-text)" },
+    "material-icon-theme": "codicon:terminal-cmd",
+    "fluent-color": "icon-park:command",
+    "icon-park": "icon-park:command",
+    "streamline-color": "streamline-color:command-flat",
+    lucide: "lucide:command",
+  },
+  RestoreOutlined: {
+    "vscode-icons": "codicon:chrome-restore",
+    catppuccin: { icon: "lucide:copy", color: "var(--ctp-text)" },
+    "material-icon-theme": "codicon:chrome-restore",
+    "fluent-color": "icon-park:off-screen",
+    "icon-park": "icon-park:off-screen",
+    "streamline-color": "icon-park:off-screen",
+    lucide: "lucide:copy",
+  },
   StopOutlined: {
     "vscode-icons": { icon: "codicon:circle-slash", color: "#f48771" },
     catppuccin: { icon: "lucide:ban", color: "var(--ctp-red)" },
@@ -649,6 +685,10 @@ export const RightOutlined = createPackIcon("RightOutlined");
 export const SearchOutlined = createPackIcon("SearchOutlined");
 export const SettingOutlined = createPackIcon("SettingOutlined");
 export const ShrinkOutlined = createPackIcon("ShrinkOutlined");
+export const BorderOutlined = createPackIcon("BorderOutlined");
+export const CloseOutlined = createPackIcon("CloseOutlined");
+export const CommandOutlined = createPackIcon("CommandOutlined");
+export const RestoreOutlined = createPackIcon("RestoreOutlined");
 export const StopOutlined = createPackIcon("StopOutlined");
 export const SyncOutlined = createPackIcon("SyncOutlined");
 export const TableOutlined = createPackIcon("TableOutlined");

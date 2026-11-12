@@ -1,15 +1,20 @@
 import { HotkeysProvider, useHotkey } from "@tanstack/react-hotkeys";
 import { useQuery } from "@tanstack/react-query";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { Button, Result, Spin } from "antd";
+import { Button, Result, Spin, Tooltip } from "antd";
 import { useEffect, useMemo, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
-import { CommandPaletteProvider } from "../components/CommandPalette";
+import { CommandPaletteProvider, useCommandPalette } from "../components/CommandPalette";
 import {
   BlockOutlined,
+  BorderOutlined,
+  CloseOutlined,
   CodeSandboxOutlined,
+  CommandOutlined,
   HddOutlined,
+  MinusOutlined,
   ReloadOutlined,
+  RestoreOutlined,
   SettingOutlined,
 } from "../components/icons";
 import { Glyph } from "../components/ui";
@@ -24,13 +29,6 @@ const NAV = [
   { key: "/volumes", label: "Volumes", icon: HddOutlined },
   { key: "/settings", label: "Settings", icon: SettingOutlined },
 ];
-
-const TITLES: Record<string, string> = {
-  "/containers": "Containers",
-  "/images": "Images",
-  "/volumes": "Volumes",
-  "/settings": "Settings",
-};
 
 function WindowControls() {
   const [maximized, setMaximized] = useState(false);
@@ -59,72 +57,52 @@ function WindowControls() {
 
   return (
     <div className="win-controls">
-      <button
-        type="button"
+      <Button
+        type="text"
         className="win-btn"
         aria-label="Minimize"
         title="Minimize"
+        icon={<MinusOutlined style={{ fontSize: 10 }} />}
         onClick={() => void win.minimize()}
-      >
-        <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
-          <path d="M1 5h8" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-        </svg>
-      </button>
-      <button
-        type="button"
+      />
+      <Button
+        type="text"
         className="win-btn"
         aria-label={maximized ? "Restore" : "Maximize"}
         title={maximized ? "Restore" : "Maximize"}
+        icon={
+          maximized ? (
+            <RestoreOutlined style={{ fontSize: 10 }} />
+          ) : (
+            <BorderOutlined style={{ fontSize: 10 }} />
+          )
+        }
         onClick={() => void win.toggleMaximize()}
-      >
-        {maximized ? (
-          <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
-            <path
-              d="M3 3V1.5h5.5V7H7"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <rect
-              x="1.5"
-              y="3"
-              width="5.5"
-              height="5.5"
-              rx="0.8"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.2"
-            />
-          </svg>
-        ) : (
-          <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
-            <rect
-              x="1.5"
-              y="1.5"
-              width="7"
-              height="7"
-              rx="1"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.2"
-            />
-          </svg>
-        )}
-      </button>
-      <button
-        type="button"
+      />
+      <Button
+        type="text"
         className="win-btn close"
         aria-label="Close"
         title="Close"
+        icon={<CloseOutlined style={{ fontSize: 10 }} />}
         onClick={() => void win.close()}
-      >
-        <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
-          <path d="M2 2l6 6M8 2L2 8" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-        </svg>
-      </button>
+      />
     </div>
+  );
+}
+
+function CommandButton() {
+  const { togglePalette } = useCommandPalette();
+  return (
+    <Tooltip title="Command palette (F1)">
+      <Button
+        type="text"
+        size="small"
+        aria-label="Command palette"
+        icon={<CommandOutlined />}
+        onClick={togglePalette}
+      />
+    </Tooltip>
   );
 }
 
@@ -142,11 +120,8 @@ export default function MainLayout() {
   });
 
   const standby = isError || (status != null && status.state === "standby");
-  // Detail routes (/containers/:id) keep their section's title.
-  const section = `/${location.pathname.split("/")[1] ?? ""}`;
-  const title = TITLES[section] ?? "Container GUI";
   // Preferences hosts the backend switcher, so it must stay reachable while Docker is down.
-  const preferences = section === "/settings";
+  const preferences = `/${location.pathname.split("/")[1] ?? ""}` === "/settings";
   const showStandby = standby && !preferences;
   const showSpinner = status == null && !preferences;
   useDockerEvents(preferences);
@@ -195,24 +170,19 @@ export default function MainLayout() {
       <CommandPaletteProvider>
         <div className="app-shell">
           <UpdateNotifier />
-          <aside className="side">
-            <div className="brand" data-tauri-drag-region>
+          <header className="topbar" data-tauri-drag-region>
+            <div className="topbar-brand" data-tauri-drag-region>
               <Glyph />
-              <span data-tauri-drag-region>Container GUI</span>
             </div>
-            {nav}
-          </aside>
+            <div className="topbar-right" data-tauri-drag-region>
+              <CommandButton />
+              <WindowControls />
+            </div>
+          </header>
+
+          <aside className="side">{nav}</aside>
 
           <main className="main">
-            <div className="topbar" data-tauri-drag-region>
-              <span data-tauri-drag-region style={{ fontSize: 14, fontWeight: 510, color: "var(--paper)" }}>
-                {title}
-              </span>
-              <div className="topbar-right" data-tauri-drag-region>
-                <WindowControls />
-              </div>
-            </div>
-
             <div className="main-body">
               {showStandby ? (
                 <div style={{ display: "flex", justifyContent: "center", paddingTop: 80 }}>

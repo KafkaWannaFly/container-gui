@@ -50,11 +50,13 @@ export interface PaletteCommand {
 
 interface CommandPaletteContextValue {
   openPalette: () => void;
+  togglePalette: () => void;
   setPageCommands: (commands: PaletteCommand[]) => void;
 }
 
 const CommandPaletteContext = createContext<CommandPaletteContextValue>({
   openPalette: () => {},
+  togglePalette: () => {},
   setPageCommands: () => {},
 });
 
@@ -108,14 +110,12 @@ export function CommandPaletteProvider({ children }: { children: ReactNode }) {
     setOpen(false);
   }, []);
 
-  useHotkey(
-    "F1",
-    () => {
-      if (open) closePalette();
-      else openPalette();
-    },
-    { requireReset: true },
-  );
+  const togglePalette = useCallback(() => {
+    if (open) closePalette();
+    else openPalette();
+  }, [open, openPalette, closePalette]);
+
+  useHotkey("F1", togglePalette, { requireReset: true });
 
   useEffect(() => {
     if (!open) return;
@@ -438,7 +438,10 @@ export function CommandPaletteProvider({ children }: { children: ReactNode }) {
     return [...map.entries()];
   }, [filtered]);
 
-  const contextValue = useMemo(() => ({ openPalette, setPageCommands }), [openPalette]);
+  const contextValue = useMemo(
+    () => ({ openPalette, togglePalette, setPageCommands }),
+    [openPalette, togglePalette],
+  );
 
   return (
     <CommandPaletteContext.Provider value={contextValue}>

@@ -191,7 +191,7 @@ body {
 .app-shell {
   display: grid;
   grid-template-columns: 224px minmax(0, 1fr);
-  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-rows: 48px minmax(0, 1fr) auto;
   height: 100vh;
   overflow: hidden;
 }
@@ -205,17 +205,6 @@ body {
   display: flex;
   flex-direction: column;
   gap: 2px;
-}
-
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: 6px 8px 14px;
-  color: var(--paper);
-  font-weight: 510;
-  font-size: 15px;
-  letter-spacing: -0.011em;
 }
 
 .nav-item {
@@ -291,17 +280,27 @@ body {
 }
 
 .topbar {
+  grid-column: 1 / -1;
   height: 48px;
-  flex: 0 0 48px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 0 0 24px;
+  padding: 0 0 0 14px;
   border-bottom: 1px solid var(--graphite);
   background: color-mix(in srgb, var(--void) 85%, transparent);
   backdrop-filter: blur(8px);
   z-index: 10;
   user-select: none;
+}
+
+.topbar-brand {
+  display: flex;
+  align-items: center;
+  height: 100%;
+}
+
+.topbar-brand img {
+  pointer-events: none;
 }
 
 .topbar-right {
@@ -318,10 +317,11 @@ body {
   border-left: 1px solid var(--graphite);
 }
 
-.win-btn {
+.win-btn.ant-btn {
   width: 42px;
   height: 100%;
   border: 0;
+  border-radius: 0;
   padding: 0;
   background: transparent;
   color: var(--fog);
@@ -334,12 +334,12 @@ body {
     color 0.15s ease;
 }
 
-.win-btn:hover {
+.win-btn.ant-btn:hover {
   background: var(--obsidian);
   color: var(--paper);
 }
 
-.win-btn.close:hover {
+.win-btn.close.ant-btn:hover {
   background: var(--coral);
   color: #ffffff;
 }
