@@ -26,11 +26,13 @@ pub type OutputStream = BoxStream<'static, AppResult<OutputChunk>>;
 pub type ByteStream = BoxStream<'static, std::io::Result<Bytes>>;
 
 /// Resolves endpoints and opens engine clients.
+#[async_trait]
 pub trait IEngineConnector: Send + Sync {
     /// Built-in local endpoint of this engine on this platform.
     fn platform_default(&self) -> ConnectionTarget;
-    /// Best-effort endpoint: environment, then CLI context, then platform default.
-    fn default_target(&self) -> ConnectionTarget;
+    /// Best-effort endpoint: environment, then CLI context, then installed
+    /// preference, then platform default.
+    async fn default_target(&self) -> ConnectionTarget;
     /// Open a client for `target`. Does not verify the engine is reachable;
     /// callers ping through [`ISystemGateway`].
     fn connect(&self, target: &ConnectionTarget) -> AppResult<Arc<dyn IEngine>>;

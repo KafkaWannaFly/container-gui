@@ -122,3 +122,12 @@ pub trait IDockerContextRepository: Send + Sync {
     /// Every stored context except the built-in `default`.
     fn list(&self) -> Vec<DockerContextDto>;
 }
+
+/// The endpoint the onboarding wizard installed and asked us to remember,
+/// used as a fallback ahead of the platform default. Persisted so a
+/// Docker-in-WSL (loopback TCP) install survives restarts.
+#[async_trait]
+pub trait IEnginePreferenceRepository: Send + Sync {
+    async fn endpoint(&self) -> Option<String>;
+    async fn set_endpoint(&self, endpoint: Option<String>);
+}

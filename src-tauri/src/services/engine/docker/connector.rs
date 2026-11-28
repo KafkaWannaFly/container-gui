@@ -3,12 +3,13 @@
 use std::path::Path;
 use std::sync::Arc;
 
+use async_trait::async_trait;
 use bollard::{API_DEFAULT_VERSION, Docker};
 use tap::Tap;
 
 use super::DockerEngine;
 use crate::error::{AppError, AppResult};
-use crate::repositories::IDockerContextRepository;
+use crate::repositories::{IDockerContextRepository, IEnginePreferenceRepository};
 use crate::services::engine::target::{
     ConnectionTarget, normalize_npipe, normalize_tcp, redact_endpoint, target_from_host,
 };
@@ -19,8 +20,10 @@ const REQUEST_TIMEOUT_SECS: u64 = 120;
 #[derive(bon::Builder)]
 pub struct DockerConnector {
     contexts: Arc<dyn IDockerContextRepository>,
+    preference: Arc<dyn IEnginePreferenceRepository>,
 }
 
+#[async_trait]
 impl IEngineConnector for DockerConnector {
     fn platform_default(&self) -> ConnectionTarget {
         #[cfg(windows)]
@@ -33,8 +36,9 @@ impl IEngineConnector for DockerConnector {
         }
     }
 
-    /// `DOCKER_HOST` → Docker context → platform default.
-    fn default_target(&self) -> ConnectionTarget {
+    /// `DOCKER_HOST` → Docker context → wizard-installed endpoint → platform
+    /// default.
+    async fn default_target(&self) -> ConnectionTarget {
         if let Ok(host) = std::env::var("DOCKER_HOST")
             && let Some(target) = target_from_host(&host)
         {
@@ -43,6 +47,12 @@ impl IEngineConnector for DockerConnector {
 
         if let Some(context) = self.contexts.current_context()
             && let Some(host) = self.contexts.context_host(&context)
+            && let Some(target) = target_from_host(&host)
+        {
+            return target;
+        }
+
+        if let Some(host) = self.preference.endpoint().await
             && let Some(target) = target_from_host(&host)
         {
             return target;
@@ -114,18 +124,53 @@ mod tests {
     use crate::models::engine::ContainerQuery;
     use crate::repositories::fs::{FsDockerContextRepository, docker_contexts};
 
+    /// In-memory preference so tests can pin an installed endpoint.
+    struct MemPreference(std::sync::Mutex<Option<String>>);
+
+    #[async_trait]
+    impl IEnginePreferenceRepository for MemPreference {
+        async fn endpoint(&self) -> Option<String> {
+            self.0.lock().unwrap().clone()
+        }
+        async fn set_endpoint(&self, endpoint: Option<String>) {
+            *self.0.lock().unwrap() = endpoint;
+        }
+    }
+
+    fn connector_with(preference: Option<String>) -> DockerConnector {
+        let contexts = FsDockerContextRepository::builder()
+            .maybe_docker_dir(docker_contexts::default_docker_dir())
+            .build();
+        DockerConnector::builder()
+            .contexts(Arc::new(contexts))
+            .preference(Arc::new(MemPreference(std::sync::Mutex::new(preference))))
+            .build()
+    }
+
+    #[tokio::test]
+    async fn preference_fills_in_before_platform_default() {
+        // Only meaningful when neither DOCKER_HOST nor a current context is
+        // set; guard so the test does not fight the developer's environment.
+        if std::env::var_os("DOCKER_HOST").is_some() {
+            return;
+        }
+        let connector = connector_with(Some("tcp://127.0.0.1:2375".into()));
+        if connector.contexts.current_context().is_some() {
+            return;
+        }
+        assert_eq!(
+            connector.default_target().await.endpoint(),
+            "tcp://127.0.0.1:2375"
+        );
+    }
+
     /// Live smoke test: resolves the real endpoint, and when a daemon is
     /// reachable, verifies the container list round-trips. Skips (passes)
     /// when no engine is running so CI without Docker stays green.
     #[tokio::test]
     async fn live_engine_smoke() {
-        let contexts = FsDockerContextRepository::builder()
-            .maybe_docker_dir(docker_contexts::default_docker_dir())
-            .build();
-        let connector = DockerConnector::builder()
-            .contexts(Arc::new(contexts))
-            .build();
-        let Ok(engine) = connector.connect(&connector.default_target()) else {
+        let connector = connector_with(None);
+        let Ok(engine) = connector.connect(&connector.default_target().await) else {
             return;
         };
         if engine.system().ping().await.is_err() {

@@ -8,8 +8,12 @@ pub mod compose_runner;
 pub mod event_publisher;
 pub mod event_sink;
 pub mod file_writer;
+pub mod http_downloader;
+pub mod process_runner;
 
 pub use compose_runner::{DockerComposeCli, IComposeRunner};
 pub use event_publisher::{IEventPublisher, TauriEventPublisher};
 pub use event_sink::IEventSink;
 pub use file_writer::{IFileWriter, TokioFileWriter};
+pub use http_downloader::{IHttpDownloader, ReqwestDownloader};
+pub use process_runner::{IProcessRunner, ProcessOutput, TokioProcessRunner};

@@ -13,25 +13,28 @@ use crate::repositories::memory::{
     InMemoryExecSessionRepository, InMemoryMetricsRepository, InMemoryStreamRegistry,
 };
 use crate::repositories::sqlite::{
-    SqliteMetricsHistoryRepository, SqliteVolumeSizeRepository, pool,
+    SqliteEnginePreferenceRepository, SqliteMetricsHistoryRepository, SqliteVolumeSizeRepository,
+    pool,
 };
 use crate::repositories::{
-    IDockerContextRepository, IExecSessionRepository, IMetricsHistoryRepository,
-    IMetricsRepository, IStreamRegistry, IVolumeSizeRepository,
+    IDockerContextRepository, IEnginePreferenceRepository, IExecSessionRepository,
+    IMetricsHistoryRepository, IMetricsRepository, IStreamRegistry, IVolumeSizeRepository,
 };
 use crate::services::compose::ComposeService;
 use crate::services::connection::ConnectionService;
 use crate::services::container::ContainerService;
 use crate::services::engine::IEngineConnector;
 use crate::services::engine::docker::DockerConnector;
+use crate::services::environment::{EnvironmentService, IEnvironmentService};
 use crate::services::exec::ExecService;
 use crate::services::files::FilesService;
 use crate::services::image::ImageService;
 use crate::services::infrastructure::{
-    DockerComposeCli, IComposeRunner, IEventPublisher, IFileWriter, TauriEventPublisher,
-    TokioFileWriter,
+    DockerComposeCli, IComposeRunner, IEventPublisher, IFileWriter, IHttpDownloader,
+    IProcessRunner, ReqwestDownloader, TauriEventPublisher, TokioFileWriter, TokioProcessRunner,
 };
 use crate::services::metrics::{self, IMetricsService, MetricsService};
+use crate::services::provision::{IProvisionService, ProvisionService};
 use crate::services::session::{EngineSession, IEngineSession};
 use crate::services::stream::StreamService;
 use crate::services::system::SystemService;
@@ -58,7 +61,7 @@ pub async fn build(app: &AppHandle, data_dir: &Path) -> Composition {
             .build()
             .into_arc();
     let volume_sizes: Arc<dyn IVolumeSizeRepository> = SqliteVolumeSizeRepository::builder()
-        .pool(pool)
+        .pool(pool.clone())
         .build()
         .into_arc();
     let live_metrics: Arc<dyn IMetricsRepository> = InMemoryMetricsRepository::builder()
@@ -72,6 +75,11 @@ pub async fn build(app: &AppHandle, data_dir: &Path) -> Composition {
         .maybe_docker_dir(docker_contexts::default_docker_dir())
         .build()
         .into_arc();
+    let preference: Arc<dyn IEnginePreferenceRepository> =
+        SqliteEnginePreferenceRepository::builder()
+            .pool(pool)
+            .build()
+            .into_arc();
 
     // Infrastructure and engine services.
     let publisher: Arc<dyn IEventPublisher> = TauriEventPublisher::builder()
@@ -80,13 +88,30 @@ pub async fn build(app: &AppHandle, data_dir: &Path) -> Composition {
         .into_arc();
     let file_writer: Arc<dyn IFileWriter> = TokioFileWriter::builder().build().into_arc();
     let compose_runner: Arc<dyn IComposeRunner> = DockerComposeCli::builder().build().into_arc();
+    let process_runner: Arc<dyn IProcessRunner> = TokioProcessRunner::builder().build().into_arc();
+    let downloader: Arc<dyn IHttpDownloader> = ReqwestDownloader::builder().build().into_arc();
     let connector: Arc<dyn IEngineConnector> = DockerConnector::builder()
         .contexts(contexts.clone())
+        .preference(preference.clone())
         .build()
         .into_arc();
     let session: Arc<dyn IEngineSession> = EngineSession::builder()
         .connector(connector.clone())
         .publisher(publisher.clone())
+        .build()
+        .await
+        .into_arc();
+    let environment: Arc<dyn IEnvironmentService> = EnvironmentService::builder()
+        .runner(process_runner.clone())
+        .build()
+        .into_arc();
+    let provision: Arc<dyn IProvisionService> = ProvisionService::builder()
+        .runner(process_runner)
+        .downloader(downloader)
+        .session(session.clone())
+        .preference(preference)
+        .streams(streams.clone())
+        .data_dir(data_dir.to_path_buf())
         .build()
         .into_arc();
 
@@ -120,6 +145,7 @@ pub async fn build(app: &AppHandle, data_dir: &Path) -> Composition {
                 .build()
                 .into_arc(),
         )
+        .environment(environment)
         .exec(
             ExecService::builder()
                 .session(session.clone())
@@ -143,6 +169,7 @@ pub async fn build(app: &AppHandle, data_dir: &Path) -> Composition {
                 .into_arc(),
         )
         .metrics(metrics.clone())
+        .provision(provision)
         .streams(StreamService::builder().streams(streams).build().into_arc())
         .system(
             SystemService::builder()

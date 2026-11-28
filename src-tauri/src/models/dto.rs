@@ -411,3 +411,157 @@ pub struct ComposeActionRequest {
     #[serde(default)]
     pub services: Vec<String>,
 }
+
+/* --------------------------- engine onboarding --------------------------- */
+
+/// One installed WSL distribution.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WslDistroDto {
+    pub name: String,
+    pub state: String,
+    pub version: u32,
+    /// The distro already ships a Docker daemon (`dockerd` was found inside).
+    pub has_docker: bool,
+}
+
+/// Host WSL capability, as reported by `wsl.exe`.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WslReportDto {
+    pub installed: bool,
+    pub default_version: Option<u32>,
+    pub distros: Vec<WslDistroDto>,
+    /// Distro names `wsl --install -d <name>` can register (`wsl -l -o`),
+    /// filtered to the Docker-supported families. Empty fallback list when
+    /// the query is unavailable.
+    pub installables: Vec<String>,
+}
+
+/// One `podman machine` entry.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PodmanMachineDto {
+    pub name: String,
+    pub running: bool,
+    pub rootless: bool,
+}
+
+/// Host capabilities the setup wizard checks before offering an install.
+/// Every probe degrades gracefully: missing tools report `None`/`false`.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EnvironmentReportDto {
+    pub wsl: WslReportDto,
+    /// Firmware virtualization / hypervisor presence; `None` when unknown.
+    pub virtualization: Option<bool>,
+    /// winget version when available.
+    pub winget: Option<String>,
+    pub podman_version: Option<String>,
+    pub docker_version: Option<String>,
+    pub podman_machines: Vec<PodmanMachineDto>,
+}
+
+/// Which backend the wizard installs.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum InstallEngine {
+    Podman,
+    DockerWsl,
+}
+
+/// Which WSL distro the Docker Engine install runs in.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum DockerTargetKind {
+    /// A distro already registered on this machine.
+    Existing,
+    /// A popular distro to register first via `wsl --install -d`.
+    Install,
+}
+
+/// Where to install: a tagged distro choice; `None` means create the new
+/// dedicated Alpine import (named from the tarball version, e.g.
+/// `Alpine-3.22`, and reported back on the install's `end` event).
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DockerTarget {
+    pub kind: DockerTargetKind,
+    pub name: String,
+}
+
+/// Install options collected on the wizard's options step.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InstallRequest {
+    pub engine: InstallEngine,
+    /// Podman machine name, or Docker Engine distribution name.
+    pub unit_name: String,
+    /// Docker Engine only: install into an existing or newly registered
+    /// distro instead of importing a new dedicated one.
+    #[serde(default)]
+    pub target: Option<DockerTarget>,
+    /// Podman only; Docker Engine always runs as root inside its distro.
+    #[serde(default = "default_true")]
+    pub rootless: bool,
+    #[serde(default = "default_cpus")]
+    pub cpus: u32,
+    #[serde(default = "default_memory_mib")]
+    pub memory_mib: u32,
+    #[serde(default = "default_disk_gib")]
+    pub disk_gib: u32,
+}
+
+fn default_cpus() -> u32 {
+    2
+}
+
+fn default_memory_mib() -> u32 {
+    2048
+}
+
+fn default_disk_gib() -> u32 {
+    100
+}
+
+/// One line of child-process output (`stream`: stdout | stderr).
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProcessLineDto {
+    pub stream: String,
+    pub text: String,
+}
+
+/// Download progress for large install artifacts (WSL rootfs images).
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DownloadProgressDto {
+    pub bytes: u64,
+    pub total_bytes: Option<u64>,
+}
+
+/// Messages on the install channel: phase markers, process output, download
+/// progress, then exactly one `end`.
+#[derive(Debug, Clone, Serialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum InstallEventDto {
+    Phase {
+        index: u32,
+        total: u32,
+        name: String,
+    },
+    Line {
+        stream: String,
+        text: String,
+    },
+    Download {
+        bytes: u64,
+        total_bytes: Option<u64>,
+    },
+    End {
+        error: Option<String>,
+        /// Final machine/distribution name the engine was installed as
+        /// (the dedicated Alpine import may resolve `Alpine-<version>`).
+        unit_name: Option<String>,
+    },
+}

@@ -28,8 +28,11 @@ pub struct EngineSession {
 #[bon]
 impl EngineSession {
     #[builder]
-    pub fn new(connector: Arc<dyn IEngineConnector>, publisher: Arc<dyn IEventPublisher>) -> Self {
-        let target = connector.default_target();
+    pub async fn new(
+        connector: Arc<dyn IEngineConnector>,
+        publisher: Arc<dyn IEventPublisher>,
+    ) -> Self {
+        let target = connector.default_target().await;
         let status = DockerStatusDto::standby(
             target.endpoint(),
             target.kind().to_string(),
@@ -107,7 +110,7 @@ impl IEngineSession for EngineSession {
     }
 
     async fn connect_default(&self) {
-        let target = self.connector.default_target();
+        let target = self.connector.default_target().await;
         if let Err(err) = self.switch(target).await {
             self.mark_standby(err.to_string()).await;
         }

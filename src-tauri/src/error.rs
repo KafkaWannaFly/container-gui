@@ -25,6 +25,12 @@ pub enum AppError {
     #[error("Unsupported Docker host: {host}")]
     UnsupportedHost { host: String },
 
+    #[error("{program} was not found on this system")]
+    ProgramNotFound { program: String },
+
+    #[error("Operation cancelled")]
+    Cancelled,
+
     #[error("Docker error: {0}")]
     Docker(#[from] bollard::errors::Error),
 
@@ -40,6 +46,8 @@ impl AppError {
             AppError::DaemonUnreachable { .. } => "daemon_unreachable",
             AppError::NotConnected => "not_connected",
             AppError::UnsupportedHost { .. } => "unsupported_host",
+            AppError::ProgramNotFound { .. } => "program_not_found",
+            AppError::Cancelled => "cancelled",
             AppError::Docker(_) => "docker",
             AppError::Message(_) => "message",
         }

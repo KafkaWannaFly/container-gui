@@ -107,6 +107,8 @@ pub fn run() {
             commands::context::list_contexts,
             commands::context::test_connection,
             commands::context::switch_docker_endpoint,
+            commands::provision::environment_report,
+            commands::provision::install_engine,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

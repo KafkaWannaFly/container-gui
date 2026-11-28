@@ -1,9 +1,11 @@
 //! SQLite repositories. They share the single pool from [`pool`].
 
+pub mod engine_preference;
 pub mod metrics_history;
 pub mod pool;
 pub mod volume_sizes;
 
+pub use engine_preference::SqliteEnginePreferenceRepository;
 pub use metrics_history::SqliteMetricsHistoryRepository;
 pub use volume_sizes::SqliteVolumeSizeRepository;
 
