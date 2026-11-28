@@ -21,6 +21,7 @@ import { usePersistentState } from "../../hooks/usePersistentState";
 import { queryKeys } from "../../lib/queryClient";
 import {
   getDockerStatus,
+  getInstalledEndpoint,
   listDockerContexts,
   switchDockerEndpoint,
   testConnection,
@@ -101,6 +102,7 @@ export default function SettingsPage() {
 
   const contexts = useQuery({ queryKey: queryKeys.contexts(), queryFn: listDockerContexts });
   const status = useQuery({ queryKey: queryKeys.status(), queryFn: getDockerStatus });
+  const installed = useQuery({ queryKey: queryKeys.installedEndpoint(), queryFn: getInstalledEndpoint });
   const appInfo = useQuery({
     queryKey: queryKeys.appInfo(),
     queryFn: async () => ({ version: await getVersion(), tauri: await getTauriVersion() }),
@@ -112,6 +114,13 @@ export default function SettingsPage() {
   const options = useMemo(() => {
     const removed = new Set(removedEndpoints);
     const byHost = new Map<string, { value: string; label: string; name?: string; host: string }>();
+
+    // The endpoint the setup wizard installed (or the last applied one):
+    // always listed, and labelled so it stands out from CLI contexts.
+    const saved = installed.data;
+    if (saved && !removed.has(saved)) {
+      byHost.set(saved, { value: saved, label: `Installed · ${saved}`, name: "Installed", host: saved });
+    }
 
     for (const ctx of contexts.data ?? []) {
       if (removed.has(ctx.host)) continue;
@@ -135,7 +144,7 @@ export default function SettingsPage() {
     }
 
     return Array.from(byHost.values());
-  }, [contexts.data, customEndpoints, removedEndpoints, endpoint]);
+  }, [contexts.data, customEndpoints, removedEndpoints, endpoint, installed.data]);
 
   const value =
     valueChoice !== undefined && options.some((o) => o.value === valueChoice)
@@ -185,6 +194,7 @@ export default function SettingsPage() {
       setPing(result);
       setValue(result.endpoint);
       queryClient.setQueryData(queryKeys.status(), result);
+      void queryClient.invalidateQueries({ queryKey: queryKeys.installedEndpoint() });
       void queryClient.invalidateQueries({ queryKey: queryKeys.containersPrefix() });
       void queryClient.invalidateQueries({ queryKey: queryKeys.images() });
       void queryClient.invalidateQueries({ queryKey: queryKeys.volumes() });

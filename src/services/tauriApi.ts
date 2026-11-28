@@ -332,6 +332,11 @@ export function getEnvironmentReport(): Promise<EnvironmentReport> {
   return call("environment_report", {}, EnvironmentReportSchema);
 }
 
+/** Endpoint persisted by the setup wizard / last applied connection. */
+export function getInstalledEndpoint(): Promise<string | null> {
+  return call("get_installed_endpoint", {}, z.string().nullable());
+}
+
 /**
  * Install a backend-only engine, streaming phases/output into `onEvent`.
  * Returns a disposer that cancels the backend install (call it on unmount or

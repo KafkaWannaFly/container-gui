@@ -1,6 +1,18 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useUnmount } from "ahooks";
-import { Alert, App, Button, Input, InputNumber, Modal, Progress, Segmented, Select, Spin, Steps } from "antd";
+import {
+  Alert,
+  App,
+  Button,
+  Input,
+  InputNumber,
+  Modal,
+  Progress,
+  Segmented,
+  Select,
+  Spin,
+  Steps,
+} from "antd";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { queryKeys } from "../lib/queryClient";
@@ -160,6 +172,7 @@ function Wizard({ onClose }: { onClose: () => void }) {
 
   const invalidateConnected = () => {
     void queryClient.invalidateQueries({ queryKey: queryKeys.status() });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.installedEndpoint() });
     void queryClient.invalidateQueries({ queryKey: queryKeys.containersPrefix() });
     void queryClient.invalidateQueries({ queryKey: queryKeys.images() });
     void queryClient.invalidateQueries({ queryKey: queryKeys.volumes() });

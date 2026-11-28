@@ -109,7 +109,7 @@ pub async fn build(app: &AppHandle, data_dir: &Path) -> Composition {
         .runner(process_runner)
         .downloader(downloader)
         .session(session.clone())
-        .preference(preference)
+        .preference(preference.clone())
         .streams(streams.clone())
         .data_dir(data_dir.to_path_buf())
         .build()
@@ -134,6 +134,7 @@ pub async fn build(app: &AppHandle, data_dir: &Path) -> Composition {
                 .session(session.clone())
                 .connector(connector)
                 .contexts(contexts)
+                .preference(preference)
                 .build()
                 .into_arc(),
         )

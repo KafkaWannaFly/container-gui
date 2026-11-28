@@ -24,3 +24,10 @@ pub async fn switch_docker_endpoint(
 ) -> AppResult<DockerStatusDto> {
     state.connection.switch(&config).await
 }
+
+/// Endpoint the setup wizard installed (or the last endpoint applied from
+/// settings); the settings dropdown lists it alongside CLI contexts.
+#[tauri::command]
+pub async fn get_installed_endpoint(state: State<'_, AppState>) -> AppResult<Option<String>> {
+    Ok(state.connection.installed_endpoint().await)
+}

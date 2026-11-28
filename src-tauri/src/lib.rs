@@ -107,6 +107,7 @@ pub fn run() {
             commands::context::list_contexts,
             commands::context::test_connection,
             commands::context::switch_docker_endpoint,
+            commands::context::get_installed_endpoint,
             commands::provision::environment_report,
             commands::provision::install_engine,
         ])

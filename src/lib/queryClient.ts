@@ -26,6 +26,7 @@ export const queryKeys = {
   system: () => ["system-info"] as const,
   environment: () => ["environment-report"] as const,
   contexts: () => ["docker-contexts"] as const,
+  installedEndpoint: () => ["installed-endpoint"] as const,
   appInfo: () => ["app-info"] as const,
   containerChanges: (id: string) => ["container-changes", id] as const,
   containerFile: (id: string, path: string | null) => ["container-file", id, path] as const,
