@@ -1,0 +1,1395 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Container GUI — Engine Setup Prototype (Podman)</title>
+<!--
+  Prototype: "Install a container engine" onboarding (Option C — Podman machine).
+  Self-contained, no build step. Open in a browser.
+  Matches the app's default "Linear" theme tokens (src/theme/antdTheme.ts).
+  Use the floating "Prototype" panel (bottom-right) to switch scenarios.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --void: #08090a;
+    --carbon: #0f1011;
+    --obsidian: #161718;
+    --graphite: #23252a;
+    --smoke: #383b3f;
+    --ash: #62666d;
+    --fog: #8a8f98;
+    --mist: #d0d6e0;
+    --bone: #e5e5e6;
+    --paper: #ffffff;
+    --lime: #e4f222;
+    --green: #27a644;
+    --coral: #eb5757;
+    --teal: #02b8cc;
+    --violet: #6366f1;
+    --amber: #d9a441;
+    --font-ui: "Be Vietnam Pro", system-ui, -apple-system, sans-serif;
+    --font-mono: "Paper Mono", ui-monospace, "Cascadia Code", Consolas, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: var(--void);
+    color: var(--mist);
+    font-family: var(--font-ui);
+    font-size: 13px;
+    line-height: 1.5;
+    overflow: hidden;
+  }
+  .mono { font-family: var(--font-mono); }
+  button { font-family: inherit; font-size: 13px; cursor: pointer; }
+  input, select { font-family: inherit; font-size: 13px; }
+
+  /* ---------- App shell (mirrors MainLayout) ---------- */
+  .app-shell {
+    display: grid;
+    grid-template-columns: 224px minmax(0, 1fr);
+    grid-template-rows: 48px minmax(0, 1fr) auto;
+    height: 100vh;
+  }
+  .topbar {
+    grid-column: 1 / 3;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 12px;
+    border-bottom: 1px solid var(--graphite);
+    background: var(--carbon);
+  }
+  .brand { display: flex; align-items: center; gap: 8px; font-weight: 600; color: var(--bone); }
+  .brand svg { display: block; }
+  .topbar-right { display: flex; align-items: center; gap: 4px; }
+  .win-btn {
+    width: 36px; height: 28px; border: none; background: transparent;
+    color: var(--fog); border-radius: 4px; font-size: 11px; line-height: 1;
+  }
+  .win-btn:hover { background: var(--obsidian); color: var(--mist); }
+  .win-btn.close:hover { background: var(--coral); color: #fff; }
+  .side {
+    border-right: 1px solid var(--graphite);
+    background: var(--carbon);
+    padding: 10px 8px;
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .nav-item {
+    display: flex; align-items: center; gap: 9px;
+    padding: 7px 10px; border-radius: 6px;
+    color: var(--fog); text-decoration: none; border: none; background: transparent;
+    width: 100%; text-align: left;
+  }
+  .nav-item svg { flex: 0 0 auto; }
+  .nav-item:hover { background: var(--obsidian); color: var(--mist); }
+  .nav-item.active { background: var(--obsidian); color: var(--paper); }
+  .nav-item.active svg { color: var(--lime); }
+  .nav-item.disabled { opacity: 0.45; cursor: default; }
+  .nav-item.disabled:hover { background: transparent; color: var(--fog); }
+  .nav-spacer { flex: 1; }
+  .main { overflow-y: auto; padding: 28px 32px; }
+  .statusbar {
+    grid-column: 1 / 3;
+    display: flex; align-items: center; gap: 8px;
+    border-top: 1px solid var(--graphite);
+    background: var(--carbon);
+    padding: 5px 12px;
+    font-size: 11.5px; color: var(--fog);
+  }
+  .dot { width: 6px; height: 6px; border-radius: 99px; flex: 0 0 auto; }
+  .dot.ok { background: var(--green); }
+  .dot.warn { background: var(--amber); }
+  .dot.err { background: var(--coral); }
+
+  /* ---------- Primitives ---------- */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+    height: 32px; padding: 0 14px;
+    border-radius: 6px; border: 1px solid var(--graphite);
+    background: transparent; color: var(--mist);
+    transition: border-color .12s, background .12s, color .12s;
+    white-space: nowrap;
+  }
+  .btn:hover { border-color: var(--smoke); color: var(--bone); }
+  .btn:disabled { opacity: .45; cursor: default; }
+  .btn.primary { background: var(--lime); border-color: var(--lime); color: var(--void); font-weight: 600; }
+  .btn.primary:hover { background: #eef95a; border-color: #eef95a; color: var(--void); }
+  .btn.danger { border-color: rgba(235,87,87,.4); color: var(--coral); }
+  .btn.danger:hover { border-color: var(--coral); background: rgba(235,87,87,.08); }
+  .btn.sm { height: 26px; padding: 0 10px; font-size: 12px; }
+  .btn.lg { height: 36px; padding: 0 18px; }
+  .card {
+    background: var(--carbon);
+    border: 1px solid var(--graphite);
+    border-radius: 12px;
+    padding: 18px;
+  }
+  .tag {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 1px 8px; border-radius: 5px;
+    background: rgba(255,255,255,.05);
+    color: var(--fog); font-size: 11.5px; font-weight: 500;
+    white-space: nowrap;
+  }
+  .tag.green { background: rgba(39,166,68,.14); color: #4fc96a; }
+  .tag.amber { background: rgba(217,164,65,.14); color: var(--amber); }
+  .tag.coral { background: rgba(235,87,87,.14); color: var(--coral); }
+  .tag.lime  { background: rgba(228,242,34,.12); color: var(--lime); }
+  .tag.teal  { background: rgba(2,184,204,.14); color: var(--teal); }
+  .muted { color: var(--fog); }
+  .dim { color: var(--ash); }
+  h1 { font-size: 20px; font-weight: 600; color: var(--paper); }
+  h2 { font-size: 15px; font-weight: 600; color: var(--paper); }
+  h3 { font-size: 13px; font-weight: 600; color: var(--bone); }
+  .label {
+    font-size: 11px; font-weight: 600; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--ash);
+  }
+  .input {
+    height: 32px; padding: 0 10px; width: 100%;
+    background: rgba(255,255,255,.02);
+    border: 1px solid var(--graphite); border-radius: 6px;
+    color: var(--mist); outline: none;
+  }
+  .input:focus { border-color: var(--mist); }
+  .input.mono { font-family: var(--font-mono); font-size: 12px; }
+  .divider { height: 1px; background: var(--graphite); border: none; margin: 16px 0; }
+
+  /* ---------- Standby / no-engine screen ---------- */
+  .standby { max-width: 620px; margin: 48px auto 0; text-align: center; }
+  .standby .hero-icon {
+    width: 64px; height: 64px; margin: 0 auto 18px;
+    border-radius: 16px; border: 1px solid var(--graphite);
+    background: var(--carbon);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .standby h1 { margin-bottom: 8px; }
+  .standby .sub { color: var(--fog); max-width: 460px; margin: 0 auto 22px; }
+  .detect-chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 26px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 7px;
+    border: 1px solid var(--graphite); border-radius: 99px;
+    background: var(--carbon);
+    padding: 5px 12px; font-size: 12px; color: var(--fog);
+  }
+  .chip b { color: var(--mist); font-weight: 500; }
+  .standby-actions { display: flex; gap: 10px; justify-content: center; }
+  .standby-note { margin-top: 18px; font-size: 12px; color: var(--ash); }
+
+  /* ---------- Modal / wizard ---------- */
+  .overlay {
+    position: fixed; inset: 0; z-index: 50;
+    background: rgba(4,5,6,.72);
+    display: flex; align-items: center; justify-content: center;
+    padding: 24px;
+  }
+  .modal {
+    width: 720px; max-width: 100%;
+    max-height: calc(100vh - 48px);
+    display: flex; flex-direction: column;
+    background: var(--carbon);
+    border: 1px solid var(--graphite);
+    border-radius: 12px;
+    box-shadow: 0 24px 64px rgba(0,0,0,.55);
+    overflow: hidden;
+  }
+  .modal-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 20px 0;
+  }
+  .modal-title { font-size: 15px; font-weight: 600; color: var(--paper); }
+  .modal-x {
+    width: 28px; height: 28px; border: none; border-radius: 6px;
+    background: transparent; color: var(--ash); font-size: 13px;
+  }
+  .modal-x:hover { background: var(--obsidian); color: var(--mist); }
+  .steps { display: flex; gap: 4px; padding: 14px 20px 0; }
+  .step {
+    flex: 1; display: flex; align-items: center; gap: 8px;
+    padding: 8px 10px; border-radius: 8px;
+    color: var(--ash); font-size: 12px; font-weight: 500;
+    border: 1px solid transparent;
+  }
+  .step .n {
+    width: 20px; height: 20px; border-radius: 99px; flex: 0 0 auto;
+    display: flex; align-items: center; justify-content: center;
+    border: 1px solid var(--smoke); color: var(--ash);
+    font-size: 11px; font-weight: 600;
+  }
+  .step.active { color: var(--paper); background: var(--obsidian); border-color: var(--graphite); }
+  .step.active .n { border-color: var(--lime); color: var(--lime); }
+  .step.done { color: var(--fog); }
+  .step.done .n { border-color: var(--green); background: rgba(39,166,68,.15); color: #4fc96a; }
+  .modal-body { padding: 18px 20px; overflow-y: auto; }
+  .modal-foot {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 14px 20px; border-top: 1px solid var(--graphite);
+  }
+  .modal-foot .right { display: flex; gap: 8px; margin-left: auto; }
+
+  /* ---------- Detection checklist ---------- */
+  .check-list { display: flex; flex-direction: column; gap: 8px; }
+  .check-row {
+    display: flex; align-items: center; gap: 12px;
+    border: 1px solid var(--graphite); border-radius: 10px;
+    background: rgba(255,255,255,.015);
+    padding: 10px 14px;
+  }
+  .check-row .ic {
+    width: 26px; height: 26px; border-radius: 8px; flex: 0 0 auto;
+    display: flex; align-items: center; justify-content: center; font-size: 13px;
+  }
+  .check-row .ic.ok { background: rgba(39,166,68,.14); color: #4fc96a; }
+  .check-row .ic.warn { background: rgba(217,164,65,.14); color: var(--amber); }
+  .check-row .ic.err { background: rgba(235,87,87,.14); color: var(--coral); }
+  .check-row .ic.info { background: rgba(255,255,255,.05); color: var(--fog); }
+  .check-row .txt { flex: 1; min-width: 0; }
+  .check-row .txt .t { color: var(--bone); font-weight: 500; }
+  .check-row .txt .d { color: var(--ash); font-size: 11.5px; font-family: var(--font-mono); }
+
+  /* ---------- Engine choice cards ---------- */
+  .engine-cards { display: flex; flex-direction: column; gap: 10px; }
+  .engine-card {
+    display: flex; gap: 14px; align-items: flex-start;
+    border: 1px solid var(--graphite); border-radius: 12px;
+    background: rgba(255,255,255,.015);
+    padding: 14px 16px; cursor: pointer; text-align: left; width: 100%;
+    color: var(--mist);
+  }
+  .engine-card:hover { border-color: var(--smoke); }
+  .engine-card.selected { border-color: var(--lime); background: rgba(228,242,34,.04); }
+  .engine-card .radio {
+    width: 16px; height: 16px; border-radius: 99px; margin-top: 3px; flex: 0 0 auto;
+    border: 1.5px solid var(--smoke);
+  }
+  .engine-card.selected .radio { border-color: var(--lime); background: var(--lime); box-shadow: inset 0 0 0 3px var(--carbon); }
+  .engine-card .body { flex: 1; }
+  .engine-card .title-row { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
+  .engine-card .title-row h3 { font-size: 13.5px; }
+  .engine-card p { color: var(--fog); font-size: 12.5px; }
+  .engine-card .meta { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+
+  /* ---------- Install progress ---------- */
+  .install-grid { display: grid; grid-template-columns: 250px minmax(0,1fr); gap: 16px; }
+  .phase-list { display: flex; flex-direction: column; gap: 6px; }
+  .phase {
+    display: flex; align-items: center; gap: 9px;
+    padding: 8px 10px; border-radius: 8px;
+    color: var(--ash); font-size: 12.5px;
+  }
+  .phase .pic { width: 16px; text-align: center; flex: 0 0 auto; }
+  .phase.active { background: var(--obsidian); color: var(--bone); }
+  .phase.done { color: var(--fog); }
+  .phase.done .pic { color: #4fc96a; }
+  .phase.active .pic { color: var(--lime); }
+  .progress-track {
+    height: 4px; border-radius: 99px; background: var(--graphite); overflow: hidden;
+  }
+  .progress-fill { height: 100%; width: 0%; background: var(--lime); border-radius: 99px; transition: width .25s linear; }
+  .console {
+    background: var(--void);
+    border: 1px solid var(--graphite); border-radius: 10px;
+    padding: 10px 12px;
+    font-family: var(--font-mono); font-size: 11.5px; line-height: 1.7;
+    height: 268px; overflow-y: auto;
+    white-space: pre-wrap; word-break: break-all;
+  }
+  .console .ts { color: var(--ash); }
+  .console .ok { color: #4fc96a; }
+  .console .warn { color: var(--amber); }
+  .console .cmd { color: var(--teal); }
+  .console .hl { color: var(--lime); }
+  .opt-row { display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 14px; }
+  .opt { display: flex; flex-direction: column; gap: 5px; }
+  .opt .label { font-size: 10.5px; }
+  .opt .input { width: 220px; }
+  .seg { display: inline-flex; border: 1px solid var(--graphite); border-radius: 6px; overflow: hidden; }
+  .seg button {
+    height: 30px; padding: 0 12px; border: none; background: transparent;
+    color: var(--fog); font-size: 12px;
+  }
+  .seg button.on { background: var(--graphite); color: var(--paper); }
+
+  /* ---------- Ready / success ---------- */
+  .ready-hero { text-align: center; padding: 6px 0 16px; }
+  .ready-hero .big {
+    width: 56px; height: 56px; margin: 0 auto 14px; border-radius: 99px;
+    background: rgba(39,166,68,.14); border: 1px solid rgba(39,166,68,.4);
+    display: flex; align-items: center; justify-content: center;
+    color: #4fc96a; font-size: 24px;
+  }
+  .kv { display: grid; grid-template-columns: 130px minmax(0,1fr); row-gap: 7px; font-size: 12.5px; }
+  .kv .k { color: var(--ash); }
+  .kv .v { color: var(--mist); font-family: var(--font-mono); font-size: 12px; }
+
+  /* ---------- Inline panels ---------- */
+  .panel {
+    border: 1px solid var(--graphite); border-radius: 10px;
+    background: var(--obsidian); padding: 14px 16px; margin-top: 14px;
+  }
+  .panel.warn { border-color: rgba(217,164,65,.35); background: rgba(217,164,65,.05); }
+  .panel.err { border-color: rgba(235,87,87,.35); background: rgba(235,87,87,.05); }
+  .panel h3 { margin-bottom: 5px; display: flex; align-items: center; gap: 8px; }
+  .panel p { color: var(--fog); font-size: 12.5px; }
+  .panel .actions { margin-top: 12px; display: flex; gap: 8px; align-items: center; }
+
+  /* ---------- Connected: containers table ---------- */
+  .page-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+  table.rows { width: 100%; border-collapse: collapse; }
+  table.rows th {
+    text-align: left; font-size: 11px; font-weight: 600; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--ash);
+    padding: 8px 12px; border-bottom: 1px solid var(--graphite);
+  }
+  table.rows td { padding: 10px 12px; border-bottom: 1px solid rgba(35,37,42,.6); }
+  table.rows tr:hover td { background: var(--obsidian); }
+  .state { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; }
+
+  /* ---------- Settings engine card ---------- */
+  .settings-grid { display: grid; grid-template-columns: minmax(0,1fr) 320px; gap: 16px; align-items: start; }
+  .engine-head { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+  .engine-logo {
+    width: 40px; height: 40px; border-radius: 10px; flex: 0 0 auto;
+    background: rgba(2,184,204,.1); border: 1px solid rgba(2,184,204,.3);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  /* ---------- Toast ---------- */
+  .toast {
+    position: fixed; top: 60px; left: 50%; transform: translateX(-50%);
+    z-index: 100; background: var(--obsidian); border: 1px solid var(--graphite);
+    color: var(--mist); border-radius: 8px; padding: 9px 16px; font-size: 12.5px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.4);
+    opacity: 0; pointer-events: none; transition: opacity .18s;
+  }
+  .toast.show { opacity: 1; }
+
+  /* ---------- Prototype control panel ---------- */
+  .proto {
+    position: fixed; right: 14px; bottom: 40px; z-index: 90;
+    width: 230px;
+    background: var(--obsidian); border: 1px solid var(--smoke); border-radius: 10px;
+    padding: 12px; box-shadow: 0 12px 32px rgba(0,0,0,.5);
+  }
+  .proto .label { margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+  .proto .label::before { content: ""; width: 6px; height: 6px; border-radius: 99px; background: var(--violet); }
+  .proto select {
+    width: 100%; height: 30px; margin-bottom: 8px;
+    background: var(--carbon); color: var(--mist);
+    border: 1px solid var(--graphite); border-radius: 6px; padding: 0 8px; outline: none;
+  }
+  .proto .hint { font-size: 11px; color: var(--ash); margin-top: 8px; line-height: 1.45; }
+  .proto .btn { width: 100%; }
+
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: var(--graphite); border-radius: 99px; border: 2px solid var(--void); }
+  ::-webkit-scrollbar-track { background: transparent; }
+</style>
+</head>
+<body>
+
+<div class="app-shell">
+  <header class="topbar">
+    <div class="brand">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+        <rect x="2" y="2" width="20" height="20" rx="5" fill="#e4f222"/>
+        <path d="M7 13.5h10M7 10h10M7 17h6" stroke="#08090a" stroke-width="1.8" stroke-linecap="round"/>
+      </svg>
+      Container GUI
+    </div>
+    <div class="topbar-right">
+      <button class="win-btn" title="Command palette">⌘</button>
+      <button class="win-btn">─</button>
+      <button class="win-btn">▢</button>
+      <button class="win-btn close">✕</button>
+    </div>
+  </header>
+
+  <aside class="side" id="sideNav"></aside>
+  <main class="main" id="main"></main>
+
+  <footer class="statusbar" id="statusbar"></footer>
+</div>
+
+<div id="modalRoot"></div>
+<div class="toast" id="toast"></div>
+
+<div class="proto">
+  <div class="label">Prototype controls</div>
+  <select id="scenarioSelect">
+    <option value="happy">Happy path — no engine, WSL ready</option>
+    <option value="no-wsl">WSL2 not installed</option>
+    <option value="no-virt">Virtualization disabled</option>
+    <option value="existing">Podman machine already exists</option>
+    <option value="connected">Connected — engine settings</option>
+  </select>
+  <button class="btn sm" id="restartBtn">↺ Restart demo</button>
+  <div class="hint">Simulated flow for the Podman onboarding wizard. Install steps are faked with timers; no real commands run.</div>
+</div>
+
+<script>
+"use strict";
+
+/* ============================== state ============================== */
+
+const S = {
+  scenario: "happy",
+  connected: false,
+  page: "containers",        // containers | settings
+  wizard: null,              // null | { step, engine, rootless, machineName, installing, phase, wslState }
+  machineRunning: false,
+  engine: "podman",          // connected engine: podman | docker
+  unitName: "podman-machine-default",
+};
+
+const SCENARIOS = {
+  happy:    { virt: "ok", wsl: "ok", docker: "none", podman: "none" },
+  "no-wsl": { virt: "ok", wsl: "missing", docker: "none", podman: "none" },
+  "no-virt":{ virt: "off", wsl: "missing", docker: "none", podman: "none" },
+  existing: { virt: "ok", wsl: "ok", docker: "none", podman: "stopped" },
+  connected:{ virt: "ok", wsl: "ok", docker: "none", podman: "running" },
+};
+
+const detect = () => SCENARIOS[S.scenario];
+
+/* ============================== icons ============================== */
+
+const IC = {
+  containers: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 8l-9-5-9 5 9 5 9-5zM3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg>',
+  images: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>',
+  volumes: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.7 4 3 9 3s9-1.3 9-3V5"/><path d="M3 12c0 1.7 4 3 9 3s9-1.3 9-3"/></svg>',
+  settings: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33h.01a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51h.01a1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82v.01a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>',
+  podman: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#02b8cc" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M8 12.5c1.2 1 2.6 1.5 4 1.5s2.8-.5 4-1.5M9 9.5h.01M15 9.5h.01"/></svg>',
+  docker: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#02b8cc" stroke-width="1.6"><path d="M3 13h18c-.5 3-2.5 6-7 6-4 0-6.5-2.5-7.5-5"/><path d="M6 13V9h3v4M9.5 13V6h3v7M13 13V9h3v4"/><path d="M3 13c1-1 2.5-1 3.5 0"/></svg>',
+};
+
+/* Display metadata per connected engine (versions are illustrative). */
+const ENGINE_META = {
+  podman: {
+    title: "Podman machine",
+    engine: "Podman 5.7.1",
+    api: "1.52 (compatible)",
+    mode: "rootless",
+    unitLabel: "Machine",
+    statusTag: "Podman 5.7.1 · rootless",
+    logo: IC.podman,
+    readyLine: "Podman is installed and Container GUI is connected.",
+    defaultUnit: "podman-machine-default",
+  },
+  docker: {
+    title: "Docker Engine",
+    engine: "Docker Engine 27.3.1",
+    api: "1.47",
+    mode: "root (in WSL)",
+    unitLabel: "Distribution",
+    statusTag: "Docker 27.3.1 · WSL2",
+    logo: IC.docker,
+    readyLine: "Docker Engine is installed and Container GUI is connected.",
+    defaultUnit: "container-gui-engine",
+  },
+};
+const meta = () => ENGINE_META[S.engine] ?? ENGINE_META.podman;
+
+/* ============================== helpers ============================== */
+
+const $ = (sel) => document.querySelector(sel);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+let toastTimer = null;
+function toast(msg) {
+  const t = $("#toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove("show"), 2600);
+}
+
+function now() {
+  const d = new Date();
+  return [d.getHours(), d.getMinutes(), d.getSeconds()].map((n) => String(n).padStart(2, "0")).join(":");
+}
+
+/* ============================== shell render ============================== */
+
+const NAV = [
+  { key: "containers", label: "Containers", icon: IC.containers },
+  { key: "images", label: "Images", icon: IC.images },
+  { key: "volumes", label: "Volumes", icon: IC.volumes },
+  { key: "settings", label: "Settings", icon: IC.settings },
+];
+
+function renderNav() {
+  $("#sideNav").innerHTML = NAV.map((n) => {
+    const locked = !S.connected && n.key !== "settings";
+    const cls = ["nav-item", S.page === n.key ? "active" : "", locked ? "disabled" : ""].join(" ");
+    return `<button class="${cls}" data-nav="${n.key}" ${locked ? 'title="Connect an engine first"' : ""}>
+      <span style="color:${S.page === n.key ? "var(--lime)" : "var(--ash)"};display:flex">${n.icon}</span>
+      <span style="flex:1">${n.label}</span>
+    </button>`;
+  }).join("") + `<div class="nav-spacer"></div>
+    <div style="padding:8px 10px;font-size:11px;color:var(--ash)" class="mono">v0.4.0 · prototype</div>`;
+
+  document.querySelectorAll("[data-nav]").forEach((b) => {
+    b.addEventListener("click", () => {
+      const key = b.dataset.nav;
+      if (!S.connected && key !== "settings") { toast("No engine connected — run setup first."); return; }
+      S.page = key;
+      render();
+    });
+  });
+}
+
+function renderStatusbar() {
+  const el = $("#statusbar");
+  if (S.connected) {
+    el.innerHTML = `<span class="dot ok"></span>
+      <span class="mono">npipe:////./pipe/docker_engine</span>
+      <span class="mono dim">3ms</span>
+      <span class="tag teal" style="margin-left:6px">${meta().statusTag}</span>`;
+  } else if (S.scenario === "existing") {
+    el.innerHTML = `<span class="dot warn"></span><span class="mono">podman-machine-default · stopped</span>`;
+  } else {
+    el.innerHTML = `<span class="dot err"></span><span class="mono">no engine connected</span>`;
+  }
+}
+
+/* ============================== main pages ============================== */
+
+function renderMain() {
+  const main = $("#main");
+  if (S.connected) {
+    main.innerHTML = S.page === "settings" ? settingsPage() : containersPage();
+    bindMain();
+    return;
+  }
+  if (S.page === "settings") {
+    main.innerHTML = settingsDisconnected();
+    bindMain();
+    return;
+  }
+  main.innerHTML = standbyPage();
+  bindMain();
+}
+
+function standbyPage() {
+  const d = detect();
+  if (S.scenario === "existing") {
+    return `<div class="standby">
+      <div class="hero-icon">${IC.podman}</div>
+      <h1>Podman machine found</h1>
+      <p class="sub">A Podman machine (<span class="mono">podman-machine-default</span>) is installed but stopped.
+      Start it to connect Container GUI — no installation needed.</p>
+      <div class="detect-chips">
+        ${chip("ok", "WSL2", "2.6.3")}
+        ${chip("ok", "Podman CLI", "5.7.1")}
+        ${chip("warn", "Machine", "stopped")}
+      </div>
+      <div class="standby-actions">
+        <button class="btn primary lg" data-act="start-existing">▶&nbsp; Start engine</button>
+        <button class="btn lg" data-act="open-wizard">Setup options</button>
+      </div>
+      <div class="standby-note">Starting runs <span class="mono">podman machine start</span> and waits for the Docker-compatible API.</div>
+    </div>`;
+  }
+  const chips = [
+    chip(d.virt === "ok" ? "ok" : "err", "Virtualization", d.virt === "ok" ? "enabled" : "disabled"),
+    chip(d.wsl === "ok" ? "ok" : "err", "WSL2", d.wsl === "ok" ? "2.6.3" : "not installed"),
+    chip("err", "Docker engine", "not found"),
+    chip("err", "Podman", "not found"),
+  ].join("");
+  return `<div class="standby">
+    <div class="hero-icon">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#8a8f98" stroke-width="1.6"><path d="M21 8l-9-5-9 5 9 5 9-5zM3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg>
+    </div>
+    <h1>No container engine yet</h1>
+    <p class="sub">Container GUI needs a container engine to manage containers, images and volumes.
+    We can set one up for you in a few minutes — free for personal and commercial use.</p>
+    <div class="detect-chips">${chips}</div>
+    <div class="standby-actions">
+      <button class="btn primary lg" data-act="open-wizard">Set up container engine</button>
+    </div>
+    <div class="standby-note">Recommended: Podman — open source (Apache-2.0), rootless, Docker-API compatible.</div>
+  </div>`;
+}
+
+function chip(state, label, value) {
+  const mark = state === "ok" ? '<span style="color:#4fc96a">✓</span>' : state === "warn" ? '<span style="color:var(--amber)">●</span>' : '<span style="color:var(--coral)">✕</span>';
+  return `<span class="chip">${mark}<b>${label}</b><span class="mono dim">${value}</span></span>`;
+}
+
+function containersPage() {
+  return `<div class="page-head">
+      <h1>Containers</h1>
+      <div class="btn-row">
+        <button class="btn sm" data-act="noop">Pull image</button>
+        <button class="btn primary sm" data-act="noop">+ Run container</button>
+      </div>
+    </div>
+    <div class="card" style="padding:0;overflow:hidden">
+      <table class="rows">
+        <thead><tr><th>Name</th><th>Image</th><th>State</th><th>Created</th><th>Ports</th></tr></thead>
+        <tbody>
+          <tr>
+            <td style="color:var(--bone);font-weight:500">hello-world</td>
+            <td class="mono dim">${S.engine === "docker" ? "hello-world:latest" : "quay.io/podman/hello:latest"}</td>
+            <td><span class="state"><span class="dot err"></span>Exited (0)</span></td>
+            <td class="dim">just now</td>
+            <td class="mono dim">—</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="panel" style="margin-top:16px">
+      <h3>🎉 Engine connected</h3>
+      <p>The <span class="mono">hello-world</span> row above is the verification container run during setup.
+      Pull an image or run your first container to get started.</p>
+    </div>`;
+}
+
+function settingsDisconnected() {
+  return `<div class="page-head"><h1>Settings</h1></div>
+    <div class="settings-grid">
+      <div class="card">
+        <div class="label" style="margin-bottom:12px">Connection</div>
+        <div style="display:flex;gap:10px;align-items:center">
+          <input class="input mono" style="flex:1" placeholder="npipe:////./pipe/docker_engine · tcp://127.0.0.1:2375" disabled />
+          <button class="btn" data-act="noop" disabled>Connect</button>
+        </div>
+        <p class="muted" style="margin-top:10px;font-size:12px">No engine reachable. Install one locally to get started.</p>
+        <hr class="divider" />
+        <div class="btn-row">
+          <button class="btn primary" data-act="open-wizard">Set up container engine</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="label" style="margin-bottom:10px">Why Podman?</div>
+        <p class="muted" style="font-size:12.5px">Free for any organization (Apache-2.0), rootless by default, and exposes a
+        Docker-compatible API on the standard Windows named pipe — existing Docker tooling keeps working.</p>
+      </div>
+    </div>`;
+}
+
+function settingsPage() {
+  const running = S.machineRunning;
+  const m = meta();
+  const isDocker = S.engine === "docker";
+  const sideCards = isDocker
+    ? `<div class="card">
+        <div class="label" style="margin-bottom:10px">Real Docker Engine</div>
+        <p class="muted" style="font-size:12.5px">This is the genuine Docker daemon (moby, Apache-2.0) — full Docker API,
+        no compatibility layer. The Docker CLI and Compose work natively against
+        <span class="mono" style="color:var(--mist)">\\.\pipe\docker_engine</span>.</p>
+        <div style="margin-top:10px"><span class="tag green">✓ 100% Docker API</span></div>
+      </div>
+      <div class="card">
+        <div class="label" style="margin-bottom:10px">WSL distribution</div>
+        <p class="muted" style="font-size:12.5px">The engine runs in a dedicated, isolated WSL distro
+        (<span class="mono" style="color:var(--mist)">${esc(S.unitName)}</span>) with boot-start enabled.
+        Your other distributions are untouched.</p>
+        <div style="margin-top:10px"><button class="btn sm" data-act="noop">Manage distro…</button></div>
+      </div>`
+    : `<div class="card">
+        <div class="label" style="margin-bottom:10px">Docker compatibility</div>
+        <p class="muted" style="font-size:12.5px">The machine forwards the Docker API to
+        <span class="mono" style="color:var(--mist)">\\.\pipe\docker_engine</span>, so the Docker CLI and other
+        Docker tools work without setting <span class="mono">DOCKER_HOST</span>.</p>
+        <div style="margin-top:10px"><span class="tag green">✓ docker CLI compatible</span></div>
+      </div>
+      <div class="card">
+        <div class="label" style="margin-bottom:10px">Rootless mode</div>
+        <p class="muted" style="font-size:12.5px">Containers run as your user. Switch to rootful if you need ports below 1024
+        or root-owned bind mounts.</p>
+        <div style="margin-top:10px"><button class="btn sm" data-act="noop">Switch to rootful…</button></div>
+      </div>`;
+  return `<div class="page-head"><h1>Settings</h1></div>
+    <div class="settings-grid">
+      <div class="card">
+        <div class="label" style="margin-bottom:12px">Container engine</div>
+        <div class="engine-head">
+          <div class="engine-logo">${m.logo}</div>
+          <div style="flex:1">
+            <h2>${m.title}</h2>
+            <div class="muted mono" style="font-size:11.5px">${esc(S.unitName)} · WSL2</div>
+          </div>
+          <span class="tag ${running ? "green" : "amber"}">${running ? "● Running" : "● Stopped"}</span>
+        </div>
+        <div class="kv" style="margin-bottom:16px">
+          <span class="k">Engine</span><span class="v">${m.engine}</span>
+          <span class="k">Docker API</span><span class="v">${m.api}</span>
+          <span class="k">Mode</span><span class="v">${m.mode}</span>
+          <span class="k">Endpoint</span><span class="v">npipe:////./pipe/docker_engine</span>
+          <span class="k">Resources</span><span class="v">2 CPU · 2 GiB RAM · 100 GiB disk</span>
+        </div>
+        <div class="btn-row">
+          ${running
+            ? `<button class="btn" data-act="machine-stop">■ Stop</button>
+               <button class="btn" data-act="machine-restart">↺ Restart</button>`
+            : `<button class="btn primary" data-act="machine-start">▶ Start</button>`}
+          <button class="btn" data-act="noop">Open WSL terminal</button>
+          <button class="btn" data-act="noop">Check for updates</button>
+        </div>
+        <hr class="divider" />
+        <div class="label" style="margin-bottom:8px">Danger zone</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+          <p class="muted" style="font-size:12px">Removes the ${isDocker ? "distribution" : "machine"}, its WSL distro and all containers/images inside it.</p>
+          <button class="btn danger sm" data-act="uninstall">Uninstall engine</button>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:16px">${sideCards}</div>
+    </div>`;
+}
+
+/* ============================== wizard ============================== */
+
+const STEP_NAMES = ["Check system", "Choose engine", "Install", "Ready"];
+
+function openWizard() {
+  S.wizard = {
+    step: 0,
+    engine: "podman",
+    rootless: true,
+    machineName: "podman-machine-default",
+    installing: false,
+    phase: -1,
+    wslState: detect().wsl === "ok" ? "ok" : "missing", // missing | installing | reboot | ok
+    virt: detect().virt,
+  };
+  render();
+}
+
+function closeWizard() {
+  stopInstall();
+  S.wizard = null;
+  render();
+}
+
+function renderWizard() {
+  const root = $("#modalRoot");
+  const w = S.wizard;
+  if (!w) { root.innerHTML = ""; return; }
+
+  const steps = STEP_NAMES.map((name, i) => {
+    const cls = i === w.step ? "active" : i < w.step ? "done" : "";
+    const n = i < w.step ? "✓" : i + 1;
+    return `<div class="step ${cls}"><span class="n">${n}</span>${name}</div>`;
+  }).join("");
+
+  let body = "", foot = "";
+  if (w.step === 0) ({ body, foot } = stepDetect(w));
+  else if (w.step === 1) ({ body, foot } = stepChoose(w));
+  else if (w.step === 2) ({ body, foot } = stepInstall(w));
+  else ({ body, foot } = stepReady(w));
+
+  root.innerHTML = `<div class="overlay" id="overlay">
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modal-head">
+        <div class="modal-title">Set up container engine</div>
+        <button class="modal-x" data-act="close-wizard" title="Close">✕</button>
+      </div>
+      <div class="steps">${steps}</div>
+      <div class="modal-body" id="wizardBody">${body}</div>
+      <div class="modal-foot">${foot}</div>
+    </div>
+  </div>`;
+
+  root.querySelectorAll("[data-act]").forEach((b) => b.addEventListener("click", onAction));
+  root.querySelectorAll("[data-engine]").forEach((b) => b.addEventListener("click", () => selectEngine(b.dataset.engine)));
+  const consoleEl = $("#installConsole");
+  if (consoleEl) consoleEl.scrollTop = consoleEl.scrollHeight;
+}
+
+/* ----- step 1: detect ----- */
+
+function stepDetect(w) {
+  const d = detect();
+  const virtOk = w.virt === "ok";
+  const wslOk = w.wslState === "ok";
+  const rows = [
+    checkRow(virtOk ? "ok" : "err", "Hardware virtualization",
+      virtOk ? "VT-x / SVM enabled in firmware" : "disabled — required for WSL2", virtOk ? "✓" : "✕"),
+    checkRow("ok", "Windows", "Windows 11 Pro 24H2 · build 26100", "✓"),
+    checkRow(wslOk ? "ok" : w.wslState === "reboot" ? "warn" : "err", "WSL2",
+      wslOk ? "version 2.6.3 · kernel 6.6" : w.wslState === "reboot" ? "installed — restart required" : "not installed",
+      wslOk ? "✓" : w.wslState === "reboot" ? "!" : "✕"),
+    checkRow("info", "Existing distributions", wslOk ? "Ubuntu-24.04 (user distro — left untouched)" : "none", "·"),
+    checkRow(d.docker === "none" ? "info" : "ok", "Docker engine", "not detected", "·"),
+    checkRow(d.podman === "none" ? "info" : "ok", "Podman", d.podman === "none" ? "not detected" : "machine found", "·"),
+  ].join("");
+
+  let panel = "";
+  if (!virtOk) {
+    panel = `<div class="panel err">
+      <h3><span style="color:var(--coral)">✕</span> Virtualization is disabled</h3>
+      <p>WSL2 requires hardware virtualization. Enable <b>Intel VT-x</b> or <b>AMD SVM</b> in your firmware (BIOS/UEFI)
+      settings, then restart and re-run this check. On managed devices, contact your IT administrator.</p>
+      <div class="actions">
+        <button class="btn sm" data-act="recheck">↺ Re-check</button>
+      </div>
+    </div>`;
+  } else if (w.wslState === "missing") {
+    panel = `<div class="panel warn">
+      <h3><span style="color:var(--amber)">!</span> WSL2 is required</h3>
+      <p>The engine runs inside a lightweight WSL2 Linux environment. Installing WSL needs administrator rights
+      and a one-time restart. Your existing files and apps are not affected.</p>
+      <div class="actions">
+        <button class="btn primary sm" data-act="install-wsl">Install WSL2</button>
+        <span class="dim mono" style="font-size:11px">wsl --install --no-launch</span>
+      </div>
+    </div>`;
+  } else if (w.wslState === "installing") {
+    panel = `<div class="panel">
+      <h3>Installing WSL2…</h3>
+      <div class="console" id="wslConsole" style="height:120px;margin-top:10px"></div>
+    </div>`;
+  } else if (w.wslState === "reboot") {
+    panel = `<div class="panel warn">
+      <h3><span style="color:var(--amber)">!</span> Restart required</h3>
+      <p>WSL2 was installed. Restart Windows to finish enabling the Virtual Machine Platform, then continue setup.</p>
+      <div class="actions">
+        <button class="btn primary sm" data-act="reboot-now">Restart now</button>
+        <button class="btn sm" data-act="reboot-later">I'll restart later</button>
+      </div>
+    </div>`;
+  }
+
+  const canContinue = virtOk && wslOk;
+  const body = `<p class="muted" style="margin-bottom:14px">Checking what this machine already has. Nothing is installed yet.</p>
+    <div class="check-list">${rows}</div>${panel}`;
+  const foot = `<span class="dim" style="font-size:12px">Detection runs locally — nothing leaves your machine.</span>
+    <div class="right">
+      <button class="btn" data-act="close-wizard">Cancel</button>
+      <button class="btn primary" data-act="next" ${canContinue ? "" : "disabled"}>Continue</button>
+    </div>`;
+  return { body, foot };
+}
+
+function checkRow(state, title, detail, mark) {
+  return `<div class="check-row">
+    <div class="ic ${state}">${mark}</div>
+    <div class="txt"><div class="t">${title}</div><div class="d">${detail}</div></div>
+  </div>`;
+}
+
+/* ----- step 2: choose ----- */
+
+function stepChoose(w) {
+  const card = (id, title, tags, desc, metaTags) => `
+    <button class="engine-card ${w.engine === id ? "selected" : ""}" data-engine="${id}">
+      <span class="radio"></span>
+      <span class="body">
+        <span class="title-row"><h3>${title}</h3>${tags}</span>
+        <p>${desc}</p>
+        <span class="meta">${metaTags}</span>
+      </span>
+    </button>`;
+
+  const body = `<p class="muted" style="margin-bottom:14px">Pick the engine to install. Container GUI is your frontend —
+    these options install only the backend. Podman is the easiest; Docker Engine gives you the real Docker daemon.</p>
+    <div class="engine-cards">
+      ${card("podman", "Podman", '<span class="tag lime">Recommended</span><span class="tag green">Free · Apache-2.0</span>',
+        "Open-source engine running in its own WSL2 machine. Rootless by default, Docker-compatible API on the standard named pipe.",
+        '<span class="tag">~250 MB download</span><span class="tag">rootless</span><span class="tag">no license limits</span>')}
+      ${card("docker", "Docker Engine (WSL)", '<span class="tag teal">Backend-only</span><span class="tag green">Free · Apache-2.0</span>',
+        "The real Docker daemon (moby) in a dedicated WSL distro, exposed via named pipe. Full Docker API — no GUI, no Docker Desktop license.",
+        '<span class="tag">100% Docker API</span><span class="tag">no GUI</span><span class="tag">no license limits</span>')}
+    </div>`;
+  const footNote = {
+    podman: "Installs Podman CLI + a dedicated WSL machine. Your other distros are untouched.",
+    docker: "Installs the real Docker daemon in a dedicated WSL distro, exposed via named pipe. No GUI, no Docker Desktop license.",
+  }[w.engine];
+  const btnLabel = { podman: "Install Podman", docker: "Install Docker Engine" }[w.engine];
+  const foot = `<span class="dim" style="font-size:12px">${footNote}</span>
+    <div class="right">
+      <button class="btn" data-act="back">Back</button>
+      <button class="btn primary" data-act="next">${btnLabel}</button>
+    </div>`;
+  return { body, foot };
+}
+
+/* ----- step 3: install ----- */
+
+const PODMAN_PHASES = [
+  { name: "Install Podman CLI", dur: 3800 },
+  { name: "Create machine (WSL)", dur: 6200, mb: 212 },
+  { name: "Start machine", dur: 3200 },
+  { name: "Verify Docker API", dur: 1600 },
+];
+
+const PODMAN_LOG = [
+  [
+    ["cmd", "winget install --id RedHat.Podman --accept-source-agreements"],
+    ["", "Found Podman [RedHat.Podman] Version 5.7.1"],
+    ["", "Downloading podman-installer-windows-amd64.exe … 48.2 MB"],
+    ["ok", "Installer hash verified"],
+    ["", "Installing…"],
+    ["ok", "Podman CLI installed → podman.exe 5.7.1"],
+  ],
+  [
+    ["cmd", "podman machine init --rootless --cpus 2 --memory 2048 --disk-size 100"],
+    ["", "Looking up machine image at quay.io/podman/machine-os-wsl:5.7"],
+    ["", "Downloading machine OS image … {MB} / 212 MB"],
+    ["", "Importing operating system into WSL (podman-machine-default)…"],
+    ["", "Configuring system…"],
+    ["ok", "Machine init complete"],
+  ],
+  [
+    ["cmd", "podman machine start"],
+    ["", 'Starting machine "podman-machine-default"'],
+    ["", "This machine is currently configured in rootless mode."],
+    ["hl", "API forwarding listening on: npipe:////./pipe/docker_engine"],
+    ["", "Docker API clients default to this address. No DOCKER_HOST needed."],
+    ["ok", "Machine started successfully"],
+  ],
+  [
+    ["cmd", "GET npipe:////./pipe/docker_engine/_ping"],
+    ["ok", "200 OK · 3 ms"],
+    ["", "Engine: Podman 5.7.1 · API 1.52 (Docker-compatible) · rootless"],
+    ["cmd", "podman run --rm quay.io/podman/hello"],
+    ["ok", "Hello Podman! — verification container exited (0)"],
+  ],
+];
+
+const DOCKER_PHASES = [
+  { name: "Prepare WSL distro", dur: 4200, mb: 48 },
+  { name: "Install Docker Engine", dur: 6000 },
+  { name: "Configure API pipe", dur: 3000 },
+  { name: "Start & verify", dur: 2200 },
+];
+
+const DOCKER_LOG = [
+  [
+    ["cmd", "wsl --import container-gui-engine … debian-rootfs.tar.gz --version 2"],
+    ["", "Downloading minimal Debian rootfs … {MB} / 48 MB"],
+    ["", "Importing distribution into WSL2…"],
+    ["ok", "Distribution 'container-gui-engine' registered"],
+  ],
+  [
+    ["cmd", "wsl -d container-gui-engine -u root -- apt-get update"],
+    ["cmd", "wsl -d … -- apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin"],
+    ["", "Setting up containerd.io …"],
+    ["", "Setting up docker-ce-cli …"],
+    ["", "Setting up docker-ce …"],
+    ["ok", "Docker Engine 27.3.1 installed (moby · Apache-2.0)"],
+  ],
+  [
+    ["", "Configuring dockerd → unix:///var/run/docker.sock"],
+    ["", "Installing npiperelay bridge (WSL socket → Windows named pipe)…"],
+    ["hl", "Exposing npipe:////./pipe/docker_engine"],
+    ["", "Enabling systemd + boot-start for the distro"],
+    ["ok", "API pipe configured — no Docker Desktop involved"],
+  ],
+  [
+    ["cmd", "wsl -d container-gui-engine -u root -- systemctl start docker"],
+    ["cmd", "GET npipe:////./pipe/docker_engine/_ping"],
+    ["ok", "200 OK · 2 ms"],
+    ["", "Engine: Docker 27.3.1 · API 1.47 · containerd 1.7"],
+    ["cmd", "docker run --rm hello-world"],
+    ["ok", "Hello from Docker! — verification container exited (0)"],
+  ],
+];
+
+const activePhases = () => (S.wizard && S.wizard.engine === "docker" ? DOCKER_PHASES : PODMAN_PHASES);
+const activeLog = () => (S.wizard && S.wizard.engine === "docker" ? DOCKER_LOG : PODMAN_LOG);
+
+let installTimers = [];
+let installState = null;
+
+function stopInstall() {
+  installTimers.forEach(clearTimeout);
+  installTimers = [];
+  installState = null;
+}
+
+function startInstall() {
+  const w = S.wizard;
+  w.installing = true;
+  w.phase = 0;
+  installState = { phase: 0, line: 0, progress: 0, mb: 0 };
+  renderWizard();
+  schedulePhase();
+}
+
+function schedulePhase() {
+  const st = installState;
+  if (!st) return;
+  const phases = activePhases();
+  const phase = phases[st.phase];
+  const lines = activeLog()[st.phase];
+  const tickMs = 220;
+  const ticks = Math.round(phase.dur / tickMs);
+  let tick = 0;
+
+  const advance = () => {
+    if (!installState) return;
+    tick++;
+    st.progress = Math.min(100, Math.round((tick / ticks) * 100));
+    if (phase.mb) st.mb = Math.min(phase.mb, Math.round((st.progress / 100) * phase.mb));
+
+    // emit log lines spread across the phase
+    const targetLines = Math.min(lines.length, Math.ceil((tick / ticks) * lines.length));
+    while (st.line < targetLines) {
+      const [cls, text] = lines[st.line];
+      appendLog(cls, text.replace("{MB}", String(st.mb)));
+      st.line++;
+    }
+    updateProgressUI();
+
+    if (tick >= ticks) {
+      // flush remaining lines
+      while (st.line < lines.length) {
+        const [cls, text] = lines[st.line];
+        appendLog(cls, text.replace("{MB}", String(phase.mb ?? st.mb)));
+        st.line++;
+      }
+      st.phase++;
+      st.line = 0;
+      st.progress = 0;
+      if (st.phase >= phases.length) {
+        finishInstall();
+      } else {
+        S.wizard.phase = st.phase;
+        renderWizard();
+        // re-append existing log after re-render
+        replayLog();
+        schedulePhase();
+      }
+    } else {
+      installTimers.push(setTimeout(advance, tickMs));
+    }
+  };
+  installTimers.push(setTimeout(advance, tickMs));
+}
+
+let logBuffer = [];
+function appendLog(cls, text) {
+  logBuffer.push([cls, text]);
+  const el = $("#installConsole");
+  if (el) {
+    el.insertAdjacentHTML("beforeend", logLineHtml(cls, text));
+    el.scrollTop = el.scrollHeight;
+  }
+}
+function logLineHtml(cls, text) {
+  return `<div><span class="ts">[${now()}]</span> <span class="${cls}">${esc(text)}</span></div>`;
+}
+function replayLog() {
+  const el = $("#installConsole");
+  if (!el) return;
+  el.innerHTML = logBuffer.map(([c, t]) => logLineHtml(c, t)).join("");
+  el.scrollTop = el.scrollHeight;
+}
+
+function updateProgressUI() {
+  const phases = activePhases();
+  const overall = installState
+    ? Math.round(((installState.phase + installState.progress / 100) / phases.length) * 100)
+    : 100;
+  const bar = $("#overallBar");
+  if (bar) bar.style.width = overall + "%";
+  const pct = $("#overallPct");
+  if (pct) pct.textContent = overall + "%";
+  const mb = $("#mbCount");
+  const ph = installState ? phases[installState.phase] : null;
+  if (mb && ph && ph.mb) mb.textContent = `${installState.mb} / ${ph.mb} MB`;
+}
+
+function finishInstall() {
+  stopInstall();
+  logBuffer = [];
+  S.engine = S.wizard.engine === "docker" ? "docker" : "podman";
+  S.unitName = S.wizard.machineName || ENGINE_META[S.engine].defaultUnit;
+  S.wizard.installing = false;
+  S.wizard.step = 3;
+  S.connected = true;
+  S.machineRunning = true;
+  S.scenario = "connected";
+  $("#scenarioSelect").value = "connected";
+  render();
+}
+
+function stepInstall(w) {
+  if (!w.installing && w.phase === -1) {
+    const isDocker = w.engine === "docker";
+    const intro = isDocker
+      ? "Configure the distribution, then install. Everything runs locally; the engine is the real Docker daemon in a dedicated WSL distro."
+      : "Configure the machine, then install. Everything runs locally; the machine is a dedicated WSL distro managed by Podman.";
+    const modeControl = isDocker
+      ? `<div class="opt">
+          <span class="label">Mode</span>
+          <span class="tag teal" style="height:32px;display:inline-flex;align-items:center">root in WSL · isolated</span>
+        </div>`
+      : `<div class="opt">
+          <span class="label">Mode</span>
+          <div class="seg">
+            <button class="${w.rootless ? "on" : ""}" data-act="mode-rootless">Rootless</button>
+            <button class="${!w.rootless ? "on" : ""}" data-act="mode-rootful">Rootful</button>
+          </div>
+        </div>`;
+    const happen = isDocker
+      ? `1 · Import a minimal WSL distro &nbsp;→&nbsp; 2 · <span class="mono">apt-get install docker-ce</span>
+        &nbsp;→&nbsp; 3 · dockerd + npiperelay named pipe &nbsp;→&nbsp; 4 · verify the Docker API and run a test container.`
+      : `1 · Install Podman CLI via winget &nbsp;→&nbsp; 2 · <span class="mono">podman machine init</span> (downloads a ~212 MB WSL image)
+        &nbsp;→&nbsp; 3 · <span class="mono">podman machine start</span> &nbsp;→&nbsp; 4 · verify the Docker API and run a test container.`;
+    const footNote = isDocker
+      ? "The daemon runs as root inside the isolated WSL distro; the Windows host stays clean."
+      : (w.rootless ? "Rootless: containers run as your user — safer default." : "Rootful: needed for ports < 1024 and some bind mounts.");
+    const body = `<p class="muted" style="margin-bottom:14px">${intro}</p>
+      <div class="opt-row">
+        <div class="opt">
+          <span class="label">${isDocker ? "Distribution name" : "Machine name"}</span>
+          <input class="input mono" id="machineNameInput" value="${esc(w.machineName)}" />
+        </div>
+        ${modeControl}
+      </div>
+      <div class="opt-row">
+        <div class="opt"><span class="label">CPUs</span><input class="input mono" style="width:90px" value="2" /></div>
+        <div class="opt"><span class="label">Memory (GiB)</span><input class="input mono" style="width:110px" value="2" /></div>
+        <div class="opt"><span class="label">Disk (GiB)</span><input class="input mono" style="width:100px" value="100" /></div>
+      </div>
+      <div class="panel">
+        <h3>What will happen</h3>
+        <p>${happen}</p>
+      </div>`;
+    const foot = `<span class="dim" style="font-size:12px">${footNote}</span>
+      <div class="right">
+        <button class="btn" data-act="back">Back</button>
+        <button class="btn primary" data-act="begin-install">Begin install</button>
+      </div>`;
+    return { body, foot };
+  }
+
+  const phases = activePhases().map((p, i) => {
+    const cls = i < w.phase ? "done" : i === w.phase ? "active" : "";
+    const pic = i < w.phase ? "✓" : i === w.phase ? "●" : "○";
+    return `<div class="phase ${cls}"><span class="pic">${pic}</span>${p.name}</div>`;
+  }).join("");
+
+  const body = `<div class="install-grid">
+      <div>
+        <div class="label" style="margin-bottom:10px">Progress</div>
+        <div class="phase-list">${phases}</div>
+        <hr class="divider" />
+        <div style="display:flex;justify-content:space-between;font-size:11.5px;margin-bottom:6px">
+          <span class="muted">Overall</span><span class="mono dim" id="overallPct">0%</span>
+        </div>
+        <div class="progress-track"><div class="progress-fill" id="overallBar"></div></div>
+        <div class="mono dim" id="mbCount" style="font-size:11px;margin-top:8px"></div>
+      </div>
+      <div>
+        <div class="label" style="margin-bottom:10px">Install log</div>
+        <div class="console" id="installConsole"></div>
+      </div>
+    </div>`;
+  const foot = `<span class="dim" style="font-size:12px">Installing… you can cancel safely at any point.</span>
+    <div class="right"><button class="btn danger" data-act="cancel-install">Cancel</button></div>`;
+  return { body, foot };
+}
+
+/* ----- step 4: ready ----- */
+
+function stepReady() {
+  const m = meta();
+  const isDocker = S.engine === "docker";
+  const body = `<div class="ready-hero">
+      <div class="big">✓</div>
+      <h2 style="font-size:17px;margin-bottom:6px">Engine ready</h2>
+      <p class="muted">${m.readyLine}</p>
+    </div>
+    <div class="card" style="background:var(--obsidian)">
+      <div class="kv">
+        <span class="k">Engine</span><span class="v">${m.engine}${isDocker ? "" : " (rootless)"}</span>
+        <span class="k">Docker API</span><span class="v">${m.api}${isDocker ? " — native" : ""}</span>
+        <span class="k">Endpoint</span><span class="v">npipe:////./pipe/docker_engine</span>
+        <span class="k">${m.unitLabel}</span><span class="v">${esc(S.unitName)} · WSL2</span>
+        <span class="k">Verification</span><span class="v" style="color:#4fc96a">hello-world exited (0) ✓</span>
+      </div>
+    </div>
+    <div class="panel">
+      <h3>Good to know</h3>
+      <p>Manage the ${isDocker ? "distribution" : "machine"} later in <b>Settings → Container engine</b> (start/stop, uninstall).
+      The Docker CLI works against the same pipe — no <span class="mono">DOCKER_HOST</span> needed.${isDocker ? " This is the real Docker daemon — no compatibility layer, no Docker Desktop license." : ""}</p>
+    </div>`;
+  const foot = `<span class="dim" style="font-size:12px">Setup took about 2 minutes.</span>
+    <div class="right"><button class="btn primary lg" data-act="finish">Open Containers →</button></div>`;
+  return { body, foot };
+}
+
+/* ============================== WSL install simulation ============================== */
+
+let wslTimers = [];
+function startWslInstall() {
+  S.wizard.wslState = "installing";
+  renderWizard();
+  const lines = [
+    ["cmd", "wsl --install --no-launch  (elevated)"],
+    ["", "Installing: Virtual Machine Platform"],
+    ["", "Installing: Windows Subsystem for Linux 2.6.3"],
+    ["", "Downloading WSL kernel…"],
+    ["ok", "The requested operation completed successfully."],
+    ["warn", "A restart is required to finish installation."],
+  ];
+  let i = 0;
+  const tick = () => {
+    if (!S.wizard || S.wizard.wslState !== "installing") return;
+    const el = $("#wslConsole");
+    if (el && i < lines.length) {
+      const [cls, text] = lines[i++];
+      el.insertAdjacentHTML("beforeend", logLineHtml(cls, text));
+      el.scrollTop = el.scrollHeight;
+      wslTimers.push(setTimeout(tick, 700));
+    } else if (i >= lines.length) {
+      S.wizard.wslState = "reboot";
+      renderWizard();
+    }
+  };
+  wslTimers.push(setTimeout(tick, 400));
+}
+
+/* ============================== actions ============================== */
+
+function onAction(e) {
+  const act = e.currentTarget.dataset.act;
+  const w = S.wizard;
+  switch (act) {
+    case "open-wizard": openWizard(); break;
+    case "close-wizard": closeWizard(); break;
+    case "next":
+      w.step++;
+      renderWizard();
+      break;
+    case "back":
+      if (w.installing) return;
+      if (w.step === 2) { w.phase = -1; }
+      w.step = Math.max(0, w.step - 1);
+      renderWizard();
+      break;
+    case "begin-install": {
+      const input = $("#machineNameInput");
+      if (input) w.machineName = input.value || "podman-machine-default";
+      logBuffer = [];
+      startInstall();
+      break;
+    }
+    case "cancel-install":
+      stopInstall();
+      logBuffer = [];
+      w.installing = false;
+      w.phase = -1;
+      renderWizard();
+      toast("Install cancelled. Nothing was left running.");
+      break;
+    case "mode-rootless": w.rootless = true; renderWizard(); break;
+    case "mode-rootful": w.rootless = false; renderWizard(); break;
+    case "finish":
+      S.wizard = null;
+      S.page = "containers";
+      render();
+      break;
+    case "install-wsl": startWslInstall(); break;
+    case "reboot-now":
+      wslTimers.forEach(clearTimeout);
+      toast("Simulating restart…");
+      setTimeout(() => {
+        S.scenario = "happy";
+        $("#scenarioSelect").value = "happy";
+        S.wizard.wslState = "ok";
+        S.wizard.virt = "ok";
+        renderWizard();
+        toast("Restarted. WSL2 is ready — continue setup.");
+      }, 1400);
+      break;
+    case "reboot-later":
+      closeWizard();
+      toast("Setup paused. Reopen it after restarting Windows.");
+      break;
+    case "recheck":
+      toast("Still disabled — enable VT-x / SVM in firmware first.");
+      break;
+    case "start-existing": {
+      S.machineRunning = true;
+      S.connected = true;
+      S.scenario = "connected";
+      $("#scenarioSelect").value = "connected";
+      S.page = "containers";
+      render();
+      toast("podman machine start → API forwarding on docker_engine pipe.");
+      break;
+    }
+    case "machine-stop":
+      S.machineRunning = false;
+      S.connected = false;
+      S.scenario = "existing";
+      $("#scenarioSelect").value = "existing";
+      S.page = "settings";
+      render();
+      toast("Machine stopped. Container GUI is disconnected.");
+      break;
+    case "machine-start":
+      S.machineRunning = true;
+      S.connected = true;
+      S.scenario = "connected";
+      $("#scenarioSelect").value = "connected";
+      render();
+      toast("Machine started.");
+      break;
+    case "machine-restart":
+      toast("Restarting machine… (simulated)");
+      break;
+    case "uninstall":
+      toast("Prototype: would confirm, then run podman machine rm + unregister WSL distro.");
+      break;
+    case "noop":
+      toast("Prototype: not wired up.");
+      break;
+  }
+}
+
+function selectEngine(id) {
+  S.wizard.engine = id;
+  if (ENGINE_META[id]) S.wizard.machineName = ENGINE_META[id].defaultUnit;
+  renderWizard();
+}
+
+function bindMain() {
+  document.querySelectorAll("#main [data-act]").forEach((b) => b.addEventListener("click", onAction));
+  document.querySelectorAll("#main [data-engine]").forEach((b) => {
+    b.addEventListener("click", () => selectEngine(b.dataset.engine));
+  });
+}
+
+/* ============================== render root ============================== */
+
+function render() {
+  renderNav();
+  renderStatusbar();
+  renderMain();
+  renderWizard();
+}
+
+/* ============================== prototype controls ============================== */
+
+function loadScenario(id) {
+  stopInstall();
+  wslTimers.forEach(clearTimeout);
+  logBuffer = [];
+  S.scenario = id;
+  S.wizard = null;
+  S.page = "containers";
+  S.connected = id === "connected";
+  S.engine = "podman";
+  S.unitName = ENGINE_META.podman.defaultUnit;
+  S.machineRunning = id === "connected" || id === "existing" ? id === "connected" : false;
+  if (id === "connected") S.page = "settings";
+  render();
+}
+
+$("#scenarioSelect").addEventListener("change", (e) => loadScenario(e.target.value));
+$("#restartBtn").addEventListener("click", () => loadScenario($("#scenarioSelect").value));
+
+render();
+</script>
+</body>
+</html>
