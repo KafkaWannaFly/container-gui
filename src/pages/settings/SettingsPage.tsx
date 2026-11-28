@@ -3,6 +3,7 @@ import { getTauriVersion, getVersion } from "@tauri-apps/api/app";
 import { App, Button, Divider, Input, Progress, Select } from "antd";
 import { useMemo, useState } from "react";
 import { z } from "zod";
+import EngineSetupWizard from "../../components/EngineSetupWizard";
 import {
   ApiOutlined,
   BlockOutlined,
@@ -96,6 +97,7 @@ export default function SettingsPage() {
     [],
   );
   const [ping, setPing] = useState<DockerStatus | null>(null);
+  const [setupOpen, setSetupOpen] = useState(false);
 
   const contexts = useQuery({ queryKey: queryKeys.contexts(), queryFn: listDockerContexts });
   const status = useQuery({ queryKey: queryKeys.status(), queryFn: getDockerStatus });
@@ -194,6 +196,23 @@ export default function SettingsPage() {
 
   return (
     <div className="page">
+      <EngineSetupWizard open={setupOpen} onClose={() => setSetupOpen(false)} />
+      {status.data && status.data.state !== "connected" ? (
+        <div className="card">
+          <div className="section-title">Container engine</div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16 }}>
+            <div>
+              <div style={{ color: "var(--bone)" }}>No engine connected</div>
+              <div className="dim" style={{ fontSize: 12 }}>
+                Install a backend-only engine (Podman or Docker Engine in WSL) — no Docker Desktop required.
+              </div>
+            </div>
+            <Button type="primary" onClick={() => setSetupOpen(true)}>
+              Set up container engine
+            </Button>
+          </div>
+        </div>
+      ) : null}
       <div className="card">
         <div className="section-title">Docker connection</div>
         <div>

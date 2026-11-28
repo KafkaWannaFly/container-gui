@@ -20,6 +20,8 @@ import {
   DockerContextSchema,
   type DockerStatus,
   DockerStatusSchema,
+  type EnvironmentReport,
+  EnvironmentReportSchema,
   type ExecEvent,
   ExecEventSchema,
   type ExecProbe,
@@ -35,6 +37,9 @@ import {
   ImageItemSchema,
   type ImagePullProgress,
   ImagePullProgressSchema,
+  type InstallEvent,
+  InstallEventSchema,
+  type InstallRequest,
   type LayerHistoryItem,
   LayerHistoryItemSchema,
   LogEventSchema,
@@ -309,6 +314,26 @@ export function testConnection(config: ConnectionConfig): Promise<DockerStatus> 
 export function switchDockerEndpoint(config: ConnectionConfig): Promise<DockerStatus> {
   const parsed = ConnectionConfigSchema.parse(config);
   return call("switch_docker_endpoint", { config: parsed }, DockerStatusSchema);
+}
+
+/* ------------------------------ onboarding ----------------------------- */
+
+/** Host capabilities the setup wizard checks before offering an install. */
+export function getEnvironmentReport(): Promise<EnvironmentReport> {
+  return call("environment_report", {}, EnvironmentReportSchema);
+}
+
+/**
+ * Install a backend-only engine, streaming phases/output into `onEvent`.
+ * Returns a disposer that cancels the backend install (call it on unmount or
+ * when the user aborts). The final event is always `{ kind: "end" }`.
+ */
+export function installEngine(
+  request: InstallRequest,
+  onEvent: (event: InstallEvent) => void,
+  onError?: (err: Error) => void,
+): () => void {
+  return openStream("install_engine", { request }, "onEvent", InstallEventSchema, onEvent, onError);
 }
 
 /* --------------------------------- exec -------------------------------- */

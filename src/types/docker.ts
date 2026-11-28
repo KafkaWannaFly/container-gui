@@ -192,6 +192,85 @@ export const SystemInfoSchema = z.object({
 export type SystemInfo = z.infer<typeof SystemInfoSchema>;
 
 /* ------------------------------------------------------------------ *
+ * Engine onboarding (setup wizard)
+ * ------------------------------------------------------------------ */
+
+export const WslDistroSchema = z.object({
+  name: z.string(),
+  state: z.string(),
+  version: z.number(),
+  hasDocker: z.boolean(),
+});
+export type WslDistro = z.infer<typeof WslDistroSchema>;
+
+export const WslReportSchema = z.object({
+  installed: z.boolean(),
+  defaultVersion: z.number().nullable(),
+  distros: z.array(WslDistroSchema),
+  installables: z.array(z.string()),
+});
+export type WslReport = z.infer<typeof WslReportSchema>;
+
+export const PodmanMachineSchema = z.object({
+  name: z.string(),
+  running: z.boolean(),
+  rootless: z.boolean(),
+});
+export type PodmanMachine = z.infer<typeof PodmanMachineSchema>;
+
+export const EnvironmentReportSchema = z.object({
+  wsl: WslReportSchema,
+  virtualization: z.boolean().nullable(),
+  winget: z.string().nullable(),
+  podmanVersion: z.string().nullable(),
+  dockerVersion: z.string().nullable(),
+  podmanMachines: z.array(PodmanMachineSchema),
+});
+export type EnvironmentReport = z.infer<typeof EnvironmentReportSchema>;
+
+export type InstallEngine = "podman" | "dockerWsl";
+
+export type DockerTargetKind = "existing" | "install";
+
+export type DockerTarget = {
+  kind: DockerTargetKind;
+  name: string;
+};
+
+export type InstallRequest = {
+  engine: InstallEngine;
+  unitName: string;
+  /** Docker Engine only: which distro to use; null = new dedicated Alpine import. */
+  target?: DockerTarget | null;
+  rootless: boolean;
+  cpus: number;
+  memoryMib: number;
+  diskGib: number;
+};
+
+export const InstallEventSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("phase"),
+    index: z.number(),
+    total: z.number(),
+    name: z.string(),
+  }),
+  z.object({ kind: z.literal("line"), stream: z.string(), text: z.string() }),
+  z.object({
+    kind: z.literal("download"),
+    bytes: z.number(),
+    totalBytes: z.number().nullable(),
+  }),
+  z.object({
+    kind: z.literal("end"),
+    error: z.string().nullable(),
+    /** Final machine/distribution name (the Alpine import resolves its own). */
+    unitName: z.string().nullable(),
+  }),
+]);
+export type InstallEvent = z.infer<typeof InstallEventSchema>;
+
+/* ------------------------------------------------------------------ *
  * Compose project (group detail)
  * ------------------------------------------------------------------ */
 

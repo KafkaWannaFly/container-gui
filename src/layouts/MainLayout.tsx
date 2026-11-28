@@ -5,6 +5,7 @@ import { Button, Result, Spin, Tooltip } from "antd";
 import { useEffect, useMemo, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { CommandPaletteProvider, useCommandPalette } from "../components/CommandPalette";
+import EngineSetupWizard from "../components/EngineSetupWizard";
 import {
   BlockOutlined,
   BorderOutlined,
@@ -108,6 +109,7 @@ function CommandButton() {
 
 export default function MainLayout() {
   const location = useLocation();
+  const [setupOpen, setSetupOpen] = useState(false);
 
   const {
     data: status,
@@ -170,6 +172,7 @@ export default function MainLayout() {
       <CommandPaletteProvider>
         <div className="app-shell">
           <UpdateNotifier />
+          <EngineSetupWizard open={setupOpen} onClose={() => setSetupOpen(false)} />
           <header className="topbar" data-tauri-drag-region>
             <div className="topbar-brand" data-tauri-drag-region>
               <Glyph />
@@ -188,15 +191,20 @@ export default function MainLayout() {
                 <div style={{ display: "flex", justifyContent: "center", paddingTop: 80 }}>
                   <Result
                     status="warning"
-                    title="Docker Daemon Not Reachable"
+                    title="Container engine not reachable"
                     subTitle={
                       status?.message ??
-                      "Start Docker Desktop or check the WSL2 backend. Retrying automatically…"
+                      "No Docker-compatible engine is running. Install a backend-only engine, or retry if it is starting up."
                     }
                     extra={
-                      <Button icon={<ReloadOutlined />} onClick={() => void refetch()}>
-                        Retry now
-                      </Button>
+                      <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+                        <Button type="primary" onClick={() => setSetupOpen(true)}>
+                          Set up container engine
+                        </Button>
+                        <Button icon={<ReloadOutlined />} onClick={() => void refetch()}>
+                          Retry now
+                        </Button>
+                      </div>
                     }
                   />
                 </div>

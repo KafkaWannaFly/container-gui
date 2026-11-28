@@ -2323,3 +2323,54 @@ html[data-theme="voicebox"] .nav-item.active {
   font-weight: 700;
   border-bottom: 3px solid #ef4444;
 }
+
+/* ---------- engine setup wizard ---------- */
+
+.engine-card {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  text-align: left;
+  width: 100%;
+  padding: 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.engine-card:focus-within {
+  outline: 1px solid var(--lime);
+  outline-offset: 1px;
+}
+
+.engine-card input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.engine-card-radio {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  margin-top: 3px;
+  border-radius: 99px;
+  border: 2px solid var(--ash);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.engine-card:focus-within .engine-card-radio {
+  border-color: var(--lime);
+}
+
+.engine-card-radio-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 99px;
+  background: var(--lime);
+}

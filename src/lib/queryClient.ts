@@ -24,6 +24,7 @@ export const queryKeys = {
   volumeDetail: (name: string) => ["volumes", name] as const,
   status: () => ["docker-status"] as const,
   system: () => ["system-info"] as const,
+  environment: () => ["environment-report"] as const,
   contexts: () => ["docker-contexts"] as const,
   appInfo: () => ["app-info"] as const,
   containerChanges: (id: string) => ["container-changes", id] as const,
