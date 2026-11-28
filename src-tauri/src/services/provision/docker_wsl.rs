@@ -83,6 +83,13 @@ pub(super) async fn install(ctx: &InstallCtx, req: &InstallRequest) -> AppResult
             ctx.downloader.download(&url, &tarball, adapter).await?;
 
             let install_dir = ctx.data_dir.join("wsl").join(&distro);
+            // wsl --import does not create the install location (nor its
+            // parents) and fails with Wsl/ERROR_PATH_NOT_FOUND when missing.
+            tokio::fs::create_dir_all(&install_dir)
+                .await
+                .map_err(|err| {
+                    AppError::Message(format!("Could not create {}: {err}", install_dir.display()))
+                })?;
             let code = ctx
                 .run_stream(
                     "wsl.exe",
@@ -204,9 +211,11 @@ pub(super) async fn install(ctx: &InstallCtx, req: &InstallRequest) -> AppResult
     Ok(distro)
 }
 
-/// `wsl -d <distro> -u root -- sh -c <script>`.
+/// `wsl -d <distro> -u root -e sh -c <script>`. `-e` (exec) is required:
+/// with `--` wsl.exe re-parses the tail through the distro's default shell,
+/// double-splitting `sh -c` scripts (drops `. os-release;`, corrupts quotes).
 fn wsl_shell(distro: &str, script: &str) -> Vec<String> {
-    args(&["-d", distro, "-u", "root", "--", "sh", "-c", script])
+    args(&["-d", distro, "-u", "root", "-e", "sh", "-c", script])
 }
 
 /// `alpine-minirootfs-3.22.1-x86_64.tar.gz` → `Alpine-3.22`, following the
@@ -282,14 +291,20 @@ fn systemd_configure(hosts: &str) -> String {
 const SYSTEMD_START: &str = "systemctl enable docker >/dev/null 2>&1; systemctl restart docker";
 
 fn start_dockerd(hosts: &str) -> String {
+    // Health-check the API, not just the pid: a dockerd wedged in early
+    // startup (boot race on fresh WSL distros) is alive but never binds.
+    // If _ping fails, kill any stale daemon and start a fresh one.
     format!(
-        "pidof dockerd >/dev/null 2>&1 || \
-         (nohup dockerd {hosts} >/var/log/dockerd.log 2>&1 &)"
+        "wget -q -T 3 -O /dev/null http://127.0.0.1:2375/_ping 2>/dev/null || \
+         {{ pkill -9 dockerd >/dev/null 2>&1; sleep 1; rm -f /var/run/docker.pid; \
+         nohup dockerd {hosts} >/var/log/dockerd.log 2>&1 & }}"
     )
 }
 
 fn boot_command(hosts: &str) -> String {
-    format!("nohup dockerd {hosts} >/var/log/dockerd.log 2>&1 &")
+    // Delayed start: dockerd launched exactly at boot can wedge on WSL's
+    // late-initialising 9p/DNS plumbing (stuck in folio_wait page I/O).
+    format!("(sleep 5; nohup dockerd {hosts} >/var/log/dockerd.log 2>&1) &")
 }
 
 /// New dedicated distro: write a plain `[boot]` autostart entry.
@@ -424,8 +439,10 @@ pub(super) fn extract_minirootfs(listing: &str) -> Option<String> {
 
 /// dockerd takes a moment to bind; retry the connection briefly.
 async fn connect_tcp(ctx: &InstallCtx) -> AppResult<crate::models::dto::DockerStatusDto> {
+    // A cold dockerd (starting its managed containerd) needs ~20-30s to
+    // serve the API, so allow a generous window.
     let mut last = None;
-    for _ in 0..12 {
+    for _ in 0..45 {
         match ctx
             .connect(
                 loopback_tcp_config(),
@@ -436,7 +453,7 @@ async fn connect_tcp(ctx: &InstallCtx) -> AppResult<crate::models::dto::DockerSt
             Ok(status) => return Ok(status),
             Err(err) => {
                 last = Some(err);
-                tokio::time::sleep(Duration::from_millis(700)).await;
+                tokio::time::sleep(Duration::from_millis(1_000)).await;
             }
         }
     }
@@ -506,6 +523,10 @@ mod tests {
         assert_eq!(argv[1], "container-gui-engine");
         assert_eq!(argv[2], "-u");
         assert_eq!(argv[3], "root");
+        // `-e` execs the script in one shell pass; `--` would double-parse it.
+        assert_eq!(argv[4], "-e");
+        assert_eq!(argv[5], "sh");
+        assert_eq!(argv[6], "-c");
         assert_eq!(argv.last().unwrap(), "echo hi");
     }
 
@@ -548,6 +569,25 @@ mod tests {
         assert!(script.contains("leaving it unchanged"));
         assert!(script.contains("sed -i"));
         assert!(script.contains("nohup dockerd -H unix:///var/run/docker.sock"));
+    }
+
+    #[test]
+    fn start_dockerd_replaces_wedged_daemon() {
+        // Health check via the API, and pkill+restart when it fails — a
+        // pidof-only check accepted a dockerd stuck in early boot.
+        let script = start_dockerd(DOCKERD_HOSTS);
+        assert!(script.contains("http://127.0.0.1:2375/_ping"));
+        assert!(script.contains("pkill -9 dockerd"));
+        assert!(script.contains("rm -f /var/run/docker.pid"));
+        assert!(script.contains("nohup dockerd -H unix:///var/run/docker.sock"));
+    }
+
+    #[test]
+    fn boot_command_defers_dockerd_past_boot_race() {
+        let cmd = boot_command(DOCKERD_HOSTS);
+        assert!(cmd.starts_with("(sleep 5;"));
+        assert!(cmd.ends_with(") &"));
+        assert!(cmd.contains("nohup dockerd"));
     }
 
     #[test]

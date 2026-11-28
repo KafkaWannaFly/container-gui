@@ -125,7 +125,7 @@ impl EnvironmentService {
             &distro.name,
             "-u",
             "root",
-            "--",
+            "-e",
             "sh",
             "-c",
             "command -v dockerd",

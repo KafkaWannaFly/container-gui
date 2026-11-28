@@ -11,6 +11,10 @@ use crate::services::engine::target::{ConnectionTarget, target_from_config};
 use crate::services::engine::{IEngine, IEngineConnector};
 use crate::services::infrastructure::IEventPublisher;
 
+/// Upper bound for waiting on the connect lock; a healthy switch() never
+/// needs close to this, so exceeding it means a previous attempt wedged.
+const CONNECT_LOCK_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
+
 struct Session {
     engine: Option<Arc<dyn IEngine>>,
     status: DockerStatusDto,
@@ -57,7 +61,11 @@ impl EngineSession {
     /// Swap the active endpoint, emit status and bump the generation so
     /// workers resubscribe.
     async fn switch(&self, target: ConnectionTarget) -> AppResult<DockerStatusDto> {
-        let _guard = self.connect_lock.lock().await;
+        let _guard = tokio::time::timeout(CONNECT_LOCK_TIMEOUT, self.connect_lock.lock())
+            .await
+            .map_err(|_| AppError::DaemonUnreachable {
+                message: "another connection attempt is stuck; try again".to_string(),
+            })?;
         let endpoint = target.endpoint();
         let kind = target.kind().to_string();
 

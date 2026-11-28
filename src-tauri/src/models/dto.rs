@@ -542,6 +542,11 @@ pub struct DownloadProgressDto {
 
 /// Messages on the install channel: phase markers, process output, download
 /// progress, then exactly one `end`.
+///
+/// Variant fields get their own `rename_all`: the container-level
+/// `rename_all` only renames the discriminant strings, so `unit_name`
+/// would otherwise reach the frontend snake_case and its Zod schema
+/// (which requires `unitName`) would reject the terminal event.
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum InstallEventDto {
@@ -554,14 +559,47 @@ pub enum InstallEventDto {
         stream: String,
         text: String,
     },
+    #[serde(rename_all = "camelCase")]
     Download {
         bytes: u64,
         total_bytes: Option<u64>,
     },
+    #[serde(rename_all = "camelCase")]
     End {
         error: Option<String>,
         /// Final machine/distribution name the engine was installed as
         /// (the dedicated Alpine import may resolve `Alpine-<version>`).
         unit_name: Option<String>,
     },
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn install_end_event_is_camel_case() {
+        let json = serde_json::to_value(InstallEventDto::End {
+            error: None,
+            unit_name: Some("Alpine-3.24".to_string()),
+        })
+        .unwrap();
+        assert_eq!(
+            json,
+            serde_json::json!({ "kind": "end", "error": null, "unitName": "Alpine-3.24" })
+        );
+    }
+
+    #[test]
+    fn install_download_event_is_camel_case() {
+        let json = serde_json::to_value(InstallEventDto::Download {
+            bytes: 42,
+            total_bytes: None,
+        })
+        .unwrap();
+        assert_eq!(
+            json,
+            serde_json::json!({ "kind": "download", "bytes": 42, "totalBytes": null })
+        );
+    }
 }

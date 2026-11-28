@@ -4,10 +4,15 @@
 //! cancellation tears down winget/podman/wsl mid-flight.
 
 use std::process::Stdio;
+use std::time::Duration;
 
 use async_trait::async_trait;
-use tokio::io::{AsyncBufReadExt, BufReader};
+use tokio::io::{AsyncBufReadExt, AsyncReadExt, BufReader};
 use tokio::process::Command;
+
+/// After the child exits, leftover pipe data gets at most this long to
+/// arrive before the read is cut short (see the pipe-EOF note on the trait).
+const PIPE_GRACE: Duration = Duration::from_millis(1_500);
 
 use crate::error::{AppError, AppResult};
 use crate::models::dto::ProcessLineDto;
@@ -32,7 +37,10 @@ impl ProcessOutput {
 #[async_trait]
 pub trait IProcessRunner: Send + Sync {
     /// Run to completion and capture output. A missing binary is
-    /// [`AppError::ProgramNotFound`], not an IO error.
+    /// [`AppError::ProgramNotFound`], not an IO error. Output pipes that stay
+    /// open in other processes after the child exits (wsl.exe hands work to
+    /// wslservice, which can duplicate the pipe handles) are cut short after
+    /// [`PIPE_GRACE`]; the bytes already written are still returned.
     async fn output(&self, program: &str, args: &[String]) -> AppResult<ProcessOutput>;
     /// Stream output lines into `sink` and return the exit code. Stops
     /// early (killing the child) when `sink.send` returns `false` or the
@@ -70,13 +78,45 @@ impl TokioProcessRunner {
 #[async_trait]
 impl IProcessRunner for TokioProcessRunner {
     async fn output(&self, program: &str, args: &[String]) -> AppResult<ProcessOutput> {
-        let out = Self::command(program, args)
-            .output()
-            .await
+        let mut child = Self::command(program, args)
+            .spawn()
             .map_err(|err| map_io(program, err))?;
+        let mut stdout = child.stdout.take().expect("piped stdout");
+        let mut stderr = child.stderr.take().expect("piped stderr");
+        let mut out_bytes: Vec<u8> = Vec::new();
+        let mut err_bytes: Vec<u8> = Vec::new();
+        let mut out_eof = false;
+        let mut err_eof = false;
+        let mut status = None;
+        let mut grace_end = tokio::time::Instant::now();
+
+        // Same exit-vs-pipe-EOF race as stream(): Command::output() would
+        // wait for EOF forever if a helper inherited the pipe handles.
+        // read_to_end is cancel-safe, so recreating it each pass just
+        // continues appending into the buffers.
+        loop {
+            tokio::select! {
+                _ = stdout.read_to_end(&mut out_bytes), if !out_eof => out_eof = true,
+                _ = stderr.read_to_end(&mut err_bytes), if !err_eof => err_eof = true,
+                s = child.wait(), if status.is_none() => {
+                    status = Some(s.map_err(|err| map_io(program, err))?);
+                    grace_end = tokio::time::Instant::now() + PIPE_GRACE;
+                }
+                _ = tokio::time::sleep_until(grace_end), if status.is_some() && !(out_eof && err_eof) => {
+                    out_eof = true;
+                    err_eof = true;
+                }
+                else => break,
+            }
+        }
+
+        let status = match status {
+            Some(status) => status,
+            None => child.wait().await.map_err(|err| map_io(program, err))?,
+        };
         Ok(ProcessOutput {
-            code: out.status.code().unwrap_or(-1),
-            stdout: decode_console(&out.stdout),
+            code: status.code().unwrap_or(-1),
+            stdout: decode_console(&out_bytes),
         })
     }
 
@@ -95,6 +135,12 @@ impl IProcessRunner for TokioProcessRunner {
         let mut err_lines = BufReader::new(stderr).lines();
         let mut out_done = false;
         let mut err_done = false;
+        // Some tools (notably wsl.exe, which hands work to wslservice) leave
+        // the output pipes open in another process after they exit, so pipe
+        // EOF can never arrive. Once the child itself is gone, give buffered
+        // output a grace period to drain, then stop waiting on the pipes.
+        let mut exited = false;
+        let mut grace_end = tokio::time::Instant::now();
 
         loop {
             let line = tokio::select! {
@@ -106,6 +152,16 @@ impl IProcessRunner for TokioProcessRunner {
                     Ok(Some(text)) => Some(("stderr", text)),
                     _ => { err_done = true; None }
                 },
+                _ = child.wait(), if !exited => {
+                    exited = true;
+                    grace_end = tokio::time::Instant::now() + Duration::from_millis(1_500);
+                    None
+                }
+                _ = tokio::time::sleep_until(grace_end), if exited => {
+                    out_done = true;
+                    err_done = true;
+                    None
+                }
                 else => break,
             };
             if let Some((stream, text)) = line
@@ -225,6 +281,66 @@ mod tests {
         let lines = sink.lines.lock().unwrap();
         assert!(lines.iter().any(|line| line.text.contains("one")));
         assert!(lines.iter().any(|line| line.text.contains("two")));
+    }
+
+    #[cfg(windows)]
+    #[tokio::test]
+    async fn exited_child_with_leaked_pipes_does_not_hang() {
+        // The outer cmd exits immediately but `start /B` spawns a grandchild
+        // that inherits (and thus holds) the stdout/stderr pipe handles for
+        // ~20s, exactly what wsl.exe does with wslservice after --import.
+        // Without the post-exit grace period this stream would never end.
+        let runner = TokioProcessRunner::builder().build();
+        let sink = Arc::new(VecSink {
+            open: true,
+            ..Default::default()
+        });
+        let start = std::time::Instant::now();
+        let code = runner
+            .stream(
+                "cmd",
+                &[
+                    "/C".into(),
+                    r#"start /B cmd /C "ping -n 20 127.0.0.1 >nul" & echo done & exit 0"#.into(),
+                ],
+                sink,
+            )
+            .await
+            .unwrap();
+        assert_eq!(code, 0);
+        assert!(
+            start.elapsed() < Duration::from_secs(10),
+            "stream took {:?}",
+            start.elapsed()
+        );
+    }
+
+    #[cfg(windows)]
+    #[tokio::test]
+    async fn output_does_not_hang_on_leaked_pipes() {
+        // Same handle-inheritance scenario as the stream() test, but through
+        // the output() path (detect_pkg). The outer cmd exits but a detached
+        // grandchild keeps the stdout/stderr pipe write-ends open, so
+        // Command::output()'s read-to-EOF would block forever.
+        let runner = TokioProcessRunner::builder().build();
+        let start = std::time::Instant::now();
+        let out = runner
+            .output(
+                "cmd",
+                &[
+                    "/C".into(),
+                    r#"start /B cmd /C "ping -n 20 127.0.0.1 >nul" & echo hello & exit 7"#.into(),
+                ],
+            )
+            .await
+            .unwrap();
+        assert_eq!(out.code, 7);
+        assert!(out.stdout.contains("hello"));
+        assert!(
+            start.elapsed() < Duration::from_secs(10),
+            "output took {:?}",
+            start.elapsed()
+        );
     }
 
     #[cfg(windows)]

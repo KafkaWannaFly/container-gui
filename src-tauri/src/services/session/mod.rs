@@ -42,8 +42,11 @@ pub trait IEngineSession: Send + Sync {
 /// Ping the engine and collect version metadata into a status payload.
 pub async fn probe(engine: &dyn IEngine, endpoint: &str, kind: &str) -> AppResult<DockerStatusDto> {
     let system = engine.system();
+    let started = Instant::now();
+    // Every call is bounded: an un-timed version()/info() over a half-open
+    // endpoint (e.g. a WSL port forward whose daemon died) would hang while
+    // holding the session's connect lock and deadlock every later connect.
     let ping = async {
-        let started = Instant::now();
         tokio::time::timeout(PING_TIMEOUT, system.ping())
             .await
             .map_err(|_| AppError::DaemonUnreachable {
@@ -51,10 +54,21 @@ pub async fn probe(engine: &dyn IEngine, endpoint: &str, kind: &str) -> AppResul
             })??;
         Ok::<_, AppError>(started.elapsed().as_millis() as u64)
     };
-    let (ping_ms, version) = tokio::try_join!(ping, system.version())?;
+    let version = async {
+        tokio::time::timeout(PING_TIMEOUT, system.version())
+            .await
+            .map_err(|_| AppError::DaemonUnreachable {
+                message: "version timed out".to_string(),
+            })?
+    };
+    let (ping_ms, version) = tokio::try_join!(ping, version)?;
     let os = match version.os {
         Some(os) => Some(os),
-        None => system.info().await.ok().and_then(|info| info.os_type),
+        None => tokio::time::timeout(PING_TIMEOUT, system.info())
+            .await
+            .ok()
+            .and_then(Result::ok)
+            .and_then(|info| info.os_type),
     };
 
     Ok(DockerStatusDto {

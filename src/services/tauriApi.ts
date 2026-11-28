@@ -142,7 +142,13 @@ function openStream<T>(
     recordChannelMessage(cmd, raw);
     if (!active) return;
     const parsed = schema.safeParse(raw);
-    if (parsed.success) onMessage(parsed.data);
+    if (parsed.success) {
+      onMessage(parsed.data);
+    } else {
+      // Never drop terminal/stream events silently — it leaves the UI stuck
+      // with no error to find. Surface schema/wire mismatches in the console.
+      console.warn(`[${cmd}] malformed stream message dropped`, raw, parsed.error.issues);
+    }
   };
   timedInvoke(cmd, { ...args, streamId, [channelArg]: channel }, { stream: true }).catch((err) => {
     if (active) onError?.(toError(err));
