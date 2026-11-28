@@ -1,13 +1,13 @@
 //! Engine session: the active engine client, connection metadata, and a
 //! generation counter that background workers watch for endpoint switches.
 
-mod service;
+mod engine_session;
 
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use async_trait::async_trait;
-pub use service::EngineSession;
+pub use engine_session::EngineSession;
 use tokio::sync::watch;
 
 use crate::error::{AppError, AppResult};

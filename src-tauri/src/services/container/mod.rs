@@ -1,12 +1,12 @@
 //! Container listing, inspection, lifecycle actions and log streams.
 
+mod container_service;
 mod logs;
-mod service;
 
 use std::sync::Arc;
 
 use async_trait::async_trait;
-pub use service::ContainerService;
+pub use container_service::ContainerService;
 
 use crate::error::AppResult;
 use crate::models::dto::{ContainerSummaryDto, LogEventDto, LogStreamOptions};

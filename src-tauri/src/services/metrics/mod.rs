@@ -8,12 +8,12 @@
 //! derived from the previous reading we took ourselves.
 
 mod calc;
-mod service;
+mod metrics_service;
 
 use std::time::Duration;
 
 use async_trait::async_trait;
-pub use service::MetricsService;
+pub use metrics_service::MetricsService;
 
 use crate::models::dto::{MetricsLatestDto, MetricsSeriesDto};
 

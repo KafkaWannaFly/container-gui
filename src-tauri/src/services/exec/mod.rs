@@ -2,14 +2,14 @@
 //! back, plus one-shot commands collected in full (also used by the files
 //! service for directory listings).
 
-mod service;
+mod exec_service;
 
 use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
+pub use exec_service::ExecService;
 use futures_util::StreamExt;
-pub use service::ExecService;
 
 use crate::error::{AppError, AppResult};
 use crate::models::dto::{ExecEventDto, ExecProbeDto, ExecStartOptions};
