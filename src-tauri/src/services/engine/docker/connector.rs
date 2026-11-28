@@ -36,8 +36,10 @@ impl IEngineConnector for DockerConnector {
         }
     }
 
-    /// `DOCKER_HOST` → Docker context → wizard-installed endpoint → platform
-    /// default.
+    /// `DOCKER_HOST` → wizard-installed endpoint → Docker context → platform
+    /// default. The wizard preference outranks the ambient context: choosing
+    /// an engine here is explicit intent, while `desktop-linux` etc. is
+    /// leftover CLI state that would otherwise mask a completed install.
     async fn default_target(&self) -> ConnectionTarget {
         if let Ok(host) = std::env::var("DOCKER_HOST")
             && let Some(target) = target_from_host(&host)
@@ -45,14 +47,14 @@ impl IEngineConnector for DockerConnector {
             return target;
         }
 
-        if let Some(context) = self.contexts.current_context()
-            && let Some(host) = self.contexts.context_host(&context)
+        if let Some(host) = self.preference.endpoint().await
             && let Some(target) = target_from_host(&host)
         {
             return target;
         }
 
-        if let Some(host) = self.preference.endpoint().await
+        if let Some(context) = self.contexts.current_context()
+            && let Some(host) = self.contexts.context_host(&context)
             && let Some(target) = target_from_host(&host)
         {
             return target;
@@ -149,15 +151,15 @@ mod tests {
 
     #[tokio::test]
     async fn preference_fills_in_before_platform_default() {
-        // Only meaningful when neither DOCKER_HOST nor a current context is
-        // set; guard so the test does not fight the developer's environment.
+        // Only meaningful when DOCKER_HOST is unset; guard so the test does
+        // not fight the developer's environment.
         if std::env::var_os("DOCKER_HOST").is_some() {
             return;
         }
+        // The wizard endpoint must win even on machines with a current
+        // Docker context (e.g. desktop-linux), or installs never "show up"
+        // after an app restart.
         let connector = connector_with(Some("tcp://127.0.0.1:2375".into()));
-        if connector.contexts.current_context().is_some() {
-            return;
-        }
         assert_eq!(
             connector.default_target().await.endpoint(),
             "tcp://127.0.0.1:2375"
