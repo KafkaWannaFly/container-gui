@@ -763,7 +763,8 @@ function InstallProgress({
                   fontSize: 11,
                   borderRadius: 99,
                   color: done ? "var(--green)" : active ? "var(--lime)" : "var(--ash)",
-                  border: `1px solid ${done ? "var(--green)" : active ? "var(--lime)" : "var(--graphite)"}`,
+                  // The active step shows the bare spinner; no circle ring.
+                  border: active ? "none" : `1px solid ${done ? "var(--green)" : "var(--graphite)"}`,
                 }}
               >
                 {done ? <CheckOutlined /> : active ? <Spin size="small" /> : index + 1}
