@@ -1,4 +1,5 @@
 import { Channel } from "@tauri-apps/api/core";
+import * as logger from "@tauri-apps/plugin-log";
 import { z } from "zod";
 import {
   type ComposeActionRequest,
@@ -146,8 +147,10 @@ function openStream<T>(
       onMessage(parsed.data);
     } else {
       // Never drop terminal/stream events silently — it leaves the UI stuck
-      // with no error to find. Surface schema/wire mismatches in the console.
-      console.warn(`[${cmd}] malformed stream message dropped`, raw, parsed.error.issues);
+      // with no error to find. Log schema/wire mismatches through the Rust
+      // log plugin so they also land in the log file in release builds.
+      const detail = `${JSON.stringify(raw)} :: ${JSON.stringify(parsed.error.issues)}`;
+      void logger.warn(`[${cmd}] malformed stream message dropped: ${detail}`);
     }
   };
   timedInvoke(cmd, { ...args, streamId, [channelArg]: channel }, { stream: true }).catch((err) => {
